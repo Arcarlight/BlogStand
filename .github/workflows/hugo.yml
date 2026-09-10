@@ -42,9 +42,6 @@ jobs:
       - name: 配置 Pages
         id: pages
         uses: actions/configure-pages@v5
-        with:
-          # 首次运行时自动把仓库的 Pages 打开并设为 GitHub Actions 发布
-          enablement: true
 
       - name: 用 Hugo 构建
         env:
