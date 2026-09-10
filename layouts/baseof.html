@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="{{ site.Language.Lang }}">
+{{ partial "head.html" . }}
+<body>
+<div id="page">
+
+  {{ partial "header.html" . }}
+
+  <div id="main" class="clearfix">
+    <div id="content">
+      {{ block "main" . }}{{ end }}
+    </div>
+    {{ partial "sidebar.html" . }}
+  </div>
+
+  {{ partial "footer.html" . }}
+
+</div>
+
+{{/* 右下角悬浮的"回到顶部"，当年几乎每个站都有 */}}
+<a id="gotop" href="#" onclick="window.scrollTo(0,0);return false;">↑ TOP</a>
+
+<script src="{{ "js/retro.js" | relURL }}" defer></script>
+{{ if site.Params.cursorSparkle }}
+<script src="{{ "js/sparkle.js" | relURL }}" defer></script>
+{{ end }}
+</body>
+</html>

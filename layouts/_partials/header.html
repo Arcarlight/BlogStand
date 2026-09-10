@@ -1,0 +1,34 @@
+{{/* ============ 顶部 Banner ============ */}}
+<div id="header">
+  <div id="site-logo">
+    <a href="{{ "/" | relURL }}">
+      <span class="site-name">{{ site.Title }}</span>
+      <span class="site-slogan">{{ site.Params.slogan }}</span>
+    </a>
+  </div>
+  <div id="header-right">
+    <span class="header-stamp">EST. 2010</span>
+  </div>
+</div>
+
+{{/* ============ 导航栏 ============ */}}
+<div id="navbar">
+  <ul class="nav clearfix">
+    {{- $cur := .RelPermalink -}}
+    {{- range site.Menus.main -}}
+      {{- $u := .URL -}}
+      {{- with .Page }}{{ $u = .RelPermalink }}{{ end -}}
+      {{- $active := eq $u $cur -}}
+      {{- if and (not $active) (gt (len $u) 1) (hasPrefix $cur $u) }}{{ $active = true }}{{ end -}}
+      <li{{ if $active }} class="active"{{ end }}><a href="{{ $u }}">{{ .Name }}</a></li>
+    {{- end -}}
+  </ul>
+</div>
+
+{{/* ============ 滚动公告（marquee 是 2010 年互联网的灵魂） ============ */}}
+{{ with site.Params.notice }}
+<div id="notice">
+  <span class="notice-label">公 告</span>
+  <marquee scrollamount="3" behavior="scroll" onmouseover="this.stop()" onmouseout="this.start()">{{ . }}</marquee>
+</div>
+{{ end }}

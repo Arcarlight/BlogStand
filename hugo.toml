@@ -1,0 +1,102 @@
+# ============================================================
+#  Hugo 站点配置 —— 虹星的星虹巢
+# ============================================================
+
+# 【必改】部署地址
+#   仓库名是 YOURNAME.github.io  ->  https://YOURNAME.github.io/
+#   仓库名是别的（如 home）      ->  https://YOURNAME.github.io/home/
+baseURL = "https://arcarlight.github.io/BlogStand/"
+
+locale = "zh-cn"
+defaultContentLanguage = "zh-cn"
+title = "虹星的星虹巢｜ほしのほしにじそう"
+enableRobotsTXT = true
+canonifyURLs = true
+
+# ------------------------------------------------------------
+#  站点参数
+# ------------------------------------------------------------
+[params]
+
+  # ---- 站长身份 ----
+  authorName   = "虹星"
+  authorHandle = "にじぼし"
+  email        = "you@example.com"
+  avatar       = "/images/migrated/Webpic.png"
+
+  # 首页 Banner 上的标语
+  slogan = "欢迎来到虹星用来堆放日常的博客！"
+
+  # Banner 下方滚动公告
+  notice = "★ 欢迎来到星虹巢 ★ 公开日记、作品集与素材持续更新中 ★ 友情链接长期招募 ★"
+
+  # 侧边栏「关于站长」的自我介绍
+  aboutDesc = "画画、作曲、写文、学习语言之类有超级多兴趣，最喜欢创作"
+
+  # ---- 页脚 ----
+  footerText = "Best viewed in 1024×768 with Internet Explorer 8 or Firefox 3.6"
+  icp        = ""
+  startDate  = "2026-02-05"
+
+  # ---- 侧边栏挂件开关 ----
+  busuanzi      = true
+  showClock     = true
+  showHitokoto  = true
+  cursorSparkle = true
+
+  fontStack = '"Microsoft YaHei","微软雅黑","Trebuchet MS",Verdana,SimSun,"宋体",sans-serif'
+
+  # ---- 留言板（utterances）----
+  comments        = true
+  utterancesRepo  = "Arcarlight/BlogStand"
+  utterancesIssue = "留言板"
+
+# ------------------------------------------------------------
+#  导航栏
+# ------------------------------------------------------------
+[[menu.main]]
+  name    = "首页"
+  pageRef = "/"
+  weight  = 10
+
+[[menu.main]]
+  name    = "关于"
+  pageRef = "/self_intros/"
+  weight  = 20
+
+[[menu.main]]
+  name    = "日志"
+  pageRef = "/posts/"
+  weight  = 30
+
+[[menu.main]]
+  name    = "导航"
+  pageRef = "/navigator/"
+  weight  = 40
+
+[[menu.main]]
+  name    = "画廊"
+  pageRef = "/gallery/"
+  weight  = 50
+
+[[menu.main]]
+  name    = "始祖小鸟"
+  pageRef = "/tobitaiaaken/"
+  weight  = 60
+
+# ------------------------------------------------------------
+#  其它
+# ------------------------------------------------------------
+[pagination]
+  pagerSize = 8
+
+[markup]
+  [markup.highlight]
+    style   = "friendly"
+    lineNos = true
+  [markup.goldmark.renderer]
+    unsafe = true
+
+[taxonomies]
+  tag      = "tags"
+  category = "categories"

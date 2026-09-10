@@ -1,0 +1,47 @@
+# ============================================================
+#  88×31 小按钮墙
+#  全部由 CSS 现场画出来，不需要你准备图片文件。
+#  line1 / line2 是两行文字，bg / fg 是底色和字色。
+# ============================================================
+
+[[items]]
+  line1 = "POWERED BY"
+  line2 = "HUGO"
+  url   = "https://gohugo.io/"
+  bg    = "#1b5a9e"
+  fg    = "#ffffff"
+
+[[items]]
+  line1 = "SINCE 2010"
+  line2 = "手写 HTML"
+  url   = "#"
+  bg    = "#000000"
+  fg    = "#33ff33"
+
+[[items]]
+  line1 = "BEST VIEWED"
+  line2 = "1024 x 768"
+  url   = "#"
+  bg    = "#ffffff"
+  fg    = "#c00000"
+
+[[items]]
+  line1 = "NO FRAME"
+  line2 = "NO ADS"
+  url   = "#"
+  bg    = "#ff9900"
+  fg    = "#000000"
+
+[[items]]
+  line1 = "MADE ON"
+  line2 = "WINDOWS XP"
+  url   = "#"
+  bg    = "#2f6fbf"
+  fg    = "#ffffff"
+
+[[items]]
+  line1 = "此站由"
+  line2 = "人手绘"
+  url   = "#"
+  bg    = "#7a4b12"
+  fg    = "#ffe9b8"

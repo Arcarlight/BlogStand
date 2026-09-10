@@ -1,0 +1,41 @@
+{{ define "main" }}
+
+{{/* ============ 欢迎区：显示 content/_index.md 的内容 ============ */}}
+<div class="box box-welcome">
+  <div class="box-title">欢迎光临</div>
+  <div class="box-body">
+    <div class="welcome-inner">
+      {{ .Content }}
+      <p class="welcome-sign">(￣▽￣)ノ 　随便看看吧</p>
+    </div>
+  </div>
+</div>
+
+{{/* ============ 最新日志 ============ */}}
+{{ $posts := where site.RegularPages "Section" "posts" }}
+{{ with $posts }}
+<div class="box">
+  <div class="box-title">最新日志</div>
+  <div class="box-body">
+    <ul class="post-list">
+      {{ range first 10 . }}
+      <li class="post-item clearfix">
+        <div class="post-date"><span class="pd-md">{{ .Date.Format "01-02" }}</span><span class="pd-y">{{ .Date.Format "2006" }}</span></div>
+        <div class="post-info">
+          <h2 class="post-title"><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
+          <p class="post-summary">{{ with .Description }}{{ . }}{{ else }}{{ .Summary | plainify | truncate 120 }}{{ end }}</p>
+          <p class="post-meta-mini">
+            <span class="meta-cat">分类：{{ with .Params.categories }}{{ delimit . " / " }}{{ else }}未分类{{ end }}</span>
+            <span class="meta-read">阅读 {{ .ReadingTime }} 分钟</span>
+            <a class="meta-more" href="{{ .RelPermalink }}">阅读全文 &raquo;</a>
+          </p>
+        </div>
+      </li>
+      {{ end }}
+    </ul>
+    <p class="list-footer"><a href="{{ "/posts" | relURL }}">&raquo; 查看全部日志</a></p>
+  </div>
+</div>
+{{ end }}
+
+{{ end }}

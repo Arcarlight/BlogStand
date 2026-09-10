@@ -1,0 +1,17 @@
+{{/* 留言板：utterances（基于 GitHub Issue） */}}
+{{ if and site.Params.comments (eq .Kind "page") }}
+<div class="box">
+  <div class="box-title">留言板</div>
+  <div class="box-body">
+    <p class="comments-tip">留言需要 GitHub 账号登录，文明发言，谢绝广告。</p>
+    <script src="https://utteranc.es/client.js"
+            repo="{{ site.Params.utterancesRepo }}"
+            issue-term="{{ site.Params.utterancesIssue }}"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+    </script>
+    <noscript>你的浏览器没有开启 JavaScript，无法显示留言板。</noscript>
+  </div>
+</div>
+{{ end }}

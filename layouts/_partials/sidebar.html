@@ -1,0 +1,141 @@
+<div id="sidebar">
+
+  {{/* ============ 站长名片 ============ */}}
+  <div class="widget">
+    <div class="widget-title">关于站长</div>
+    <div class="widget-body widget-about">
+      <div class="avatar-box">
+        <img class="avatar" src="{{ site.Params.avatar | relURL }}" alt="{{ site.Params.authorName }} 的头像">
+      </div>
+      <p class="about-name">{{ site.Params.authorName }}</p>
+      <p class="about-desc">{{ site.Params.aboutDesc }}</p>
+      <ul class="about-meta">
+        <li>昵称：{{ site.Params.authorHandle }}</li>
+        <li>邮箱：<a href="mailto:{{ site.Params.email }}">{{ site.Params.email }}</a></li>
+      </ul>
+    </div>
+  </div>
+
+  {{/* ============ 站内搜索（走 Bing，因为 Google 当年也经常抽风） ============ */}}
+  <div class="widget">
+    <div class="widget-title">站内搜索</div>
+    <div class="widget-body">
+      <form id="site-search-form" class="search-form" action="https://www.bing.com/search" method="get" target="_blank">
+        <input type="text" id="site-search-input" name="q" placeholder="输入关键字…" autocomplete="off">
+        <button type="submit">搜索</button>
+      </form>
+      <p class="search-tip">提示：搜索结果限定在本站范围内</p>
+    </div>
+  </div>
+
+  {{/* ============ 文章分类 ============ */}}
+  {{ with site.Taxonomies.categories }}
+  <div class="widget">
+    <div class="widget-title">文章分类</div>
+    <div class="widget-body">
+      <ul class="side-list">
+        {{ range . }}
+        <li><a href="{{ .Page.RelPermalink }}">{{ .Page.Title }}</a><span class="count">({{ .Count }})</span></li>
+        {{ end }}
+      </ul>
+    </div>
+  </div>
+  {{ end }}
+
+  {{/* ============ 标签云 ============ */}}
+  {{ with site.Taxonomies.tags }}
+  <div class="widget">
+    <div class="widget-title">标签云</div>
+    <div class="widget-body tagcloud">
+      {{ range . }}
+      <a class="tag-item" href="{{ .Page.RelPermalink }}">{{ .Page.Title }}<sup>{{ .Count }}</sup></a>
+      {{ end }}
+    </div>
+  </div>
+  {{ end }}
+
+  {{/* ============ 最新日志 ============ */}}
+  {{ $recent := first 8 (where site.RegularPages "Section" "posts") }}
+  {{ with $recent }}
+  <div class="widget">
+    <div class="widget-title">最新日志</div>
+    <div class="widget-body">
+      <ul class="side-list side-list-dot">
+        {{ range . }}
+        <li><a href="{{ .RelPermalink }}" title="{{ .Title }}">{{ .Title }}</a></li>
+        {{ end }}
+      </ul>
+      <p class="side-more"><a href="{{ "/posts" | relURL }}">» 查看全部日志</a></p>
+    </div>
+  </div>
+  {{ end }}
+
+  {{/* ============ 友情链接 ============ */}}
+  {{ with hugo.Data.links.items }}
+  <div class="widget">
+    <div class="widget-title">友情链接</div>
+    <div class="widget-body">
+      <ul class="side-list side-list-dot">
+        {{ range . }}
+        <li><a href="{{ .url }}" target="_blank" rel="noopener" title="{{ .desc }}">{{ .name }}</a></li>
+        {{ end }}
+      </ul>
+    </div>
+  </div>
+  {{ end }}
+
+  {{/* ============ 访客计数器（不蒜子） ============ */}}
+  {{ if site.Params.busuanzi }}
+  <div class="widget">
+    <div class="widget-title">访客统计</div>
+    <div class="widget-body counter-body">
+      <p class="counter-row"><span class="counter-label">您是第</span><span id="busuanzi_value_site_uv" class="counter-num">------</span><span class="counter-label">位访客</span></p>
+      <p class="counter-row"><span class="counter-label">总访问</span><span id="busuanzi_value_site_pv" class="counter-num">------</span><span class="counter-label">次</span></p>
+      <p class="counter-row"><span class="counter-label">本页阅读</span><span id="busuanzi_value_page_pv" class="counter-num">------</span><span class="counter-label">次</span></p>
+    </div>
+  </div>
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+  {{ end }}
+
+  {{/* ============ 实时时钟 ============ */}}
+  {{ if site.Params.showClock }}
+  <div class="widget">
+    <div class="widget-title">现在时间</div>
+    <div class="widget-body clock-body">
+      <div id="retro-clock" class="retro-clock">--:--:--</div>
+      <div id="retro-date" class="retro-date">---------</div>
+    </div>
+  </div>
+  {{ end }}
+
+  {{/* ============ 一言 ============ */}}
+  {{ if site.Params.showHitokoto }}
+  <div class="widget">
+    <div class="widget-title">一言</div>
+    <div class="widget-body">
+      <p id="hitokoto-text" class="hitokoto">正在向服务器请求…</p>
+      <p id="hitokoto-from" class="hitokoto-from"></p>
+    </div>
+  </div>
+  {{ end }}
+
+  {{/* ============ 88×31 小按钮墙 ============ */}}
+  {{ with hugo.Data.buttons.items }}
+  <div class="widget">
+    <div class="widget-title">小按钮</div>
+    <div class="widget-body">
+      <div class="button-wall">
+        {{ range . }}
+        <a class="btn88" href="{{ .url }}"{{ if ne .url "#" }} target="_blank" rel="noopener"{{ end }}
+           style="background:{{ .bg }};color:{{ .fg }};">
+          <span class="btn88-l1">{{ .line1 }}</span>
+          <span class="btn88-l2">{{ .line2 }}</span>
+        </a>
+        {{ end }}
+      </div>
+      <p class="side-more">欢迎交换按钮（88×31）</p>
+    </div>
+  </div>
+  {{ end }}
+
+</div>

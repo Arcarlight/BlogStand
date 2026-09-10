@@ -1,0 +1,37 @@
+{{/* ============ 页脚 ============ */}}
+<div id="footer">
+
+  <div class="footer-nav">
+    <a href="{{ "/" | relURL }}">首页</a>
+    <span class="sep">|</span>
+    <a href="{{ "/posts" | relURL }}">日志归档</a>
+    <span class="sep">|</span>
+    <a href="{{ "/index.xml" | relURL }}">RSS 订阅</a>
+    <span class="sep">|</span>
+    <a href="{{ "/sitemap.xml" | relURL }}">网站地图</a>
+    <span class="sep">|</span>
+    <a href="mailto:{{ site.Params.email }}">给我写信</a>
+    <span class="sep">|</span>
+    <a href="#top" onclick="window.scrollTo(0,0);return false;">回到顶部</a>
+  </div>
+
+  <p class="footer-tips">{{ site.Params.footerText }}</p>
+
+  <p class="footer-tips">
+    本站已运行 <strong id="site-uptime" data-since="{{ site.Params.startDate }}">--</strong> 天
+    <span class="sep">|</span>
+    最后更新 {{ now.Format "2006-01-02" }}
+  </p>
+
+  <p class="footer-copy">
+    Copyright &copy; 2010-{{ now.Year }} <strong>{{ site.Params.authorName }}</strong> 版权所有
+    <span class="sep">|</span>
+    Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a>
+    {{ with site.Params.icp }}<span class="sep">|</span>{{ . }}{{ end }}
+  </p>
+
+  <p class="footer-copy">
+    本站所有原创内容采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a> 授权
+  </p>
+
+</div>

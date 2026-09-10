@@ -1,0 +1,43 @@
+{{ define "main" }}
+
+<article class="box post-single">
+  <div class="box-title">日志正文</div>
+  <div class="box-body">
+
+    <h1 class="entry-title">{{ .Title }}</h1>
+
+    {{ partial "post-meta.html" . }}
+
+    {{ with .Params.tags }}
+    <div class="entry-tags">
+      <span class="tag-label">标签：</span>
+      {{ range . }}<a class="tag-item" href="{{ "/tags/" | relURL }}{{ . | urlize }}/">{{ . }}</a>{{ end }}
+    </div>
+    {{ end }}
+
+    <div class="entry-content">
+      {{ .Content }}
+    </div>
+
+    {{/* ============ 上一篇 / 下一篇 ============ */}}
+    <div class="entry-nav clearfix">
+      <div class="entry-prev">
+        {{ with .PrevInSection }}{{ if not .IsPage }}{{ else }}&laquo; <a href="{{ .RelPermalink }}">上一篇：{{ .Title }}</a>{{ end }}{{ end }}
+      </div>
+      <div class="entry-next">
+        {{ with .NextInSection }}{{ if not .IsPage }}{{ else }}<a href="{{ .RelPermalink }}">下一篇：{{ .Title }}</a> &raquo;{{ end }}{{ end }}
+      </div>
+    </div>
+
+    {{/* ============ 打赏（那个年代叫"支付宝"） ============ */}}
+    <div class="entry-actions">
+      <a class="action-btn" href="mailto:{{ site.Params.email }}?subject={{ .Title | urlquery }}">写信给站长</a>
+      <a class="action-btn" href="#top" onclick="window.scrollTo(0,0);return false;">回到顶部</a>
+    </div>
+
+  </div>
+</article>
+
+{{ partial "comments.html" . }}
+
+{{ end }}

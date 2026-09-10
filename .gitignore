@@ -1,0 +1,24 @@
+# ---------- Hugo 构建产物 ----------
+public/
+resources/_gen/
+.hugo_build.lock
+
+# ---------- 本地临时文件 ----------
+.hugo-server.pid
+.check.txt
+.check2.txt
+.check3.txt
+.tools/
+.migration/
+preview/
+
+# ---------- 编辑器 ----------
+.vscode/
+.idea/
+*.swp
+*~
+
+# ---------- 操作系统 ----------
+Thumbs.db
+Desktop.ini
+.DS_Store

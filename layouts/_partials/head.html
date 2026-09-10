@@ -1,0 +1,26 @@
+<head>
+  <meta charset="utf-8">
+  <!-- 2010 年代的味道：显式声明字符集 + 强制 IE 用最新内核 -->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>{{ if .IsHome }}{{ site.Title }} - {{ site.Params.slogan }}{{ else }}{{ .Title }} | {{ site.Title }}{{ end }}</title>
+
+  <meta name="description" content="{{ with .Description }}{{ . }}{{ else }}{{ site.Params.slogan }}{{ end }}">
+  <meta name="keywords" content="{{ with .Params.tags }}{{ delimit . "," }}{{ else }}个人主页,博客,随笔{{ end }}">
+  <meta name="author" content="{{ site.Params.authorName }}">
+  <meta name="generator" content="Hugo {{ hugo.Version }}">
+
+  {{/* 样式表：先当模板跑一遍，这样 hugo.toml 里的字体等配置能生效 */}}
+  {{ with resources.Get "css/retro.css" }}
+    {{ $css := . | resources.ExecuteAsTemplate "css/retro.css" $ }}
+    <link rel="stylesheet" href="{{ $css.RelPermalink }}">
+  {{ end }}
+
+  {{/* RSS / Atom 自动发现 */}}
+  {{ range .AlternativeOutputFormats -}}
+  <link rel="{{ .Rel }}" type="{{ .MediaType.Type }}" href="{{ .Permalink }}" title="{{ site.Title }}">
+  {{ end -}}
+
+  <link rel="icon" href="{{ "images/favicon.png" | relURL }}">
+</head>

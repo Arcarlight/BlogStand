@@ -1,0 +1,44 @@
+# ============================================================
+#  友情链接 —— 侧边栏挂件读取这个文件
+#  想加就把 [[items]] 整段复制一份改内容
+# ============================================================
+
+[[items]]
+  name = "毒毒糖果铺"
+  url  = "https://shema-sunf.github.io/about/"
+  desc = "朋友的首页"
+
+[[items]]
+  name = "沙漠蜻蜓粉丝俱乐部"
+  url  = "https://wiki.52poke.com/wiki/沙漠蜻蜓"
+  desc = "来自古早的沙漠蜻蜓粉丝俱乐部的 Banner"
+
+[[items]]
+  name = "虹星的博客主站"
+  url  = "https://boxofhoshi.blogspot.com/"
+  desc = "Box of Hoshi"
+
+[[items]]
+  name = "虹星的 X"
+  url  = "https://x.com/HoshiStarlightA"
+  desc = "日常摸鱼与作品发布"
+
+[[items]]
+  name = "虹星的哔哩哔哩"
+  url  = "https://space.bilibili.com/8355089"
+  desc = "B 站主页"
+
+[[items]]
+  name = "虹星的 Pixiv"
+  url  = "https://www.pixiv.net/users/66548568"
+  desc = "插画作品"
+
+[[items]]
+  name = "平铃老师的 Lofter"
+  url  = "https://hirasuzu06.lofter.com/"
+  desc = "朋友的主页"
+
+[[items]]
+  name = "星虹巢 -木灵海-"
+  url  = "https://nijiboshisou.atabook.org/"
+  desc = "本站的留言板 / BBS"
