@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { spawn, execFile } from 'node:child_process';
+import { spawn, execFile, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -55,7 +55,13 @@ function findHugo() {
     'Hugo.Hugo.Extended_Microsoft.Winget.Source_8wekyb3d8bbwe', 'hugo.exe'
   );
   if (fs.existsSync(guess)) return guess;
-  return 'hugo'; // 交给 PATH
+  // 去 PATH 里找完整路径——有了完整路径就不用 shell:true，也就没有 DEP0190 警告
+  try {
+    const out = execFileSync('where', ['hugo'], { encoding: 'utf8', windowsHide: true });
+    const first = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)[0];
+    if (first && fs.existsSync(first)) return first;
+  } catch { /* 找不到就算了 */ }
+  return 'hugo';
 }
 const HUGO = findHugo();
 
@@ -114,30 +120,69 @@ async function pingExisting(port = PORT) {
    ============================================================ */
 
 let hugoProc = null;
+let hugoLog = '';
+let hugoUrl = `http://127.0.0.1:${HUGO_PORT}/`;
 
-async function hugoAlive() {
+const tail = (s, n = 4000) => (s.length > n ? '…' + s.slice(-n) : s);
+
+async function probe(url) {
   try {
-    const ctl = AbortSignal.timeout(1500);
-    const r = await fetch(`http://127.0.0.1:${HUGO_PORT}/`, { signal: ctl });
-    return r.status === 200;
-  } catch { return false; }
+    const r = await fetch(url, { signal: AbortSignal.timeout(2000) });
+    return r.status;
+  } catch { return 0; }
+}
+
+async function hugoAlive(url = hugoUrl) {
+  return (await probe(url)) === 200;
 }
 
 async function hugoStart() {
-  if (await hugoAlive()) return { ok: true, note: '已经在跑了' };
+  if (await hugoAlive()) return { ok: true, note: '已经在运行', url: hugoUrl };
+
+  hugoLog = '';
+  hugoUrl = `http://127.0.0.1:${HUGO_PORT}/`;
+
+  // 关键：必须显式给 dev server 一个不带子路径的 --baseURL。
+  // 否则 hugo.toml 里的 https://xxx.github.io/BlogStand/ 会被继承，
+  // dev server 就会跑到 /BlogStand/ 下面去，预览根路径 404。
+  const args = [
+    'server', '-D',
+    '--bind', '127.0.0.1',
+    '--port', String(HUGO_PORT),
+    '--baseURL', `http://127.0.0.1:${HUGO_PORT}/`,
+    '--disableFastRender',
+    '--logLevel', 'warn',
+  ];
+
+  let exited = null;
   try {
-    hugoProc = spawn(HUGO,
-      ['server', '-D', '--bind', '127.0.0.1', '--port', String(HUGO_PORT),
-       '--disableFastRender', '--logLevel', 'warn'],
-      { cwd: ROOT, shell: true, stdio: 'ignore', windowsHide: true });
+    hugoProc = spawn(HUGO, args, {
+      cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+    });
   } catch (e) {
-    return { ok: false, note: '启动失败: ' + e.message };
+    return { ok: false, note: '启动失败: ' + e.message, url: hugoUrl };
   }
-  for (let i = 0; i < 40; i++) {
+  hugoProc.on('exit', (c) => { exited = (c === null ? -1 : c); });
+  hugoProc.on('error', (e) => { hugoLog += '\n[spawn error] ' + e.message; });
+
+  const onData = (d) => {
+    hugoLog = tail(hugoLog + d.toString(), 8000);
+    const m = hugoLog.match(/Web Server is available at (\S+)/i);
+    if (m) hugoUrl = m[1].replace(/\/+$/, '') + '/';
+  };
+  hugoProc.stdout.on('data', onData);
+  hugoProc.stderr.on('data', onData);
+
+  for (let i = 0; i < 60; i++) {          // 最多等 30 秒
     await sleep(500);
-    if (await hugoAlive()) return { ok: true, note: '已启动' };
+    if (exited !== null) {
+      return { ok: false, note: `hugo 启动后立刻退出了（code ${exited}）`, log: hugoLog.trim(), url: hugoUrl };
+    }
+    if (await hugoAlive()) {
+      return { ok: true, note: '已启动', url: hugoUrl, log: hugoLog.trim() };
+    }
   }
-  return { ok: false, note: '启动超时，看看 hugo 能不能在命令行里跑起来' };
+  return { ok: false, note: '启动超时（30 秒）', log: hugoLog.trim(), url: hugoUrl };
 }
 
 async function hugoStop() {
@@ -145,10 +190,10 @@ async function hugoStop() {
     await run('taskkill', ['/PID', String(hugoProc.pid), '/T', '/F']);
     hugoProc = null;
   }
-  // 兜底：把监听 1313 的 hugo 都收掉
   await run('powershell', ['-NoProfile', '-Command',
-    "Get-Process hugo -ErrorAction SilentlyContinue | Stop-Process -Force"]);
+    'Get-Process hugo -ErrorAction SilentlyContinue | Stop-Process -Force']);
   await sleep(400);
+  hugoUrl = `http://127.0.0.1:${HUGO_PORT}/`;
   return { ok: !(await hugoAlive()) };
 }
 
@@ -692,7 +737,7 @@ async function handle(req, res, url) {
     return json(res, 200, {
       root: ROOT,
       hugo: HUGO,
-      previewUrl: `http://127.0.0.1:${HUGO_PORT}/`,
+      previewUrl: hugoUrl,
       hugoRunning: alive,
       tree: await buildTree(),
       gitStatus, gitLog,
@@ -913,7 +958,10 @@ async function handle(req, res, url) {
       const r = await run(HUGO, ['--gc', '--minify', '--logLevel', 'warn']);
       return json(res, 200, { ok: r.code === 0, out: (r.stdout + r.stderr).trim() });
     }
-    if (action === 'status') return json(res, 200, { running: await hugoAlive() });
+    if (action === 'status') {
+      return json(res, 200, { running: await hugoAlive(), url: hugoUrl });
+    }
+    if (action === 'log') return json(res, 200, { log: hugoLog, url: hugoUrl });
   }
 
   json(res, 404, { error: '未知接口 ' + p });

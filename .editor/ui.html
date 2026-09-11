@@ -318,19 +318,28 @@ function refreshPreview() {
   f.src = PREVIEW_URL + (PREVIEW_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
 }
 $('#btnPreview').addEventListener('click', async () => {
-  document.body.classList.toggle('preview');
-  const on = document.body.classList.contains('preview');
+  const on = document.body.classList.toggle('preview');
   $('#btnPreview').textContent = on ? '预览 ▾' : '预览 ▸';
-  if (on) {
-    document.body.classList.remove('panel');
-    const s = await apiPost('/api/hugo', { action: 'status' });
-    if (!s.running) {
-      toast('正在启动预览服务器…');
-      const r = await apiPost('/api/hugo', { action: 'start' });
-      toast(r.ok ? '预览已就绪' : (r.note || '启动失败'), r.ok ? 'ok' : 'err');
+  if (!on) { $('#preview').src = 'about:blank'; return; }
+
+  document.body.classList.remove('panel');
+  $('#preview').src = 'about:blank';
+
+  const s = await apiPost('/api/hugo', { action: 'status' });
+  if (s.url) PREVIEW_URL = s.url;
+
+  if (!s.running) {
+    toast('正在启动预览服务器，第一次要几秒…');
+    const r = await apiPost('/api/hugo', { action: 'start' });
+    if (r.url) PREVIEW_URL = r.url;
+    if (!r.ok) {
+      const detail = (r.log || '').split('\n').filter((x) => x.trim()).slice(-5).join('\n');
+      toast('预览启动失败：' + (r.note || '') + (detail ? '\n' + detail : ''), 'err');
+      return;
     }
-    refreshPreview();
-  } else { $('#preview').src = 'about:blank'; }
+    toast('预览已就绪', 'ok');
+  }
+  refreshPreview();
 });
 $('#btnLive').addEventListener('click', () => window.open(PREVIEW_URL, '_blank'));
 $('#btnBuild').addEventListener('click', async () => {
@@ -830,13 +839,15 @@ async function bootstrap() {
     const r = document.querySelector(`.row[data-file="${CSS.escape(CUR)}"]`);
     if (r) r.classList.add('active');
   }
-  // 首次打开时，按地址栏的 #锚点 直达某个工具面板
+  // 首次打开时，按地址栏的 #锚点 直达某个工具面板 / 预览
   if (!BOOTED) {
     BOOTED = true;
     const h = location.hash.replace(/^#/, '');
     if (PANELS.includes(h)) {
       const row = document.querySelector(`.row[data-panel="${h}"]`);
       if (row) row.click();
+    } else if (h === 'preview') {
+      $('#btnPreview').click();
     }
   }
 }
