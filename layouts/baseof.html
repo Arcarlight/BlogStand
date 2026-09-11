@@ -6,7 +6,7 @@
 <script>
   window.SITE_REPLY = {
     repo: "{{ site.Params.utterancesRepo }}",
-    base: "{{ "reply/" | relURL }}"
+    base: "{{ "reply/" | absURL }}"
   };
 </script>
 {{ end }}
