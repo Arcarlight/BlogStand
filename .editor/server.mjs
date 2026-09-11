@@ -92,6 +92,23 @@ function run(cmd, args, opts = {}) {
 
 const git = (args) => run('git', args);
 
+/* ---------- 访问日志（排查问题用）---------- */
+const ACCESS_LOG = path.join(__dirname, 'access.log');
+function logAccess(line) {
+  try { fs.appendFileSync(ACCESS_LOG, line + '\n'); } catch { /* 写不了就算了 */ }
+}
+try { fs.writeFileSync(ACCESS_LOG, `--- 编辑器启动 ${new Date().toISOString()} ---\n`); } catch { }
+
+/** 看看指定端口上跑的是不是我们自己 */
+async function pingExisting(port = PORT) {
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/ping`, { signal: AbortSignal.timeout(1500) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j && j.app === 'hoshi-editor' ? j : null;
+  } catch { return null; }
+}
+
 /* ============================================================
    hugo server（预览用）
    ============================================================ */
@@ -656,6 +673,11 @@ async function handle(req, res, url) {
 
   if (!p.startsWith('/api/')) { json(res, 404, { error: 'not found' }); return; }
 
+  /* ---------- ping：不需要令牌，用来识别「这个端口是不是我自己」---------- */
+  if (p === '/api/ping') {
+    return json(res, 200, { app: 'hoshi-editor', port: PORT, root: ROOT });
+  }
+
   /* ---------- 简易 CSRF 防护 ---------- */
   if (req.headers['x-editor-token'] !== TOKEN) { json(res, 403, { error: '令牌不对' }); return; }
 
@@ -910,7 +932,9 @@ const server = http.createServer(async (req, res) => {
   }
   try {
     await handle(req, res, url);
+    if (url.pathname.startsWith('/api/')) logAccess(`${req.method} ${url.pathname} -> ${res.statusCode}`);
   } catch (e) {
+    logAccess(`${req.method} ${url.pathname} -> 500 ${e.message || e}`);
     json(res, 500, { error: String(e.message || e) });
   }
 });
@@ -939,14 +963,25 @@ server.listen(PORT, '127.0.0.1', async () => {
   openBrowser(`http://127.0.0.1:${PORT}/`);
 });
 
-server.on('error', (e) => {
+server.on('error', async (e) => {
   if (e.code === 'EADDRINUSE') {
-    console.error(`\n  端口 ${PORT} 被占用了，可能是编辑器已经在跑。`);
-    console.error('   直接打开 http://127.0.0.1:' + PORT + '/ 试试；');
-    console.error('   或者设一个别的端口:  set EDITOR_PORT=4322 && node server.mjs\n');
-  } else {
-    console.error(e);
+    const mine = await pingExisting();
+    if (mine) {
+      console.log('');
+      console.log('  编辑器已经在运行了（端口 ' + PORT + '），把浏览器打开就行。');
+      console.log('  地址: http://127.0.0.1:' + PORT + '/');
+      console.log('');
+      openBrowser(`http://127.0.0.1:${PORT}/`);
+      await sleep(800);
+      process.exit(0);
+    }
+    console.error('');
+    console.error('  端口 ' + PORT + ' 被别的程序占用了。');
+    console.error('  换个端口再跑:  set EDITOR_PORT=4322 && node .editor\\server.mjs');
+    console.error('');
+    process.exit(1);
   }
+  console.error(e);
   process.exit(1);
 });
 

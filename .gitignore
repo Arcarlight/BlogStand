@@ -12,6 +12,7 @@ resources/_gen/
 .migration/
 preview/
 .editor/trash/
+.editor/access.log
 
 # ---------- 编辑器 ----------
 .vscode/

@@ -185,7 +185,7 @@ function toast(msg, kind) {
 }
 
 async function api(path, opts) {
-  const res = await fetch('/api' + path, Object.assign({
+  const res = await fetch(path, Object.assign({
     headers: { 'X-Editor-Token': TOKEN, 'Content-Type': 'application/json' },
   }, opts));
   const data = await res.json().catch(() => ({}));
@@ -248,6 +248,7 @@ document.addEventListener('click', async (e) => {
     $('#btnInsertDay').hidden = true;
     setDirty(false);
     document.body.classList.add('panel');
+    location.hash = row.dataset.panel;
     await openPanel(row.dataset.panel);
     return;
   }
@@ -817,6 +818,9 @@ async function newPage() {
 }
 
 /* ---------- 启动 ---------- */
+let BOOTED = false;
+const PANELS = ['settings', 'links', 'buttons', 'scripts', 'nav'];
+
 async function bootstrap() {
   const d = await apiGet('/api/bootstrap');
   TREE = d.tree;
@@ -825,6 +829,15 @@ async function bootstrap() {
   if (CUR) {
     const r = document.querySelector(`.row[data-file="${CSS.escape(CUR)}"]`);
     if (r) r.classList.add('active');
+  }
+  // 首次打开时，按地址栏的 #锚点 直达某个工具面板
+  if (!BOOTED) {
+    BOOTED = true;
+    const h = location.hash.replace(/^#/, '');
+    if (PANELS.includes(h)) {
+      const row = document.querySelector(`.row[data-panel="${h}"]`);
+      if (row) row.click();
+    }
   }
 }
 bootstrap().catch((e) => toast('初始化失败: ' + e.message, 'err'));
