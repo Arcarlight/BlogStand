@@ -1,7 +1,15 @@
 <!DOCTYPE html>
 <html lang="{{ site.Language.Lang }}">
 {{ partial "head.html" . }}
-<body>
+<body{{ if .Params.dayReplies }} data-day-replies="1"{{ end }}>
+{{ if site.Params.comments }}
+<script>
+  window.SITE_REPLY = {
+    repo: "{{ site.Params.utterancesRepo }}",
+    base: "{{ "reply/" | relURL }}"
+  };
+</script>
+{{ end }}
 <div id="page">
 
   {{ partial "header.html" . }}

@@ -10,6 +10,7 @@ cascade:
       kind: page
     params:
       hideNav: true
+      dayReplies: true
 ---
 
 按月份归档的日记。

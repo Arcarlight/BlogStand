@@ -462,6 +462,46 @@ img { border: 0; }
   text-decoration: none;
 }
 
+/* ---------- 13b. 日记：每一天的回复区 ---------- */
+.day-reply {
+  margin: 12px 0 20px;
+  padding-top: 9px;
+  border-top: 1px dashed #d7e3f0;
+}
+
+.day-reply-btn {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 12px;
+  color: #1b5a9e;
+  cursor: pointer;
+  background: linear-gradient(180deg, #f6faff 0, #dcebfa 100%);
+  border: 1px solid #9dbfe0;
+  border-radius: 3px;
+}
+
+.day-reply-btn:hover { color: #ffffff; background: #1b5a9e; }
+.day-reply-btn:disabled { opacity: .55; cursor: default; }
+
+.day-reply-body { margin-top: 9px; }
+
+.day-reply-frame {
+  display: block;
+  width: 100%;
+  height: 330px;
+  background: #ffffff;
+  border: 1px solid #c3d9ef;
+  border-radius: 4px;
+}
+
+/* ---------- 13c. 导航页：月份日历居中 ----------
+   navigator.md 里每个月的结构是 <center>2026年9月</center> 紧跟一个 <table>，
+   用相邻兄弟选择器精确命中，不影响其它页面的表格 */
+.entry-content center + table {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* ---------- 14. 侧边栏挂件 ---------- */
 .widget {
   margin-bottom: 12px;

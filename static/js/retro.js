@@ -77,4 +77,77 @@
       a.setAttribute('rel', 'noopener');
     }
   }
+
+  /* ---------- 7. 日记：给「每一天」挂一个独立的回复区 ----------
+     评论系统（utterances）一个页面只能挂一个实例，
+     所以每天用一个 iframe 指向 /reply/?t=… 来拿到独立留言板。
+     默认收起，点了才加载，免得一页塞十几个 iframe。 */
+  (function dayReplies() {
+    var cfg = window.SITE_REPLY;
+    if (!cfg || !cfg.repo || !cfg.base) { return; }
+    if (document.body.getAttribute('data-day-replies') !== '1') { return; }
+
+    var content = document.querySelector('.entry-content');
+    if (!content) { return; }
+
+    var titleEl = document.querySelector('.entry-title');
+    var pageTitle = titleEl ? titleEl.textContent.replace(/\s+/g, ' ').trim() : '';
+
+    // 找出所有「日期锚点」标题（span id 是四位数字，比如 0206）
+    var heads = [];
+    var h2s = content.querySelectorAll('h2');
+    for (var i = 0; i < h2s.length; i++) {
+      var sp = h2s[i].querySelector('span[id]');
+      if (sp && /^\d{4}$/.test(sp.id)) {
+        heads.push({ el: h2s[i], day: sp.textContent.replace(/\s+/g, ' ').trim() });
+      }
+    }
+    if (!heads.length) { return; }
+
+    function build(cur, next) {
+      var term = pageTitle + ' · ' + cur.day;
+
+      var box = document.createElement('div');
+      box.className = 'day-reply';
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'day-reply-btn';
+      btn.textContent = '💬 回复 ' + cur.day;
+
+      var body = document.createElement('div');
+      body.className = 'day-reply-body';
+      body.hidden = true;
+
+      btn.addEventListener('click', function () {
+        if (body.getAttribute('data-loaded')) {
+          body.hidden = !body.hidden;
+          btn.textContent = body.hidden ? ('💬 回复 ' + cur.day) : '✕ 收起回复';
+          return;
+        }
+        body.setAttribute('data-loaded', '1');
+        body.hidden = false;
+        btn.disabled = true;
+        btn.textContent = '✕ 收起回复';
+
+        var f = document.createElement('iframe');
+        f.className = 'day-reply-frame';
+        f.setAttribute('title', '回复：' + term);
+        f.src = cfg.base + '?t=' + encodeURIComponent(term) + '&repo=' + encodeURIComponent(cfg.repo);
+        f.onload = function () { btn.disabled = false; };
+        body.appendChild(f);
+      });
+
+      box.appendChild(btn);
+      box.appendChild(body);
+
+      // 插到「下一天」的标题之前；最后一天就放到正文末尾
+      if (next) { content.insertBefore(box, next.el); }
+      else { content.appendChild(box); }
+    }
+
+    for (var k = 0; k < heads.length; k++) {
+      build(heads[k], heads[k + 1]);
+    }
+  })();
 })();

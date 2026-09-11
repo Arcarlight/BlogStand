@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>回复</title>
+<style>
+  html,body{margin:0;padding:0;background:#fff;
+    font:13px/1.7 "Microsoft YaHei","微软雅黑",-apple-system,Segoe UI,sans-serif;color:#333}
+  #tip{padding:20px 14px;text-align:center;color:#8aa6c4}
+  #tip.err{color:#c0392b}
+  #tip small{display:block;margin-top:6px;color:#a8b6c4}
+</style>
+</head>
+<body>
+<div id="tip">正在载入留言板…</div>
+<script>
+(function () {
+  var qs = new URLSearchParams(location.search);
+  var repo = qs.get('repo') || "{{ site.Params.utterancesRepo }}";
+  var term = qs.get('t');
+  var tip = document.getElementById('tip');
+
+  if (!term) { tip.className = 'err'; tip.textContent = '缺少回复主题'; return; }
+  if (!repo || repo.indexOf('/') < 0) {
+    tip.className = 'err';
+    tip.innerHTML = '还没配置留言板仓库<small>去 hugo.toml 里填 utterancesRepo</small>';
+    return;
+  }
+
+  tip.remove();
+  var s = document.createElement('script');
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', repo);
+  s.setAttribute('issue-term', term);
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.async = true;
+  document.body.appendChild(s);
+})();
+</script>
+</body>
+</html>

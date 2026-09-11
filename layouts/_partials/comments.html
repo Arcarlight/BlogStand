@@ -1,5 +1,7 @@
 {{/* 留言板：utterances（基于 GitHub Issue） */}}
-{{ if and site.Params.comments (eq .Kind "page") }}
+{{/* 留言板：utterances（基于 GitHub Issue）
+     日记页（dayReplies）改成「每天一个回复区」，所以这里跳过 */}}
+{{ if and site.Params.comments (eq .Kind "page") (not .Params.dayReplies) }}
 <div class="box">
   <div class="box-title">留言板</div>
   <div class="box-body">
