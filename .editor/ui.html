@@ -96,6 +96,21 @@
   .card .acts{margin-top:8px;display:flex;gap:6px;align-items:center}
   .sw{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px}
 
+  /* ---------- 弹窗 ---------- */
+  #modal{position:fixed;inset:0;background:rgba(20,32,45,.45);display:flex;align-items:center;justify-content:center;z-index:200}
+  #modal[hidden]{display:none}
+  .mbox{background:#fff;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.3);width:580px;max-width:92vw;max-height:88vh;display:flex;flex-direction:column}
+  .mbox h3{margin:0;padding:14px 18px;font-size:15px;border-bottom:1px solid var(--line);color:var(--accent)}
+  #mBody{padding:14px 18px;overflow:auto}
+  .mfoot{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+  #mBody .field label{width:150px}
+  #mBody select{flex:1;font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:3px;background:#fff}
+  .note{padding:8px 11px;background:#f5f9ff;border:1px dashed #b9d0e8;border-radius:4px;font-size:12px;color:#44586e;margin-bottom:12px;line-height:1.7}
+
+  /* ---------- 拖拽上传 ---------- */
+  #editor.dragover{background:#eef7ff;box-shadow:inset 0 0 0 3px #7fb8f0}
+  .row.create{color:var(--accent);font-weight:bold}
+
   #toast{
     position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
     background:#22303f;color:#fff;padding:9px 18px;border-radius:5px;opacity:0;pointer-events:none;
@@ -125,8 +140,12 @@
     <div id="toolbar">
       <span id="curPath">← 从左边选一个文件</span>
       <span class="spacer"></span>
+      <button id="btnInsertImg" title="插入图片（也可以直接把图片拖进编辑区）">🖼 插图</button>
+      <button id="btnInsertDay" title="插入某一天的锚点段落" hidden>📅 插入日期</button>
+      <button id="btnToggleDraft" hidden>设为草稿</button>
       <button id="btnSave" class="primary" disabled>保存 (Ctrl+S)</button>
       <button id="btnDelete" class="danger" disabled>删除</button>
+      <input type="file" id="filePicker" accept="image/*" multiple hidden>
     </div>
     <div id="panes">
       <textarea id="editor" spellcheck="false" placeholder="从左边选一个文件开始编辑…"></textarea>
@@ -134,6 +153,17 @@
       <iframe id="preview"></iframe>
     </div>
   </section>
+</div>
+
+<div id="modal" hidden>
+  <div class="mbox">
+    <h3 id="mTitle">标题</h3>
+    <div id="mBody"></div>
+    <div class="mfoot">
+      <button id="mCancel">取消</button>
+      <button id="mOk" class="primary">确定</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -181,11 +211,13 @@ function shortName(p) {
 function renderTree() {
   const el = $('#tree');
   let h = '';
+  h += '<div class="row create" data-act="new">➕ 新建页面</div>';
   h += '<div class="grp">工具</div>';
   h += '<div class="row tool" data-panel="settings">⚙️ 站点设置</div>';
   h += '<div class="row tool" data-panel="links">🔗 友情链接</div>';
   h += '<div class="row tool" data-panel="buttons">🔲 小按钮</div>';
   h += '<div class="row tool" data-panel="scripts">📜 脚本管理</div>';
+  h += '<div class="row tool" data-panel="nav">📅 导航页同步</div>';
   for (const g of TREE) {
     if (!g.files.length) continue;
     h += `<div class="grp">${esc(g.group)}</div>`;
@@ -205,11 +237,15 @@ document.addEventListener('click', async (e) => {
   const row = e.target.closest('.row');
   if (!row) return;
 
+  if (row.dataset.act === 'new') { newPage(); return; }
+
   if (row.dataset.panel) {
     markActive(row);
     CUR = null;
     $('#curPath').textContent = '工具 / ' + row.textContent.trim();
     $('#btnDelete').disabled = true;
+    $('#btnToggleDraft').hidden = true;
+    $('#btnInsertDay').hidden = true;
     setDirty(false);
     document.body.classList.add('panel');
     await openPanel(row.dataset.panel);
@@ -232,6 +268,15 @@ async function openFile(p) {
     $('#editor').value = d.text;
     $('#curPath').textContent = p;
     $('#btnDelete').disabled = false;
+    $('#btnInsertDay').hidden = !/^content\/niki\/niki_\d{6}\.md$/.test(p);
+    const showDraft = /\.md$/.test(p);
+    $('#btnToggleDraft').hidden = !showDraft;
+    if (showDraft) {
+      const draft = isDraft(d.text);
+      $('#btnToggleDraft').textContent = draft ? '📌 草稿中 → 点此发布' : '📌 设为草稿';
+      $('#btnToggleDraft').style.background = draft ? '#fff3cd' : '';
+      $('#btnToggleDraft').style.borderColor = draft ? '#e5c76b' : '';
+    }
     setDirty(false);
     if (document.body.classList.contains('preview')) refreshPreview();
   } catch (e) { toast('打开失败: ' + e.message, 'err'); }
@@ -319,6 +364,49 @@ async function openPanel(which) {
   if (which === 'links')    return renderLinks();
   if (which === 'buttons')  return renderButtons();
   if (which === 'scripts')  return renderScripts();
+  if (which === 'nav')      return renderNav();
+}
+
+/* --- 导航页同步 --- */
+async function renderNav() {
+  const d = await apiGet('/api/nav');
+  let h = '<h2 class="sec">导航页同步</h2>';
+  h += `<div class="note">
+    这个工具会扫描每篇日记里的日期锚点（形如 <code>&lt;span id="1005"&gt;</code>），
+    然后把 <code>content/navigator.md</code> 里对应月份的日历刷新一遍——
+    <b>有日记的日子变成可点的链接</b>，缺的月份会自动补上。
+  </div>`;
+  if (!d.diaries.length) {
+    h += '<p class="hint">还没有日记。先去「➕ 新建页面」建一篇。</p>';
+    return showPanel(h);
+  }
+  const navSet = new Set(d.navMonths);
+  h += '<table class="grid"><thead><tr><th style="width:130px">月份</th><th>有日记的日子</th><th style="width:110px">导航页</th></tr></thead><tbody>';
+  for (const x of d.diaries) {
+    const label = `${x.year}年${x.month}月`;
+    const days = x.days.map((v) => parseInt(v, 10)).join(', ') || '（本月还没写）';
+    h += `<tr><td><b>${label}</b></td><td>${esc(days)}</td>
+      <td>${navSet.has(label) ? '<span style="color:#1e8e3e">✓ 已有</span>' : '<span style="color:#c0392b">缺，待补</span>'}</td></tr>`;
+  }
+  h += '</tbody></table>';
+  h += '<div style="margin-top:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">';
+  h += '<button class="primary" id="btnSyncNav">立即同步导航页</button>';
+  h += '<label class="sw"><input type="checkbox" id="chkPrune"> 同时清理多余的链接</label>';
+  h += '</div>';
+  h += '<p class="hint" style="margin-top:8px">'
+     + '默认「<b>只补不删</b>」：有日记锚点的日子指向最精确的那个锚点；没有锚点、但你已经手工加过链接的日子，保留你的链接；缺的月份自动补上。'
+     + '勾上「清理」才会把那些没有对应日记的链接去掉。</p>';
+  showPanel(h);
+
+  $('#btnSyncNav').addEventListener('click', async () => {
+    const prune = $('#chkPrune').checked;
+    if (prune && !confirm('「清理」会移除导航页里所有没有对应日记锚点的链接（包括你手工加的），确定吗？')) return;
+    const r = await apiPost('/api/nav/sync', { prune });
+    const extra = r.added && r.added.length ? `，新增 ${r.added.join('、')}` : '';
+    toast(`同步完成：刷新 ${r.updated} 个月${extra}`, 'ok');
+    renderNav();
+    await bootstrap();
+  });
 }
 
 /* --- 站点设置 --- */
@@ -542,6 +630,190 @@ async function renderScripts() {
     await apiPost('/api/scripts/external', { urls });
     toast('外部脚本已保存', 'ok');
   });
+}
+
+/* ---------- 图片：拖拽 / 选择 / 粘贴 ---------- */
+function isDraft(text) {
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  return !!(m && /^draft:\s*true\s*$/m.test(m[1]));
+}
+
+function insertText(text) {
+  const ta = $('#editor');
+  if (ta.selectionStart === undefined) { ta.value += text; }
+  else {
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    ta.value = ta.value.slice(0, s) + text + ta.value.slice(e);
+    ta.selectionStart = ta.selectionEnd = s + text.length;
+  }
+  ta.focus();
+  setDirty(true);
+}
+
+async function uploadImages(files) {
+  const imgs = [...files].filter((f) => /^image\//.test(f.type));
+  if (!imgs.length) { if (files.length) toast('只能上传图片文件', 'err'); return; }
+  toast(`正在上传 ${imgs.length} 张图片…`);
+  let out = '';
+  try {
+    for (const f of imgs) {
+      const data = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(f);
+      });
+      const r = await apiPost('/api/upload', { name: f.name, data });
+      out += `<img src="${r.url}" alt="${f.name.replace(/\.[^.]+$/, '')}" />\n`;
+    }
+    insertText(out);
+    toast(`已存入 static/images/，并在光标处插入 ${imgs.length} 个 <img>`, 'ok');
+  } catch (e) { toast('上传失败: ' + e.message, 'err'); }
+}
+
+$('#btnInsertImg').addEventListener('click', () => $('#filePicker').click());
+$('#filePicker').addEventListener('change', (e) => { uploadImages(e.target.files); e.target.value = ''; });
+
+['dragenter', 'dragover'].forEach((ev) => $('#editor').addEventListener(ev, (e) => {
+  if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) {
+    e.preventDefault();
+    $('#editor').classList.add('dragover');
+  }
+}));
+['dragleave', 'drop'].forEach((ev) => $('#editor').addEventListener(ev, (e) => {
+  e.preventDefault();
+  $('#editor').classList.remove('dragover');
+}));
+$('#editor').addEventListener('drop', (e) => {
+  const files = [...((e.dataTransfer && e.dataTransfer.files) || [])];
+  if (files.length) uploadImages(files);
+});
+$('#editor').addEventListener('paste', (e) => {
+  const files = [...((e.clipboardData && e.clipboardData.files) || [])];
+  if (files.length) { e.preventDefault(); uploadImages(files); }
+});
+
+/* ---------- 插入日期锚点（日记专用） ---------- */
+$('#btnInsertDay').addEventListener('click', () => {
+  const m = CUR && CUR.match(/niki_(\d{4})(\d{2})\.md$/);
+  if (!m) return;
+  const mm = m[2], mi = parseInt(mm, 10);
+  const day = prompt(`插入 ${mi} 月的哪一天？（1-31）`, String(new Date().getDate()));
+  if (!day) return;
+  const n = parseInt(day, 10);
+  if (!(n >= 1 && n <= 31)) { toast('日期不对', 'err'); return; }
+  const dd = String(n).padStart(2, '0');
+  insertText(`\n<h2><span id="${mm}${dd}">${mi}月 ${n}日</span></h2>\n\n`);
+  toast('锚点已插入。写完保存，再去「📅 导航页同步」点一下', 'ok');
+});
+
+/* ---------- 草稿开关 ---------- */
+$('#btnToggleDraft').addEventListener('click', async () => {
+  if (!CUR) return;
+  const now = isDraft($('#editor').value);
+  try {
+    await apiPost('/api/draft', { p: CUR, draft: !now });
+    await openFile(CUR);
+    await bootstrap();
+    toast(now ? '已发布，不再是草稿' : '已设为草稿，不会出现在线上站', 'ok');
+  } catch (e) { toast('操作失败: ' + e.message, 'err'); }
+});
+
+/* ---------- 通用弹窗 ---------- */
+function modal({ title, fields, okText = '确定', bind }) {
+  return new Promise((resolve) => {
+    $('#mTitle').textContent = title;
+    $('#mBody').innerHTML = fields.map((f) => {
+      const id = 'mf_' + f.key;
+      if (f.type === 'checkbox') {
+        return `<div class="field"><label>${esc(f.label)}</label>
+          <input type="checkbox" id="${id}" ${f.value ? 'checked' : ''}>
+          <span class="cmt">${esc(f.hint || '')}</span></div>`;
+      }
+      if (f.type === 'select') {
+        return `<div class="field"><label>${esc(f.label)}</label>
+          <select id="${id}">${f.options.map((o) =>
+            `<option value="${esc(o.v)}"${o.v === f.value ? ' selected' : ''}>${esc(o.t)}</option>`).join('')}</select></div>`;
+      }
+      return `<div class="field"><label>${esc(f.label)}</label>
+        <input type="text" id="${id}" value="${esc(f.value ?? '')}" placeholder="${esc(f.ph || '')}">
+        <span class="cmt">${esc(f.hint || '')}</span></div>`;
+    }).join('');
+    $('#mOk').textContent = okText;
+    $('#modal').hidden = false;
+    if (bind) { try { bind(); } catch (e) { console.warn(e); } }
+
+    const done = (v) => { $('#modal').hidden = true; resolve(v); };
+    $('#mCancel').onclick = () => done(null);
+    $('#mOk').onclick = () => {
+      const out = {};
+      for (const f of fields) {
+        const el = document.getElementById('mf_' + f.key);
+        out[f.key] = f.type === 'checkbox' ? el.checked : el.value.trim();
+      }
+      done(out);
+    };
+    $('#modal').onkeydown = (e) => {
+      if (e.key === 'Escape') done(null);
+      if (e.key === 'Enter' && e.target.tagName === 'INPUT') $('#mOk').click();
+    };
+    const first = $('#mBody input[type=text]');
+    if (first) { first.focus(); first.select(); }
+  });
+}
+
+/* ---------- 新建页面 ---------- */
+function defaultNameTitle(kind) {
+  const now = new Date();
+  if (kind === 'niki') {
+    const y = now.getFullYear(), m = now.getMonth() + 1;
+    return { name: `niki_${y}${String(m).padStart(2, '0')}`, title: `${y}年${m}月日记` };
+  }
+  if (kind === 'blog') return { name: 'new-post', title: '新文章' };
+  return { name: 'new-page', title: '新页面' };
+}
+
+async function newPage() {
+  const d0 = defaultNameTitle('niki');
+  const res = await modal({
+    title: '新建页面',
+    okText: '创建',
+    bind() {
+      const sel = document.getElementById('mf_kind');
+      sel.addEventListener('change', () => {
+        const d = defaultNameTitle(sel.value);
+        document.getElementById('mf_name').value = d.name;
+        document.getElementById('mf_title').value = d.title;
+        const box = document.getElementById('mf_syncNav');
+        if (box) box.disabled = sel.value !== 'niki';
+      });
+    },
+    fields: [
+      { key: 'kind', type: 'select', label: '类型', value: 'niki', options: [
+        { v: 'niki', t: '日记（挂到导航页，不进博客列表）' },
+        { v: 'blog', t: '博客文章' },
+        { v: 'page', t: '独立单页' },
+      ] },
+      { key: 'name', type: 'text', label: '文件名', value: d0.name, hint: '英文/数字/下划线，不用写 .md' },
+      { key: 'title', type: 'text', label: '标题', value: d0.title },
+      { key: 'date', type: 'text', label: '日期', value: new Date().toISOString().slice(0, 10), hint: 'YYYY-MM-DD' },
+      { key: 'asDraft', type: 'checkbox', label: '先存为草稿', value: true, hint: '写完在工具栏一键发布' },
+      { key: 'syncNav', type: 'checkbox', label: '同步导航页', value: true, hint: '日记专用：自动把当月日历插进导航页' },
+    ],
+  });
+  if (!res) return;
+  try {
+    const r = await apiPost('/api/new', res);
+    await bootstrap();
+    document.body.classList.remove('panel');
+    markActive(null);
+    await openFile(r.p);
+    let msg = '已创建 ' + r.p + (res.asDraft ? '（草稿）' : '');
+    if (r.navSync && r.navSync.added && r.navSync.added.length) {
+      msg += '，导航页补上了 ' + r.navSync.added.join('、');
+    }
+    toast(msg, 'ok');
+  } catch (e) { toast('创建失败: ' + e.message, 'err'); }
 }
 
 /* ---------- 启动 ---------- */

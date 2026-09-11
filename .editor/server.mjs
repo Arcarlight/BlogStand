@@ -197,6 +197,20 @@ async function buildTree() {
     ],
   });
 
+  // 草稿单独抽出来放最前面
+  const allContent = tree.filter((g) => g.kind === 'content').flatMap((g) => g.files);
+  const drafts = [];
+  for (const f of allContent) {
+    try {
+      const t = await readText(f);
+      const fm = t.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      if (fm && /^draft:\s*true\s*$/m.test(fm[1])) drafts.push(f);
+    } catch { /* 读不了就跳过 */ }
+  }
+  if (drafts.length) {
+    tree.unshift({ group: `草稿（${drafts.length}）`, kind: 'content', files: drafts, draft: true });
+  }
+
   return tree;
 }
 
@@ -386,6 +400,225 @@ async function getScripts() {
 }
 
 /* ============================================================
+   日记：日历生成 / 和風月名 / 导航页同步
+   ============================================================ */
+
+const MONTH_INFO = {
+  1:  ['睦月',   '新春将至 万象更新'],
+  2:  ['如月',   '草木更生 新年到来'],
+  3:  ['弥生月', '万物复苏 春来花开'],
+  4:  ['卯月',   '天高云清 雨露丰裕'],
+  5:  ['皐月',   '云转天变 时雨时晴'],
+  6:  ['水無月', '雨水倾覆 日日云墨'],
+  7:  ['文月',   '风雨飘摇 冷雨湿涟'],
+  8:  ['叶月',   '日悬晴天 酷夏炎炎'],
+  9:  ['長月',   '秋雨连绵 云沉满天'],
+  10: ['神無月', '秋高气爽 红叶满山'],
+  11: ['霜月',   '寒意渐浓 红叶飘零'],
+  12: ['師走',   '岁末将至 一年将尽'],
+};
+
+const daysInMonth = (y, m) => new Date(y, m, 0).getDate();
+const firstWeekday = (y, m) => new Date(y, m - 1, 1).getDay(); // 0 = 日曜
+
+/** 生成日历表格。linkFn(day) 返回该格的 HTML（纯文本或 <a>） */
+function calendarTable(y, m, linkFn) {
+  const cells = [];
+  for (let i = 0; i < firstWeekday(y, m); i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth(y, m); d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const L = [];
+  L.push('<table>');
+  L.push('<thead>');
+  L.push('<tr>');
+  for (const w of ['日', '月', '火', '水', '木', '金', '土']) L.push(`  <th>${w}</th>`);
+  L.push('</tr>');
+  L.push('</thead>');
+  L.push('<tbody>');
+  for (let r = 0; r < cells.length; r += 7) {
+    L.push('<tr>');
+    for (let c = 0; c < 7; c++) {
+      const d = cells[r + c];
+      L.push('  <td>' + (d ? linkFn(d) : '--') + '</td>');
+    }
+    L.push('</tr>');
+  }
+  L.push('</tbody>');
+  L.push('</table>');
+  return L.join('\n');
+}
+
+/** 新建日记时的正文骨架 */
+function diaryTemplate(y, m, opts = {}) {
+  const key = `${y}${String(m).padStart(2, '0')}`;
+  const mm = String(m).padStart(2, '0');
+  const [kana, phrase] = MONTH_INFO[m];
+  const L = [];
+  if (opts.headImage) L.push(`<p><img src="${opts.headImage}" alt="日记头图" /></p>`);
+  L.push('<center>');
+  L.push(`${y}年 ${m}月`);
+  L.push('</center>');
+  L.push(calendarTable(y, m, (d) => `${d}日`));
+  L.push('<br>');
+  L.push('<center>');
+  L.push(`<b>${kana} ${phrase}</b>`);
+  L.push('</center>');
+  L.push('<br>');
+  L.push('<hr />');
+  L.push('');
+  L.push(`<h2><span id="${mm}01">${m}月 1日</span></h2>`);
+  L.push('');
+  L.push('在这里写这一天的事。');
+  L.push('');
+  L.push('<!--more-->');
+  L.push('');
+  return L.join('\n');
+}
+
+/** 新建月份时，往导航页插的那一块 */
+function navigatorBlock(y, m, days) {
+  const key = `${y}${String(m).padStart(2, '0')}`;
+  const mm = String(m).padStart(2, '0');
+  const [kana, phrase] = MONTH_INFO[m];
+  const link = (d) => {
+    const dd = String(d).padStart(2, '0');
+    return days.has(dd)
+      ? `<a href='/niki/niki_${key}/#${mm}${dd}'>${d}日</a>`
+      : `${d}日`;
+  };
+  return [
+    '<center>',
+    `${y}年 ${m}月`,
+    '</center>',
+    calendarTable(y, m, link),
+    '<br>',
+    '<center>',
+    `<b>${kana} ${phrase}</b>`,
+    '</center>',
+    '<br>',
+  ].join('\n');
+}
+
+/** 扫描 content/niki 下每篇日记的日期锚点 */
+async function collectDiaryAnchors() {
+  const map = new Map(); // 'YYYYMM' -> { year, month, days:Set('DD') }
+  let files = [];
+  try {
+    files = (await fsp.readdir(safePath('content/niki'))).filter((f) => /^niki_\d{6}\.md$/.test(f));
+  } catch { return map; }
+
+  for (const f of files) {
+    const m = f.match(/^niki_(\d{4})(\d{2})\.md$/);
+    if (!m) continue;
+    const key = m[1] + m[2];
+    const txt = await readText('content/niki/' + f);
+    const set = new Set();
+    for (const a of txt.matchAll(/<span\s+id=["'](\d{2})(\d{2})["']/g)) set.add(a[2]);
+    map.set(key, { year: +m[1], month: +m[2], days: set });
+  }
+  return map;
+}
+
+/** 把导航页的日历跟日记里的锚点对齐，缺的月份补上。
+ *  opts.prune = true 时才会移除导航页里多出来的链接（默认保留手工加的） */
+async function syncNavigator(opts = {}) {
+  const prune = !!opts.prune;
+  const anchors = await collectDiaryAnchors();
+  const nav = await readText('content/navigator.md');
+
+  const fmMatch = nav.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+  const fmText = fmMatch ? fmMatch[0] : '';
+  const body = nav.slice(fmText.length);
+
+  // 注意：导航页里 <hr> 和 <hr /> 两种写法混着用，都要认
+  const parts = body.split(/\r?\n<hr\s*\/?>\r?\n/);
+  const intro = parts[0];
+  const parsed = [];
+
+  for (const b of parts.slice(1)) {
+    // 一块里可能只有一个月；但如果分隔没切开，就把所有月份都找出来
+    const months = [...b.matchAll(/<center>\s*(\d{4})年\s*(\d{1,2})月\s*<\/center>/g)];
+    if (months.length <= 1) {
+      parsed.push(months.length
+        ? { raw: b, year: +months[0][1], month: +months[0][2] }
+        : { raw: b, year: null });
+    } else {
+      // 兜底：按月份标题切开，各自成块（防止分隔符异常时重复添加）
+      let cursor = 0;
+      for (let i = 0; i < months.length; i++) {
+        const start = months[i].index;
+        const end = i + 1 < months.length ? months[i + 1].index : b.length;
+        if (i === 0 && start > 0) parsed.push({ raw: b.slice(0, start), year: null });
+        parsed.push({ raw: b.slice(start, end), year: +months[i][1], month: +months[i][2] });
+        cursor = end;
+      }
+      if (cursor < b.length) parsed.push({ raw: b.slice(cursor), year: null });
+    }
+  }
+
+  let updated = 0;
+  for (const blk of parsed) {
+    if (!blk.year) continue;
+    const key = `${blk.year}${String(blk.month).padStart(2, '0')}`;
+    const info = anchors.get(key);
+    const set = info ? info.days : new Set();
+    const mm = String(blk.month).padStart(2, '0');
+
+    // 先把导航页里原本手工加的链接记下来，默认保留
+    const existing = new Map();
+    const tbl = blk.raw.match(/<table>[\s\S]*?<\/table>/);
+    if (tbl) {
+      for (const m of tbl[0].matchAll(/<a href='([^']*)'>(\d+)日<\/a>/g)) {
+        existing.set(String(+m[2]).padStart(2, '0'), m[1]);
+      }
+    }
+
+    const table = calendarTable(blk.year, blk.month, (d) => {
+      const dd = String(d).padStart(2, '0');
+      if (set.has(dd)) return `<a href='/niki/niki_${key}/#${mm}${dd}'>${d}日</a>`;
+      if (!prune && existing.has(dd)) return `<a href='${existing.get(dd)}'>${d}日</a>`;
+      return `${d}日`;
+    });
+    const next = blk.raw.replace(/<table>[\s\S]*?<\/table>/, table);
+    if (next !== blk.raw) updated++;
+    blk.raw = next;
+  }
+
+  const present = new Set(parsed.filter((b) => b.year)
+    .map((b) => `${b.year}${String(b.month).padStart(2, '0')}`));
+  const missing = [...anchors.entries()]
+    .filter(([k]) => !present.has(k))
+    .sort((a, b) => (b[1].year * 100 + b[1].month) - (a[1].year * 100 + a[1].month));
+
+  const addedNames = [];
+  for (const [key, info] of missing) {
+    const block = navigatorBlock(info.year, info.month, info.days);
+    let idx = parsed.findIndex((b) => b.year && (b.year * 100 + b.month) < (info.year * 100 + info.month));
+    if (idx < 0) idx = parsed.length;
+    parsed.splice(idx, 0, { raw: block, year: info.year, month: info.month });
+    addedNames.push(`${info.year}年${info.month}月`);
+  }
+
+  if (updated || missing.length) {
+    const out = fmText + intro + '\n<hr>\n' + parsed.map((b) => b.raw).join('\n<hr>\n');
+
+    // 保险：出现重复月份就说明切分出错了，宁可不写也不弄坏文件
+    const count = new Map();
+    for (const m of out.matchAll(/<center>\s*(\d{4})年\s*(\d{1,2})月\s*<\/center>/g)) {
+      const k = `${m[1]}年${+m[2]}月`;
+      count.set(k, (count.get(k) || 0) + 1);
+    }
+    const dup = [...count.entries()].filter(([, n]) => n > 1).map(([k]) => k);
+    if (dup.length) {
+      throw new Error('同步后会出现重复月份（' + dup.join('、') + '），已中止，没有写入文件');
+    }
+    await writeText('content/navigator.md', out);
+  }
+  return { updated, added: addedNames };
+}
+
+/* ============================================================
    请求处理
    ============================================================ */
 
@@ -394,7 +627,7 @@ async function readBody(req) {
   let size = 0;
   for await (const c of req) {
     size += c.length;
-    if (size > 16 * 1024 * 1024) throw new Error('内容太大了');
+    if (size > 48 * 1024 * 1024) throw new Error('内容太大了（上限 48MB）');
     chunks.push(c);
   }
   if (!chunks.length) return {};
@@ -457,25 +690,93 @@ async function handle(req, res, url) {
   }
 
   if (p === '/api/new' && req.method === 'POST') {
-    const { kind, name, title, date } = await readBody(req);
+    const { kind, name, title, date, asDraft, syncNav, headImage } = await readBody(req);
     const clean = String(name || '').trim().replace(/[\\/:*?"<>|]/g, '');
     if (!clean) throw new Error('文件名不能为空');
     const d = date || new Date().toISOString().slice(0, 10);
+    const draftFlag = asDraft === false ? 'false' : 'true';
 
     let rel, body;
     if (kind === 'blog') {
       rel = `content/blog/${clean}.md`;
-      body = `---\ntitle: "${title}"\ndate: ${d}\ndraft: false\ntags: []\ndescription: ""\n---\n\n在这里写正文。\n`;
+      body = `---\ntitle: "${title}"\ndate: ${d}\ndraft: ${draftFlag}\ntags: []\ndescription: ""\n---\n\n在这里写正文。\n\n<!--more-->\n`;
     } else if (kind === 'niki') {
+      // 年月优先从文件名 niki_YYYYMM 里取，取不到就用日期
+      let y, mo;
+      const mm = clean.match(/(\d{4})\D?(\d{2})/);
+      if (mm) { y = +mm[1]; mo = +mm[2]; }
+      else { y = +d.slice(0, 4); mo = +d.slice(5, 7); }
+      if (!(mo >= 1 && mo <= 12)) throw new Error('从文件名或日期里读不出月份: ' + clean);
       rel = `content/niki/${clean}.md`;
-      body = `---\ntitle: "${title}"\ndate: ${d}\ndraft: false\ndescription: ""\n---\n\n在这里写日记。\n`;
+      const tmpl = diaryTemplate(y, mo, { headImage: headImage || '' });
+      body = `---\ntitle: "${title}"\ndate: ${y}-${String(mo).padStart(2, '0')}-01\ndraft: ${draftFlag}\ndescription: ""\n---\n\n${tmpl}`;
     } else {
       rel = `content/${clean}.md`;
-      body = `---\ntitle: "${title}"\ndraft: false\ndescription: ""\n---\n\n在这里写内容。\n`;
+      body = `---\ntitle: "${title}"\ndraft: ${draftFlag}\ndescription: ""\n---\n\n在这里写内容。\n`;
     }
     if (await fsp.stat(safePath(rel)).catch(() => null)) throw new Error('文件已存在: ' + rel);
     await writeText(rel, body);
-    return json(res, 200, { ok: true, p: rel });
+
+    let navSync = null;
+    if (kind === 'niki' && syncNav !== false) navSync = await syncNavigator();
+
+    return json(res, 200, { ok: true, p: rel, navSync });
+  }
+
+  /* ---------- 图片上传（拖拽 / 选择）---------- */
+  if (p === '/api/upload' && req.method === 'POST') {
+    const { name, data } = await readBody(req);
+    if (!data) throw new Error('没有收到图片数据');
+    const buf = Buffer.from(String(data).replace(/^data:[^;]+;base64,/, ''), 'base64');
+    if (!buf.length) throw new Error('图片是空的');
+
+    let clean = String(name || 'image').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '-');
+    if (!/\.[a-z0-9]+$/i.test(clean)) clean += '.png';
+    const dir = 'static/images';
+    await fsp.mkdir(safePath(dir), { recursive: true });
+
+    // 重名就加序号
+    const dot = clean.lastIndexOf('.');
+    const stem = clean.slice(0, dot), ext = clean.slice(dot);
+    let final = clean, n = 1;
+    while (await fsp.stat(safePath(`${dir}/${final}`)).catch(() => null)) {
+      final = `${stem}-${n++}${ext}`;
+    }
+    await fsp.writeFile(safePath(`${dir}/${final}`), buf);
+    return json(res, 200, { ok: true, url: '/images/' + final, rel: `${dir}/${final}`, bytes: buf.length });
+  }
+
+  /* ---------- 草稿开关 ---------- */
+  if (p === '/api/draft' && req.method === 'POST') {
+    const { p: rel, draft } = await readBody(req);
+    let text = await readText(rel);
+    const val = draft ? 'true' : 'false';
+    if (/^draft:\s*(true|false)/m.test(text)) {
+      text = text.replace(/^(draft:\s*)(true|false)/m, `$1${val}`);
+    } else {
+      text = text.replace(/^---\r?\n/, `---\ndraft: ${val}\n`);
+    }
+    await writeText(rel, text);
+    return json(res, 200, { ok: true, draft: !!draft });
+  }
+
+  /* ---------- 导航页 ---------- */
+  if (p === '/api/nav' && req.method === 'GET') {
+    const anchors = await collectDiaryAnchors();
+    const nav = await readText('content/navigator.md');
+    const months = [...nav.matchAll(/<center>\s*(\d{4})年\s*(\d{1,2})月\s*<\/center>/g)]
+      .map((m) => `${m[1]}年${+m[2]}月`);
+    return json(res, 200, {
+      diaries: [...anchors.entries()].map(([k, v]) => ({
+        key: k, year: v.year, month: v.month, days: [...v.days].sort(),
+      })).sort((a, b) => (b.year * 100 + b.month) - (a.year * 100 + a.month)),
+      navMonths: months,
+    });
+  }
+
+  if (p === '/api/nav/sync' && req.method === 'POST') {
+    const { prune } = await readBody(req);
+    return json(res, 200, await syncNavigator({ prune }));
   }
 
   if (p === '/api/delete' && req.method === 'POST') {
