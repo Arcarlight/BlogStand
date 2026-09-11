@@ -2,6 +2,7 @@
 title: "【素材】制作游戏使用的免费游戏素材收集！"
 date: 2026-02-05
 draft: false
+aliases: ["/sokuzai-collected/"]
 tags: ["#collection", "#sokuzai"]
 description: "这个页面用于保存我找到的可以用于游戏制作的各类素材！ 存放在这里方便我以后取用！ 音声素材 Panicpumpkin Cattest 主要使用的音乐、音效素材。因为都是8-Bit风"
 ---

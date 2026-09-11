@@ -1,0 +1,32 @@
+{{- /*
+  自定义 RSS 模板。
+  首页的订阅源只输出博客文章（blog section），
+  日记（niki section）不进订阅源——它们的入口只有 /navigator/。
+  section 自己的订阅源仍然输出自己的页面。
+*/ -}}
+{{- $pages := .Pages -}}
+{{- if .IsHome -}}
+  {{- $pages = where site.RegularPages "Section" "blog" -}}
+{{- end -}}
+{{- $pages = $pages.ByDate.Reverse -}}
+{{- printf "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>" | safeHTML }}
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>{{ site.Title }}</title>
+    <link>{{ .Permalink }}</link>
+    <description>{{ site.Params.slogan }}</description>
+    <generator>Hugo</generator>
+    <language>{{ site.Language.Lang }}</language>
+    <lastBuildDate>{{ now.Format "Mon, 02 Jan 2006 15:04:05 -0700" | safeHTML }}</lastBuildDate>
+    <atom:link href="{{ .Permalink }}" rel="self" type="application/rss+xml" />
+    {{- range $pages }}
+    <item>
+      <title>{{ .Title }}</title>
+      <link>{{ .Permalink }}</link>
+      <pubDate>{{ .Date.Format "Mon, 02 Jan 2006 15:04:05 -0700" | safeHTML }}</pubDate>
+      <guid isPermaLink="true">{{ .Permalink }}</guid>
+      <description>{{ with .Description }}{{ . }}{{ else }}{{ .Content | plainify | truncate 200 }}{{ end }}</description>
+    </item>
+    {{- end }}
+  </channel>
+</rss>

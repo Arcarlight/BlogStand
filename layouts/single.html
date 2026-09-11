@@ -19,7 +19,9 @@
       {{ .Content }}
     </div>
 
-    {{/* ============ 上一篇 / 下一篇 ============ */}}
+    {{/* ============ 上一篇 / 下一篇 ============
+         日记 section 通过 cascade 设了 hideNav，不显示这一段  */}}
+    {{- if not .Params.hideNav -}}
     {{- $prev := .PrevInSection -}}
     {{- $next := .NextInSection -}}
     {{- $hasPrev := and $prev $prev.IsPage -}}
@@ -29,6 +31,7 @@
       <div class="entry-prev">{{ if $hasPrev }}&laquo; <a href="{{ $prev.RelPermalink }}">上一篇：{{ $prev.Title }}</a>{{ end }}</div>
       <div class="entry-next">{{ if $hasNext }}<a href="{{ $next.RelPermalink }}">下一篇：{{ $next.Title }}</a> &raquo;{{ end }}</div>
     </div>
+    {{- end -}}
     {{- end }}
 
     {{/* ============ 打赏（那个年代叫"支付宝"） ============ */}}

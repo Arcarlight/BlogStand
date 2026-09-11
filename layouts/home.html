@@ -11,11 +11,11 @@
   </div>
 </div>
 
-{{/* ============ 最新日志 ============ */}}
-{{ $posts := where site.RegularPages "Section" "posts" }}
+{{/* ============ 最新博客 ============ */}}
+{{ $posts := where site.RegularPages "Section" "blog" }}
 {{ with $posts }}
 <div class="box">
-  <div class="box-title">最新日志</div>
+  <div class="box-title">最新博客</div>
   <div class="box-body">
     <ul class="post-list">
       {{ range first 10 . }}
@@ -25,7 +25,6 @@
           <h2 class="post-title"><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
           <p class="post-summary">{{ with .Description }}{{ . }}{{ else }}{{ .Summary | plainify | truncate 120 }}{{ end }}</p>
           <p class="post-meta-mini">
-            <span class="meta-cat">分类：{{ with .Params.categories }}{{ delimit . " / " }}{{ else }}未分类{{ end }}</span>
             <span class="meta-read">阅读 {{ .ReadingTime }} 分钟</span>
             <a class="meta-more" href="{{ .RelPermalink }}">阅读全文 &raquo;</a>
           </p>
@@ -33,7 +32,7 @@
       </li>
       {{ end }}
     </ul>
-    <p class="list-footer"><a href="{{ "/posts" | relURL }}">&raquo; 查看全部日志</a></p>
+    <p class="list-footer"><a href="{{ "/blog" | relURL }}">&raquo; 查看全部博客</a></p>
   </div>
 </div>
 {{ end }}

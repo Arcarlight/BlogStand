@@ -22,7 +22,7 @@ description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一�
 <tbody>
 <tr>
   <td>免费素材收集</td>
-  <td><a href='/sokuzai-collected/' target='_blank'>本站</a></td>
+  <td><a href='/blog/sokuzai-collected/' target='_blank'>本站</a></td>
 </tr>
 <tr>
   <td>虹星的博客主站</td>

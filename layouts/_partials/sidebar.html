@@ -26,23 +26,7 @@
       </form>
       <p class="search-tip">提示：搜索结果限定在本站范围内</p>
     </div>
-  </div>
-
-  {{/* ============ 文章分类 ============ */}}
-  {{ with site.Taxonomies.categories }}
-  <div class="widget">
-    <div class="widget-title">文章分类</div>
-    <div class="widget-body">
-      <ul class="side-list">
-        {{ range . }}
-        <li><a href="{{ .Page.RelPermalink }}">{{ .Page.Title }}</a><span class="count">({{ .Count }})</span></li>
-        {{ end }}
-      </ul>
-    </div>
-  </div>
-  {{ end }}
-
-  {{/* ============ 标签云 ============ */}}
+  </div>{{/* ============ 标签云 ============ */}}
   {{ with site.Taxonomies.tags }}
   <div class="widget">
     <div class="widget-title">标签云</div>
@@ -54,18 +38,18 @@
   </div>
   {{ end }}
 
-  {{/* ============ 最新日志 ============ */}}
-  {{ $recent := first 8 (where site.RegularPages "Section" "posts") }}
+  {{/* ============ 最新博客 ============ */}}
+  {{ $recent := first 8 (where site.RegularPages "Section" "blog") }}
   {{ with $recent }}
   <div class="widget">
-    <div class="widget-title">最新日志</div>
+    <div class="widget-title">最新博客</div>
     <div class="widget-body">
       <ul class="side-list side-list-dot">
         {{ range . }}
         <li><a href="{{ .RelPermalink }}" title="{{ .Title }}">{{ .Title }}</a></li>
         {{ end }}
       </ul>
-      <p class="side-more"><a href="{{ "/posts" | relURL }}">» 查看全部日志</a></p>
+      <p class="side-more"><a href="{{ "/blog" | relURL }}">» 查看全部博客</a></p>
     </div>
   </div>
   {{ end }}

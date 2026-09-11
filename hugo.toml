@@ -65,8 +65,8 @@ canonifyURLs = true
   weight  = 20
 
 [[menu.main]]
-  name    = "日志"
-  pageRef = "/posts/"
+  name    = "博客"
+  pageRef = "/blog/"
   weight  = 30
 
 [[menu.main]]
@@ -98,5 +98,4 @@ canonifyURLs = true
     unsafe = true
 
 [taxonomies]
-  tag      = "tags"
-  category = "categories"
+  tag = "tags"
