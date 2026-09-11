@@ -59,16 +59,27 @@
     });
   }
 
-  /* ---------- 5. 访客计数器兜底（不蒜子挂了也别显示一横杠） ---------- */
+  /* ---------- 5. 访客计数器兜底 ----------
+     不蒜子（busuanzi.ibruce.info）靠 Referer 识别站点，脚本自己没有任何重试；
+     网络慢、代理绕路、或被拦截插件挡掉时，三个数字就会一直是「------」。
+     原来的兜底是 6 秒后把数字改成「离线」——但实测经代理最慢见过 3.6 秒，
+     6 秒太紧，于是电脑上经常莫名其妙显示「离线」，看起来像站点坏了。
+
+     这里改成：
+       1. 等到 12 秒还没数据（正常情况 1~2 秒就回来了）；
+       2. 就整块把「访客统计」收起来，而不是写「离线」。
+     注意：**不能失败重试**——不蒜子每请求一次就 +1 访问量，重试会虚增计数。 */
   setTimeout(function () {
     var ids = ['busuanzi_value_site_uv', 'busuanzi_value_site_pv', 'busuanzi_value_page_pv'];
+    var got = false;
     for (var i = 0; i < ids.length; i++) {
       var el = document.getElementById(ids[i]);
-      if (el && /^-*$/.test(el.textContent.replace(/\s/g, ''))) {
-        el.textContent = '离线';
-      }
+      if (el && /\d/.test(el.textContent)) { got = true; break; }
     }
-  }, 6000);
+    if (got) { return; }
+    var widget = document.getElementById('visitor-stats');
+    if (widget) { widget.style.display = 'none'; }
+  }, 12000);
 
   /* ---------- 6. 正文里的外部链接自动在新窗口打开 ---------- */
   var links = document.querySelectorAll('.entry-content a[href^="http"]');
