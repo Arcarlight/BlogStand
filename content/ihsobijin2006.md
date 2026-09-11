@@ -2,6 +2,11 @@
 title: "你看到了"
 draft: false
 description: "欢迎你找到这一片，属于我自己的空间。 当然这个开头可能看起来很中二，但这就是我想对你说的：你能找到这里，要么说明你真的很厉害，能够明白我写的谜题，要么说明你只是用了某种随便什么的手"
+
+# 隐藏页：不进任何列表、不参与上一篇/下一篇，只能靠直链访问
+build:
+  list: never
+  render: always
 ---
 
 <div class="own-room" style="background-color: black; color: white;">

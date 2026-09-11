@@ -185,6 +185,7 @@ git push -u origin main
 | `tobitaiaaken` 的页面级 CSS | 原来直接改 `body`，会污染整站；已限制在 `.tbtak` 容器内 |
 | `ihsobijin2006` 里内嵌的 `<body>` | 改成 `.own-room` 容器，黑底只作用于正文 |
 | 标题/摘要里的 `&gt;` | 已还原（否则会显示成字面的 `&gt;`） |
+| `ihsobijin2006`（隐藏页） | 不参与任何列表、上一篇/下一篇、RSS 和 sitemap，只能靠直链打开 |
 
 ### 旧地址对照
 
