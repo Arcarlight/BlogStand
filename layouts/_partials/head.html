@@ -22,5 +22,6 @@
   <link rel="{{ .Rel }}" type="{{ .MediaType.Type }}" href="{{ .Permalink }}" title="{{ site.Title }}">
   {{ end -}}
 
-  <link rel="icon" href="{{ "images/favicon.png" | relURL }}">
+  {{/* favicon —— 用老站原来那张：老站的 <link rel="icon"> 就指着 Webpic.png */}}
+  <link rel="icon" href="{{ "images/migrated/Webpic.png" | relURL }}">
 </head>
