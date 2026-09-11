@@ -48,6 +48,13 @@ canonifyURLs = true
 
   fontStack = '"Microsoft YaHei","微软雅黑","Trebuchet MS",Verdana,SimSun,"宋体",sans-serif'
 
+  # 阅读速度（字/分钟）—— 用来估算「阅读约 X 分钟」。
+  # 中文阅读速度一般按 300~500 字/分钟估，这里取 400。
+  # 注意：不能用 Hugo 自带的 .WordCount/.ReadingTime，它按空白分词，
+  # 中文会被严重低估（实测差 15~183 倍），所以字数改由
+  # layouts/_partials/stats.html 按字符数算。
+  readingSpeed = 400
+
   # ---- 留言板（utterances）----
   comments        = true
   utterancesRepo  = "Arcarlight/BlogStand"

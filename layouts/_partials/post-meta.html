@@ -1,8 +1,9 @@
 {{/* 文章元信息栏：日期 / 作者 / 字数 / 阅读时间 */}}
+{{- $st := partial "stats.html" . -}}
 <div class="entry-meta">
   <span class="meta-item">发布于 {{ .Date.Format "2006-01-02 15:04" }}</span>
   <span class="meta-sep">|</span>
   <span class="meta-item">作者 {{ with .Params.author }}{{ . }}{{ else }}{{ site.Params.authorName }}{{ end }}</span>
   <span class="meta-sep">|</span>
-  <span class="meta-item">共 {{ .WordCount }} 字，阅读约 {{ .ReadingTime }} 分钟</span>
+  <span class="meta-item">共 {{ $st.Chars }} 字，阅读约 {{ $st.Minutes }} 分钟</span>
 </div>

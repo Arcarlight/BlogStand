@@ -1,0 +1,20 @@
+{{/*
+  字数统计 / 阅读时间
+
+  Hugo 自带的 .WordCount 是按「空白分词」算的，中文没有空格，
+  所以整段中文只算一个词——实测 niki_202607 报 176 字，实际 8,066 字，
+  差了 46 倍。.ReadingTime 又是词数 ÷ 213，于是全站都变成 1 分钟。
+
+  这里改成中文站该有的算法：
+    字数     = 正文去掉 HTML 标签和所有空白后的字符数
+    阅读时间 = 字数 ÷ 每分钟阅读字数（可在 hugo.toml 的 readingSpeed 调）
+
+  用法：{{ $st := partial "stats.html" . }}  然后 $st.Chars / $st.Minutes
+*/}}
+{{- $chars := .Content | plainify | replaceRE `\s+` "" | countrunes -}}
+{{- $speed := site.Params.readingSpeed | default 400 -}}
+{{- $minutes := 0 -}}
+{{- if gt $chars 0 -}}
+  {{- $minutes = int (math.Ceil (div (float $chars) (float $speed))) -}}
+{{- end -}}
+{{- return (dict "Chars" $chars "Minutes" $minutes) -}}
