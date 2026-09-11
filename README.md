@@ -91,52 +91,114 @@ static/
 想改成「完全不进 sitemap」，在 `content/niki/` 里每篇加 `build.list: never` 即可。
 ## 三、日常使用
 
-### 写一篇新博客文章
+### 基本循环
+
+```powershell
+# 1. 打开一个【新】PowerShell 窗口，进入项目目录
+cd D:\Projects\hugo-2010-homepage
+
+# 2. 本地预览（改任何文件，保存后浏览器自动刷新）
+hugo server -D
+
+# 3. 看完按 Ctrl+C 停掉，然后发布
+git add -A
+git commit -m "更新日记"
+git push
+```
+
+推送后 GitHub Actions 大约 1 分钟自动构建部署，不需要手动做别的。
+（`-D` 表示草稿也预览；正式发布前把 front matter 里的 `draft` 改成 `false`。）
+
+### 写一篇博客文章
 
 ```powershell
 hugo new content blog/文章名.md
 ```
 
-### 写一篇新日记
+套用 `archetypes/blog.md`。front matter 填 `title`（标题）、`date`（日期）、
+`description`（摘要，列表页显示这句）、`tags`（标签，可选）。
+
+### 写一篇日记
 
 ```powershell
 hugo new content niki/niki_202610.md
 ```
 
-两者分别套用 `archetypes/blog.md` 和 `archetypes/niki.md`，front matter 会自动填好。
-写完把 `draft` 改成 `false`，或者预览时加 `-D` 看草稿。
+套用 `archetypes/niki.md`。写完后记得三件事：
 
-front matter 说明：
+1. `title` 改成「2026年10月日记」这种格式
+2. `date` 改成月份第一天（决定排序）
+3. **不要打 `tags`** —— 一旦打了标签，日记就会出现在标签云和标签页里，
+   等于开了导航页之外的第二个入口
+4. **去 `content/navigator.md` 里挂链接** —— 那是日记唯一的入口
 
-| 字段 | 作用 |
-| --- | --- |
-| `title` | 标题 |
-| `date` | 日期，决定排序 |
-| `tags` | 标签，侧边栏标签云会用（日记一般不用打标签） |
-| `description` | 摘要，列表页显示这句 |
-| `draft` | `true` 表示草稿 |
-| `aliases` | 旧的网址，会生成跳转页 |
-### 正文里可以直接写 HTML
+#### 在导航页里加一个新月份
 
-旧站的内容是用 HTML 写的（`<br>`、`<center>`、`<details>`、内联样式……），
-Hugo 配置里已经打开 `unsafe = true`，所以**这些标签都能原样保留**，不用担心被吞掉。
+`content/navigator.md` 是一块一块的，新月份在最上面，长这样：
+
+```html
+<hr>
+<center>
+2026年9月
+</center>
+<table>
+  <!-- 日历表格：有日记的日子是链接，没有的写纯文本 -->
+  <td><a href='/niki/niki_202609/#0901'>1日</a></td>
+  <td>3日</td>
+</table>
+<p><br><center><b>長月 秋雨连绵 云沉满天</b></center><br></p>
+```
+
+要加 2026 年 10 月，就把上面这一整块**复制一份放到最前面**，然后：
+
+- `2026年9月` 改成 `2026年10月`
+- 重排日历（2026 年 10 月 1 日是周四，前面补三个 `--`）
+- 有日记的日子改成 `<a href='/niki/niki_202610/#1005'>5日</a>`
+  （`#1005` = 月份 + 日期，四位数，对应日记正文里的锚点）
+- 换掉「長月 秋雨连绵」那句季节短句
 
 ### 加图片
 
-图片放在 `static/images/` 下，正文里这样引用：
+图片统一放 `static/images/`（从旧站搬来的 93 张在 `static/images/migrated/`）。
+正文里引用时**从 `/images/` 开头写**，Hugo 会自动补上 `/BlogStand/` 前缀：
 
 ```html
-<img src="/images/我的图.png">
+<img src="/images/我的图.png" width="300">
 ```
 
-### 改站点名字 / 标语 / 挂件开关
+Markdown 写法也可以（两种都验证过，本地和线上都正常）：
 
-都在 `hugo.toml` 的 `[params]` 里：
+```markdown
+![说明文字](/images/我的图.png)
+```
+
+### 改各个页面的内容
+
+| 想改什么 | 改哪个文件 |
+| --- | --- |
+| 首页（欢迎语、网站导航表、更新日志、友链横幅） | `content/_index.md` |
+| 关于 / 自己紹介 | `content/self_intros.md` |
+| 导航页（日记目录） | `content/navigator.md` |
+| 虹星鱼拓站（画廊） | `content/gallery.md` |
+| 想要飞的始祖小鸟 公式页 | `content/tobitaiaaken.md` |
+| 「你看到了」（隐藏页） | `content/ihsobijin2006.md` |
+| 博客文章 | `content/blog/*.md` |
+| 日记 | `content/niki/*.md` |
+| 站点名字、标语、顶部滚动公告、邮箱、头像 | `hugo.toml` 的 `[params]` |
+| 页脚版权、备案号、建站日期 | 同上 |
+| 导航栏菜单项 | `hugo.toml` 的 `[[menu.main]]` |
+| 侧边栏「友情链接」 | `data/links.toml` |
+| 侧边栏「小按钮」（88×31） | `data/buttons.toml` |
+| 配色、字号、间距 | `assets/css/retro.css` |
+
+正文里可以**直接写 HTML**（`<br>`、`<center>`、`<details>`、`<table>`、内联样式），
+不会被吞掉——`hugo.toml` 里已经开了 `unsafe = true`。
+
+### 关掉不想用的挂件
+
+`hugo.toml` 的 `[params]` 里：
 
 ```toml
-authorName = "虹星"
-slogan     = "欢迎来到虹星用来堆放日常的博客！"
-notice     = "★ 欢迎来到星虹巢 ★ ..."     # 顶部跑马灯
 busuanzi      = true    # 访客计数器
 showClock     = true    # 时钟
 showHitokoto  = true    # 一言
@@ -144,8 +206,18 @@ cursorSparkle = true    # 鼠标跟随小星星
 comments      = true    # 文末留言板
 ```
 
----
+改成 `false` 就关掉。
 
+### 改配色
+
+颜色全在 `assets/css/retro.css`，主要几个：
+
+| 颜色 | 用在哪 |
+| --- | --- |
+| `#1c5c9f` / `#4c93dc` | 顶部 Banner 渐变 |
+| `#123f70` | 导航栏底色 |
+| `#ff9900` | 橙色点缀（日期块、分割线） |
+| `#0645ad` | 链接蓝 |
 ## 四、⚠️ 关于图片（重要）
 
 从旧站搬过来的图片**目前是 180×180 的压缩版**。
