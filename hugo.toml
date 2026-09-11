@@ -22,7 +22,9 @@ canonifyURLs = true
   authorName   = "虹星"
   authorHandle = "にじぼし"
   email        = "arcarlightjp@163.com"
-  avatar       = "/images/migrated/Webpic.png"
+  # 侧边栏「关于站长」的头像。由 Hoshi-Flygon.jpg 缩成 192x192
+  # （侧栏实际显示 96px，192 是 2 倍，供视网膜屏）
+  avatar       = "/images/avatar.jpg"
 
   # 首页 Banner 上的标语
   slogan = "欢迎来到虹星用来堆放日常的博客！"

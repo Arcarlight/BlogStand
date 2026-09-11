@@ -167,7 +167,7 @@ layouts/
   _partials/                    ← 页头、侧边栏、页脚、分页、留言板等零件
 static/
   images/migrated/              ← 从旧站搬过来的 93 张图片
-  images/avatar.png favicon.png
+  images/avatar.jpg favicon.png
   js/                           ← 时钟、一言、鼠标星星
 ```
 
@@ -447,5 +447,5 @@ git push -u origin main
 - [ ] `hugo.toml` → `baseURL` 改成你的正式域名
 - [ ] `hugo.toml` → `email` 改成你的邮箱（页脚和「给我写信」会用到）
 - [ ] `hugo.toml` → `utterancesRepo` 改成你的仓库（留言板，需先装 utterances App）
-- [ ] 用原图替换 `static/images/migrated/` 里的压缩图
-- [ ] 把 `static/images/avatar.png` 换成你喜欢的头像（侧边栏用）
+- [x] ~~用原图替换 `static/images/migrated/` 里的压缩图~~（2026-09-11 已完成，见第五节）
+- [ ] 把 `static/images/avatar.jpg` 换成你喜欢的头像（侧边栏用，现在是 `Hoshi-Flygon.jpg` 缩的 192×192）
