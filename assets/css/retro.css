@@ -981,6 +981,127 @@ img { border: 0; }
   .sparkle { animation: none; }
 }
 
+/* ============================================================
+   24. 「点阵宋体」小字（可选，hugo.toml: pixelSongSmall）
+   ------------------------------------------------------------
+   为什么只有小字能换宋体：宋体内嵌的点阵（bitmap）只覆盖
+   12~17 设备像素那一段，实测（本机 Chrome + 逐像素数灰边）：
+
+     CSS 字号   100%    125%    150%    200%
+       8px      抗锯齿  抗锯齿  点阵    点阵
+      10px      抗锯齿  点阵    点阵    抗锯齿
+      11px      抗锯齿  点阵    点阵    抗锯齿
+      12px      点阵    点阵    抗锯齿  抗锯齿
+      14px      点阵    抗锯齿  抗锯齿  抗锯齿
+      16px      点阵    抗锯齿  抗锯齿  抗锯齿
+
+   也就是说：只有「字号 × 屏幕缩放 = 12~17 设备像素」时宋体才是真点阵。
+   站长的屏是 150% 缩放，窗口就是 8~11px，所以这里统一取 11px
+   （= 16.5 设备像素，落在窗口里）。
+
+   正文故意不换：11px 宋体的物理尺寸只有 6pt 左右（这屏是 191 PPI，
+   12~17 设备像素天生只有 2010 年 96 PPI 屏上的一半大），读长文太累。
+   ============================================================ */
+{{ if site.Params.pixelSongSmall }}
+/* 字号按「设备像素比」自动选，保证「字号 × DPR」永远落在宋体点阵的
+   12~17 设备像素窗口里。这样不管访客的屏幕是 100% 还是 200% 缩放，
+   看到的都是真点阵，而不是「又小又虚」。
+     缩放    DPR      字号    实际设备像素
+     100%    1.00     12px    12.0 ~ 16.9
+     125%    1.25     12px    15.0
+     150%    1.50     11px    16.5
+     175%    1.75     9px     15.75
+     200%    2.00     8px     16.0
+     ≥213%   ≥2.13    退回原字体（再小就看不清了）
+   注意：页面缩放（Ctrl +/-）也会改变实际设备像素，可能让某一档失效。 */
+:root {
+  --song-stack: SimSun, "宋体", sans-serif;
+  --song-size: 12px;
+}
+@media (min-resolution: 1.42dppx) { :root { --song-size: 11px; } }
+@media (min-resolution: 1.55dppx) { :root { --song-size: 10px; } }
+@media (min-resolution: 1.71dppx) { :root { --song-size: 9px; } }
+@media (min-resolution: 1.89dppx) { :root { --song-size: 8px; } }
+@media (min-resolution: 2.13dppx) {
+  :root { --song-stack: {{ site.Params.fontStack }}; --song-size: 11px; }
+}
+
+#sidebar,
+#sidebar .widget-body,
+#sidebar .about-desc,
+#sidebar .about-meta,
+#sidebar .side-list,
+#sidebar .side-list .count,
+#sidebar .side-more,
+#sidebar .search-form input[type="text"],
+#sidebar .search-form button,
+#sidebar .search-tip,
+#sidebar .tagcloud,
+#sidebar .tagcloud .tag-item,
+#sidebar .counter-label,
+#sidebar .counter-row,
+#sidebar .retro-date,
+#sidebar .hitokoto,
+#sidebar .hitokoto-from,
+.post-meta-mini,
+.post-summary,
+.list-intro,
+.entry-meta,
+.entry-tags,
+.entry-tags .tag-item,
+.entry-nav,
+.entry-actions,
+.action-btn,
+.day-reply-btn,
+.pager,
+.pager-info,
+.comments-tip,
+#notice,
+#footer,
+.footer-nav,
+.footer-tips,
+.footer-copy,
+.link-desc,
+.taxo-count,
+.error-tips,
+.error-quote,
+.codebox,
+.entry-content table,
+.entry-content th,
+.entry-content td {
+  font-family: var(--song-stack);
+  font-size: var(--song-size);
+}
+
+/* 加粗会触发合成加粗、把点阵糊掉（实测 11px 常规 0% 灰边、加粗 41.8%），
+   所以带 font-weight: bold 的地方一律留在原字体上。 */
+#footer strong,
+.notice-label { font-family: {{ site.Params.fontStack }}; }
+
+/* 表头用浅蓝底色区分就够了，不必再加粗（去掉加粗它就能安全地用宋体） */
+.entry-content th { font-weight: normal; }
+
+/* 这些必须留回原来的字体：标题、名字、LED 数字、88x31 按钮。
+   它们的字号都在点阵窗口之上，换宋体只会变回发虚的轮廓渲染。 */
+#sidebar .widget-title,
+#sidebar .about-name,
+#sidebar .retro-clock,
+#sidebar .counter-num,
+#sidebar .btn88,
+.widget-title,
+.box-title,
+.entry-title,
+.post-title,
+.entry-content h1,
+.entry-content h2,
+.entry-content h3,
+.entry-content h4 { font-family: {{ site.Params.fontStack }}; }
+
+#sidebar .about-name { font-size: 13px; }
+#sidebar .retro-clock { font-size: 24px; }
+#sidebar .counter-num { font-size: 12px; }
+{{ end }}
+
 /* ---------- 23. 小屏幕退化（当年其实不做响应式，这里加一点点） ----------
    断点取 1004px 而不是常见的 1040：页脚自己写着「Best viewed in 1024×768」，
    而版心 1000 + 左右各 1px 边框 = 1002，1024 的窗口减掉 15px 常驻滚动条
