@@ -26,5 +26,5 @@ description: "这是我试用RPGMAKER MV制作的游戏《Cattest》的使用素
 </tbody>
 </table>
 <hr />
-<h2 id=span-idspan><span id="图标组">图标组</span></h2><p><img src="/images/migrated/Icon-Set.png" alt="图标" /></p>
-<h2 id=span-idspan-1><span id="窗口贴图">窗口贴图</span></h2><p><img src="/images/migrated/Window.png" alt="窗口" /></p>
+<h2 id=span-idspan><span id="图标组">图标组</span></h2><p><img loading="lazy" src="/images/migrated/Icon-Set.png" alt="图标" /></p>
+<h2 id=span-idspan-1><span id="窗口贴图">窗口贴图</span></h2><p><img loading="lazy" src="/images/migrated/Window.png" alt="窗口" /></p>

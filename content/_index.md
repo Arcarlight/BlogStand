@@ -4,7 +4,7 @@ draft: false
 description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一些常见的东西或者自己的日记之类的杂项。 ほしのほしにじそうへようこそ！ ここは、にじぼしの日記や、作品集であります。 中国語わからない方"
 ---
 
-<center><img src="/images/migrated/Hoshinijisou-Banner1.png" alt="Hoshinijisou Banner1" border="0" width="300px"></center>
+<center><img loading="lazy" src="/images/migrated/Hoshinijisou-Banner1.png" alt="Hoshinijisou Banner1" border="0" width="300px"></center>
 <p>欢迎来到虹星用来堆放日常的博客！
 <br>这里会存一些常见的东西或者自己的日记之类的杂项。</p>
 <p><br>ほしのほしにじそうへようこそ！
@@ -119,11 +119,11 @@ description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一�
 <hr>
 <b style="font-size:20px;">友情链接：</b>
 <br>
-<br><a href="https://shema-sunf.github.io/about/"><img src="/images/migrated/friendlink_doku.png" alt="毒毒糖果铺跳转" border="0"></a><b>【毒毒糖果铺】</b>朋友的首页。
+<br><a href="https://shema-sunf.github.io/about/"><img loading="lazy" src="/images/migrated/friendlink_doku.png" alt="毒毒糖果铺跳转" border="0"></a><b>【毒毒糖果铺】</b>朋友的首页。
 <br>
-<a href="https://wiki.52poke.com/wiki/%E6%B2%99%E6%BC%A0%E8%9C%BB%E8%9C%93"><img src="/images/migrated/banner3.gif" alt="沙漠蜻蜓粉丝俱乐部" border="0"></a><b>【最喜欢沙漠蜻蜓了！】</b>来自古早的沙漠蜻蜓粉丝俱乐部的Banner。
+<a href="https://wiki.52poke.com/wiki/%E6%B2%99%E6%BC%A0%E8%9C%BB%E8%9C%93"><img loading="lazy" src="/images/migrated/banner3.gif" alt="沙漠蜻蜓粉丝俱乐部" border="0"></a><b>【最喜欢沙漠蜻蜓了！】</b>来自古早的沙漠蜻蜓粉丝俱乐部的Banner。
 <br><br>
 <hr>
 如果你愿意可以拿下面的链接到自己主页：
-<br><a href="/"><img src="/images/migrated/Nijiboshi-Sou-Banner.png" alt="星虹巢跳转" border="0"></a><b>欢迎来到星虹巢！！</b>
-<br><a href="/"><img src="/images/migrated/Nijiboshi-Sou-Banner-20048.png" alt="星虹巢跳转" border="0"></a><b>欢迎来到星虹巢！！（宽版）</b>
+<br><a href="/"><img loading="lazy" src="/images/migrated/Nijiboshi-Sou-Banner.png" alt="星虹巢跳转" border="0"></a><b>欢迎来到星虹巢！！</b>
+<br><a href="/"><img loading="lazy" src="/images/migrated/Nijiboshi-Sou-Banner-20048.png" alt="星虹巢跳转" border="0"></a><b>欢迎来到星虹巢！！（宽版）</b>

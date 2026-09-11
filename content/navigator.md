@@ -6,7 +6,7 @@ description: "欢迎来到虹星的星虹巢！这里是导航页哦~ 从这里�
 
 <p>欢迎来到虹星的星虹巢！这里是导航页哦~</p>
 <p>从这里可以通到各种细碎的小页面（主要是日记啦）...</p>
-<p><img src="/images/migrated/Image-1774625453780-335.jpg" alt="日记头图2" /></p>
+<p><img loading="lazy" src="/images/migrated/Image-1774625453780-335.jpg" alt="日记头图2" /></p>
 <p><em>※日记中出现的日语基本都是塑料日语，要是有什么问题尽情见谅...</em></p>
 <br>
 <hr>
