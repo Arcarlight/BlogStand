@@ -8,10 +8,15 @@
 
     {{ partial "post-meta.html" . }}
 
-    {{ with .Params.tags }}
+    {{/* 标签链接要用 Hugo 生成的 term 永久链接。
+         原来手工拼 "/tags/" + urlize + "/"，遇到 "#sokuzai" 这类带 # 的
+         标签会拼成 /tags/#sokuzai/ —— 浏览器把 # 后面当片段，
+         点了只会停在标签列表页，跳不到具体标签页。
+         term 的 RelPermalink 会正确编码成 /tags/%23sokuzai/。 */}}
+    {{ with .GetTerms "tags" }}
     <div class="entry-tags">
       <span class="tag-label">标签：</span>
-      {{ range . }}<a class="tag-item" href="{{ "/tags/" | relURL }}{{ . | urlize }}/">{{ . }}</a>{{ end }}
+      {{ range . }}<a class="tag-item" href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>{{ end }}
     </div>
     {{ end }}
 
