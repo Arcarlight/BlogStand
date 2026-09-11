@@ -51,7 +51,10 @@ timeZone = "Asia/Shanghai"
   showHitokoto  = true
   cursorSparkle = true
 
-  fontStack = '"Microsoft YaHei","微软雅黑","Trebuchet MS",Verdana,SimSun,"宋体",sans-serif'
+  # 2010 年中文站最典型的写法就是 Tahoma 打头（当年的 Windows 界面字体），
+  # 中文回落到微软雅黑。这里没有把宋体提到前面：站长试过，在 150% 缩放
+  # 下宋体会走轮廓渲染发灰，可读性反而变差。
+  fontStack = 'Tahoma,"Microsoft YaHei","微软雅黑",Verdana,SimSun,"宋体",sans-serif'
 
   # 阅读速度（字/分钟）—— 用来估算「阅读约 X 分钟」。
   # 中文阅读速度一般按 300~500 字/分钟估，这里取 400。

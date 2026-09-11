@@ -2,121 +2,173 @@
    retro.css —— 2010 年代早中期个人主页风格
    说明：这个文件会被 Hugo 当作模板处理，所以 { { } } 里的
         内容是取自 hugo.toml 的配置，改配置即可生效。
+
+   风格取向（2026-09 改版，第二版）：
+   之前那版用了不少"柔和渐变 + 大圆角 + 大留白 + 低饱和配色"，
+   远看像现代作品集。这一版刻意反着来：
+     · 背景用平铺小图，不用渐变天空
+     · 一律直角，阴影用硬边偏移，不用大范围模糊
+     · 配色提高饱和度，标题条用 Windows XP 那种高光渐变
+     · 字号降到 12px，间距收紧，文字密度加大
+     · 按钮/输入框用 outset / inset 立体边框
+     · 辅助文字不再用"三级灰阶"（那是现代设计系统的特征），一律压到深灰
+     · 正文链接 hover 改回"黄底红字"这种老式反馈
    ============================================================ */
 
 /* ---------- 1. 基础重置 ---------- */
 * { margin: 0; padding: 0; box-sizing: content-box; }
 
-html { overflow-y: scroll; }          /* 永远显示滚动条，免得页面左右跳 */
+html {
+  overflow-y: scroll;               /* 永远显示滚动条，免得页面左右跳 */
+  scrollbar-color: #a8c0d8 #e8eef6; /* 当年 IE 那种彩色滚动条的意思 */
+}
 
 body {
   font-family: {{ site.Params.fontStack }};
-  font-size: 14px;
-  line-height: 1.75;
-  color: #333;
-  padding: 14px 0 50px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: #000000;
+  padding: 8px 0 40px;
 
-  /* 那个年代很流行的"渐变天空 + 细斜纹"背景 */
-  background-color: #d9e9f8;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(255,255,255,.35) 0 2px, rgba(255,255,255,0) 2px 7px),
-    linear-gradient(180deg, #c7dff4 0, #e9f3fc 280px, #dbeaf8 100%);
-  background-attachment: fixed;
+  /* 平铺的小格子背景图 —— 2010 年个人站几乎人手一张。
+     注意两个坑：
+     1) 必须用 absURL。relURL 在 CSS 里拿不到 baseURL 的子路径
+        （站点在 /BlogStand/ 下，relURL 会给出 /images/... 直接 404）。
+     2) 图片必须是 PNG。这个环境下 System.Drawing 存 GIF 会把调色板写坏
+        （实测 #e3eefa 被存成 #CCFFCC 之类的噪声色），底纹会变成麻点。 */
+  background-color: #e7f1fc;
+  background-image: url({{ "images/bg-tile.png" | absURL }});
 }
 
-/* ---------- 2. 链接（经典的蓝色下划线三态） ---------- */
-a { color: #0645ad; text-decoration: none; }
+::selection { background: #316ac5; color: #ffffff; }
+
+/* ---------- 2. 链接（当年浏览器默认的那三种颜色） ---------- */
+a { color: #0000ee; text-decoration: underline; }
 a:visited { color: #551a8b; }
-a:hover, a:focus { color: #cc0000; text-decoration: underline; }
+a:hover, a:focus { color: #ff0000; text-decoration: underline; }
+
+/* 老式交互：正文/列表链接 hover 变成黄底红字。2010 年中文站几乎都是这个反馈 */
+.entry-content a:hover,
+.post-title a:hover,
+.side-list a:hover,
+.link-list a:hover,
+.pager a:hover { background: #ffff00; color: #ff0000; }
 
 img { border: 0; }
 
 .clearfix::after { content: ""; display: table; clear: both; }
 
-/* ---------- 3. 页面容器 ---------- */
+/* ---------- 3. 页面容器 ----------
+   顶部那 15px 是彩虹分割条（rainbow.png 平铺一行），当年很流行。
+   版心里面也铺同一张网格底纹（左侧栏之间的空档、列表页内容少时的
+   空白区域都会露出纹理），白盒子浮在纹理上 —— 当年就是这么搭的，
+   纯白大留白反而是现代作品集的味道。 */
 #page {
   width: 1000px;
   margin: 0 auto;
-  background: #ffffff;
-  border: 1px solid #9dbfe0;
-  box-shadow: 0 2px 14px rgba(10, 60, 120, .30);
+  padding-top: 15px;
+  background-color: #ffffff;
+  background-image: url({{ "images/rainbow.png" | absURL }}), url({{ "images/bg-tile.png" | absURL }});
+  background-repeat: repeat-x, repeat;
+  /* 底纹层偏移 (-4,-4)：让版心内侧第一列/第一行落在方格中间，
+     而不是正好压在一条网格线上 —— 否则版心边框旁边会多出一条线，
+     看起来像 2~3px 的粗边。 */
+  background-position: left top, -4px -4px;
+  border: 1px solid #7f9db9;
+  box-shadow: 4px 4px 0 #aac4e0;    /* 硬边偏移阴影，不是柔和光晕 */
 }
 
 /* ---------- 4. 顶部 Banner ---------- */
 #header {
   position: relative;
-  height: 132px;
+  height: 118px;
   overflow: hidden;
   border-bottom: 3px solid #ff9900;
-  background-color: #2f6fbf;
+  background-color: #1c5c9f;
   background-image:
-    radial-gradient(circle at 82% 24%, rgba(255,255,255,.30) 0, rgba(255,255,255,0) 42%),
-    repeating-linear-gradient(115deg, rgba(255,255,255,.09) 0 6px, rgba(255,255,255,0) 6px 16px),
-    linear-gradient(180deg, #4c93dc 0, #1c5c9f 58%, #123f70 100%);
+    /* 硬边高光带 + 两套周期不同的斜纹，故意让纹理不那么"规整" */
+    linear-gradient(180deg,
+      rgba(255,255,255,.34) 0,
+      rgba(255,255,255,.10) 34px,
+      rgba(255,255,255,0)   35px,
+      rgba(0,0,0,.16)       112px,
+      rgba(0,0,0,.34)       118px),
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,.07) 0 2px,
+      rgba(255,255,255,0)   2px 29px),
+    repeating-linear-gradient(115deg,
+      rgba(255,255,255,.11) 0 5px,
+      rgba(255,255,255,0)   5px 13px),
+    linear-gradient(180deg, #58a0e6 0, #1c5c9f 55%, #0e3b6b 100%);
 }
 
 #site-logo {
   position: absolute;
-  left: 24px;
-  top: 30px;
-  right: 220px;
+  left: 18px;
+  top: 20px;
+  right: 200px;
 }
 
 #site-logo a { text-decoration: none; }
-#site-logo a:hover { text-decoration: none; }
+#site-logo a:hover { text-decoration: none; background: none; }
 
 .site-name {
   display: block;
   font-family: "Comic Sans MS", {{ site.Params.fontStack }};
-  font-size: 36px;
+  font-size: 30px;
   font-weight: bold;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   color: #ffffff;
-  text-shadow: 2px 2px 0 #08243f, 0 0 14px rgba(255,255,255,.55);
+  /* 硬边描边 + 一点发光，2010 年的标题都这么干 */
+  text-shadow: 2px 2px 0 #08243f, -1px -1px 0 #6fb2f0, 0 0 10px rgba(255,255,255,.45);
 }
 
 .site-slogan {
   display: block;
-  margin-top: 6px;
-  font-size: 13px;
-  color: #c3e0ff;
-  text-shadow: 1px 1px 0 rgba(0,0,0,.45);
+  margin-top: 5px;
+  font-size: 12px;
+  color: #cfe6ff;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.55);
 }
 
 #header-right {
   position: absolute;
-  right: 20px;
-  top: 44px;
+  right: 16px;
+  top: 34px;
   text-align: right;
 }
 
+/* 原来是"白虚线框 + 旋转 -6 度"，那是现代复古贴纸的套路；
+   改成 1px 金框 + 金字 + 深色描边（直接压在深蓝斜纹上对比度只有 3 出头） */
 .header-stamp {
   display: inline-block;
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 3px 9px;
+  font-size: 11px;
   letter-spacing: 1px;
-  color: #ffe9b8;
-  border: 2px dashed rgba(255, 233, 184, .75);
-  transform: rotate(-6deg);
+  color: #f2dfa0;
+  border: 1px solid #e8c766;
+  text-shadow: 0 1px 1px rgba(0,0,0,.75);
 }
 
 /* ---------- 5. 导航栏 ---------- */
 #navbar {
-  background: #123f70;
+  background: #0f3a68;
+  border-top: 1px solid #6fb2f0;    /* 内侧 1px 高光，做出"凸起"感 */
   border-bottom: 1px solid #08243f;
 }
 
-#navbar .nav { list-style: none; padding-left: 12px; }
+#navbar .nav { list-style: none; padding-left: 8px; }
 #navbar .nav li { float: left; }
 
 #navbar .nav li a {
   display: block;
-  padding: 8px 20px;
-  font-size: 14px;
+  padding: 7px 18px;
+  font-size: 13px;
   color: #d6e7f9;
   text-decoration: none;
   border-right: 1px solid #2f6fbf;
-  text-shadow: 1px 1px 0 rgba(0,0,0,.35);
+  border-left: 1px solid #08243f;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.5);
 }
 
 #navbar .nav li a:hover {
@@ -129,167 +181,211 @@ img { border: 0; }
   background: #ff9900;
   color: #ffffff;
   font-weight: bold;
-  text-shadow: 1px 1px 0 rgba(0,0,0,.25);
+  border-right-color: #b36b00;
+  border-left-color: #ffcc66;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.35);
 }
 
-/* ---------- 6. 滚动公告 ---------- */
+/* ---------- 6. 滚动公告 ----------
+   原来 marquee 会把这行撑到 56px 高，整条大半是空的。
+   现在固定成 24px 一行，"公告"标签用绝对定位挪到左边，不再被 marquee 压住。 */
 #notice {
-  padding: 5px 10px;
-  font-size: 13px;
-  color: #bb0000;
-  background: #fffbe6;
-  border-bottom: 1px solid #f0e0a0;
+  position: relative;
+  height: 24px;
+  padding: 3px 8px 3px 68px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 24px;
+  color: #cc0000;
+  background: #ffffcc;
+  border-bottom: 1px solid #cc9900;
 }
 
 .notice-label {
-  float: left;
-  margin-right: 10px;
-  padding: 1px 8px;
-  font-size: 12px;
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  height: 16px;
+  padding: 0 7px;
+  font-size: 11px;
+  line-height: 16px;
   color: #ffffff;
-  background: #bb0000;
+  background: #cc0000;
+  border: 1px solid #800000;
   letter-spacing: 2px;
+  animation: retro-blink 1.4s step-end infinite;
 }
 
-#notice marquee { line-height: 1.6; }
+#notice marquee { display: block; height: 24px; line-height: 24px; }
+
+@keyframes retro-blink { 50% { opacity: .35; } }
 
 /* ---------- 7. 主区域两栏 ---------- */
-#main { padding: 12px; }
+#main { padding: 8px; }
 
 #content { float: left; width: 656px; }
 #sidebar { float: right; width: 300px; }
 
 /* ---------- 8. 内容卡片 ---------- */
 .box {
-  margin-bottom: 14px;
+  margin-bottom: 6px;
   background: #ffffff;
-  border: 1px solid #b9d0e8;
+  border: 1px solid #6699cc;
 }
 
+/* 标题条：平色 + 上亮下暗各 1px。
+   原来用的是三段式光泽渐变（近白 → 高光 → 深蓝收边），那是 Aqua/Web2.0
+   的"玻璃胶囊"写法，是全站最明显的现代感来源，这里改回当年的做法。 */
 .box-title {
-  padding: 6px 10px;
-  font-size: 14px;
+  padding: 4px 8px;
+  font-size: 13px;
   font-weight: bold;
-  color: #123f70;
-  background: linear-gradient(180deg, #f6faff 0, #dcebfa 100%);
-  border-bottom: 1px solid #b9d0e8;
+  color: #0b3f78;
+  background: #cfe0f5;
+  border-top: 1px solid #ffffff;
+  border-bottom: 1px solid #6699cc;
+  text-shadow: 0 1px 0 #ffffff;
 }
 
 .box-title::before {
   content: "■";
-  margin-right: 6px;
+  margin-right: 5px;
   font-size: 10px;
-  color: #ff9900;
+  color: #c94800;
   vertical-align: 2px;
 }
 
 .box-subtitle {
   float: right;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: normal;
-  color: #8aa6c4;
+  color: #33556f;
 }
 
-.box-body { padding: 12px; }
+.box-body { padding: 8px 10px; }
 
 /* ---------- 9. 欢迎区（首页内容整宽显示） ---------- */
 .welcome-inner { overflow: hidden; }
-.welcome-inner > p { margin-bottom: 8px; }
+.welcome-inner > p { margin-bottom: 6px; }
 
 .welcome-sign {
-  margin-top: 16px;
-  padding-top: 10px;
+  margin-top: 12px;
+  padding-top: 8px;
   text-align: right;
-  font-size: 13px;
-  color: #8aa6c4;
-  border-top: 1px dashed #d7e3f0;
+  font-size: 12px;
+  color: #446688;
+  border-top: 1px dashed #b9d0e8;
 }
 
 /* ---------- 10. 日志列表 ---------- */
 .post-list { list-style: none; }
 
 .post-item {
-  padding: 10px 0;
-  border-bottom: 1px dashed #d7e3f0;
+  padding: 6px 4px;
+  border-bottom: 1px dotted #99bbdd;
 }
 
 .post-item:last-child { border-bottom: 0; }
 
+/* 鼠标划过去整行变色 —— 老式列表页的标准交互 */
+.post-item:hover { background: #f2f7fd; }
+
+/* 日期徽章改成平色 + 1px 立体，不再用光滑的上下渐变 */
 .post-date {
   float: left;
-  width: 60px;
-  padding: 5px 0 6px;
+  width: 56px;
+  padding: 4px 0 5px;
   text-align: center;
   color: #ffffff;
-  background: linear-gradient(180deg, #ffb84d 0, #ff9900 100%);
-  border: 1px solid #e08600;
-  border-radius: 3px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.55);
-  text-shadow: 1px 1px 0 rgba(0,0,0,.22);
+  background: #ff9900;
+  border: 1px solid #a85c00;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(0,0,0,.18);
+  text-shadow: 1px 1px 0 #7a4200, 0 0 2px rgba(90,50,0,.55);
 }
 
-.pd-md { display: block; font-family: Consolas, "Courier New", monospace; font-size: 14px; font-weight: bold; line-height: 1.2; }
-.pd-y { display: block; font-size: 11px; line-height: 1.3; opacity: .9; }
+.pd-md { display: block; font-family: Tahoma, Consolas, "Courier New", monospace; font-size: 13px; font-weight: bold; line-height: 1.2; }
+/* 白字压在橙底上对比度只有 2 出头，年份那行更小更虚；
+   加粗 + 硬边深色描边是当年在彩色徽章上保证可读性的老办法 */
+.pd-y { display: block; font-family: Tahoma, Consolas, "Courier New", monospace; font-size: 10px; font-weight: bold; line-height: 1.3; }
 
-.post-info { margin-left: 74px; }
+.post-info { margin-left: 68px; }
 
-.post-title { font-size: 15px; line-height: 1.5; }
-.post-title a { color: #0645ad; }
+.post-title { font-size: 14px; line-height: 1.5; }
+.post-title a { color: #0033cc; }
+
+/* 只给最新那一条挂一个 NEW 小牌子。
+   之前给前三条都挂红色加粗带下划线的 new!，会读成第二个链接，
+   而且 2 月的文章也叫 new! 很怪。 */
+.post-item:first-child .post-title a::after {
+  content: "NEW";
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 4px;
+  font-family: Tahoma, sans-serif;
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 15px;
+  color: #ffffff;
+  background: #e63333;
+  border: 1px solid #8b0000;
+  vertical-align: 1px;
+  animation: retro-blink 1s step-end infinite;
+}
 
 .post-summary {
-  margin: 4px 0;
-  font-size: 13px;
-  color: #666666;
-  line-height: 1.7;
+  margin: 3px 0;
+  font-size: 12px;
+  color: #444444;
+  line-height: 1.65;
 }
 
-.post-meta-mini { font-size: 12px; color: #9aa7b4; }
-.post-meta-mini .meta-cat { margin-right: 10px; }
-.post-meta-mini .meta-read { margin-right: 10px; }
-.post-meta-mini .meta-more { color: #ff6600; }
+.post-meta-mini { font-size: 11px; color: #666666; }
+.post-meta-mini .meta-cat { margin-right: 8px; }
+.post-meta-mini .meta-read { margin-right: 8px; }
+.post-meta-mini .meta-more { color: #c94800; }
 
 .list-footer {
-  padding-top: 10px;
-  border-top: 1px dashed #d7e3f0;
+  padding-top: 8px;
+  border-top: 1px dotted #99bbdd;
   text-align: right;
-  font-size: 13px;
+  font-size: 12px;
 }
 
-.list-intro { margin-bottom: 10px; font-size: 13px; color: #666666; }
+.list-intro { margin-bottom: 8px; font-size: 12px; color: #444444; }
 
 /* ---------- 11. 文章页 ---------- */
 .entry-title {
-  padding-bottom: 6px;
-  margin-bottom: 10px;
-  font-size: 21px;
+  padding-bottom: 5px;
+  margin-bottom: 8px;
+  font-size: 18px;
   line-height: 1.4;
   color: #123f70;
   border-bottom: 2px solid #ff9900;
 }
 
 .entry-meta {
-  padding: 6px 10px;
-  margin-bottom: 14px;
-  font-size: 12px;
-  color: #7b8b9c;
+  padding: 5px 8px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: #333333;
   background: #f5f9ff;
-  border: 1px dashed #b9d0e8;
+  border: 1px dashed #6699cc;
 }
 
-.meta-sep { margin: 0 6px; color: #c3d9ef; }
+.meta-sep { margin: 0 5px; color: #99bbdd; }
+.meta-item { margin-right: 4px; }
 
-.entry-tags { margin-bottom: 12px; font-size: 12px; }
-.tag-label { color: #7b8b9c; }
+.entry-tags { margin-bottom: 8px; font-size: 11px; }
+.tag-label { color: #333333; }
 
 .tag-item {
   display: inline-block;
-  padding: 1px 8px;
+  padding: 0 6px;
   margin: 2px 3px 2px 0;
-  font-size: 12px;
+  font-size: 11px;
   color: #1b5a9e;
   background: #eef5fd;
-  border: 1px solid #c3d9ef;
-  border-radius: 2px;
+  border: 1px solid #88b0d8;
 }
 
 .tag-item:hover {
@@ -298,33 +394,40 @@ img { border: 0; }
   text-decoration: none;
 }
 
-/* ---------- 12. 正文排版 ---------- */
-.entry-content { font-size: 14px; line-height: 1.9; color: #333; }
-.entry-content p { margin-bottom: 12px; }
-.entry-content ul, .entry-content ol { margin: 0 0 12px 2.2em; }
-.entry-content li { margin-bottom: 4px; }
+/* 标签云里的计数别贴着边框 */
+.tagcloud .tag-item { padding-right: 8px; }
+.tagcloud .tag-item sup { font-size: 9px; color: #666666; margin-left: 2px; }
+
+/* ---------- 12. 正文排版 ----------
+   行高从 1.75 收到 1.65：2010 年中文站是宋体 12px / 行高 18~19px，
+   这里字号保持 13px（站长之前试过宋体 + 更小字号，150% 缩放下可读性变差
+   主动回退了），只把行距压紧一点，密度往那个年代靠。 */
+.entry-content { font-size: 13px; line-height: 1.65; color: #000000; }
+.entry-content p { margin-bottom: 5px; text-indent: 2em; }   /* 每段空两格，中文博客的老规矩 */
+.entry-content ul, .entry-content ol { margin: 0 0 9px 2.2em; }
+.entry-content li { margin-bottom: 3px; }
 
 .entry-content h2 {
-  margin: 20px 0 10px;
-  padding-left: 9px;
-  font-size: 17px;
+  margin: 16px 0 8px;
+  padding-left: 8px;
+  font-size: 15px;
   color: #123f70;
   border-left: 5px solid #ff9900;
 }
 
 .entry-content h3 {
-  margin: 16px 0 8px;
-  font-size: 15px;
+  margin: 13px 0 6px;
+  font-size: 14px;
   color: #1b5a9e;
 }
 
-.entry-content h4 { margin: 14px 0 6px; font-size: 14px; color: #445; }
+.entry-content h4 { margin: 11px 0 5px; font-size: 13px; color: #445566; }
 
 /* ---------- 12b. 从旧站搬来的内容补充排版 ---------- */
 .entry-content h1 {
-  margin: 24px 0 12px;
-  padding-bottom: 6px;
-  font-size: 19px;
+  margin: 18px 0 9px;
+  padding-bottom: 5px;
+  font-size: 16px;
   line-height: 1.5;
   color: #123f70;
   border-bottom: 2px solid #ff9900;
@@ -333,15 +436,23 @@ img { border: 0; }
 .entry-content h1:first-child { margin-top: 0; }
 
 /* 旧站大量使用 <center>，补齐它在正文里的表现 */
-.entry-content center { display: block; text-align: center; }
+.entry-content center { display: block; text-align: center; text-indent: 0; }
 .entry-content center > h1 { border-bottom: 0; }
+
+/* 居中、图注、列表里的段落不要首行缩进，否则会歪 */
+.entry-content center p,
+.entry-content blockquote p,
+.entry-content li p,
+.entry-content figure p,
+.entry-content i p,
+.entry-content em p { text-indent: 0; }
 
 /* 旧站的「更新日志」折叠区 */
 .entry-content details {
-  margin: 12px 0;
-  padding: 8px 12px;
+  margin: 9px 0;
+  padding: 6px 10px;
   background: #fbfdff;
-  border: 1px solid #c3d9ef;
+  border: 1px solid #6699cc;
   border-left: 4px solid #1b5a9e;
 }
 
@@ -353,145 +464,163 @@ img { border: 0; }
 }
 
 .entry-content details[open] summary {
-  margin-bottom: 8px;
-  padding-bottom: 5px;
-  border-bottom: 1px dashed #d7e3f0;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed #b9d0e8;
 }
 
 /* 旧站页面里内嵌的 <body>，迁移后变成这个容器（黑底白字的那种页面） */
-.own-room { padding: 16px 18px; }
+.own-room { padding: 14px 16px; }
 .own-room a { color: #8ab4f8; }
-.own-room a:hover { color: #ffcc66; }
+.own-room a:hover { color: #ffcc66; background: none; }
 
 /* 「想要飞的始祖小鸟」那页自带背景图的容器 */
 .tbtak {
-  padding: 16px 18px;
-  border: 1px solid #c3d9ef;
+  padding: 14px 16px;
+  border: 1px solid #6699cc;
 }
 
 .entry-content img {
   max-width: 100%;
   height: auto;
-  padding: 3px;
+  padding: 2px;
   background: #ffffff;
-  border: 1px solid #cccccc;
+  border: 1px solid #999999;
 }
 
 .entry-content blockquote {
-  margin: 12px 0;
-  padding: 8px 14px;
-  color: #666666;
+  margin: 9px 0;
+  padding: 6px 12px;
+  color: #444444;
   background: #f7f7f7;
   border-left: 4px solid #ff9900;
 }
 
+/* 经典的"上下两条线"浮雕分隔线 */
 .entry-content hr {
-  height: 1px;
-  margin: 18px 0;
+  height: 0;
+  margin: 14px 0;
   border: 0;
-  background: #d7e3f0;
+  border-top: 1px solid #999999;
+  border-bottom: 1px solid #ffffff;
 }
 
 .entry-content code {
-  padding: 1px 5px;
+  padding: 0 4px;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 12.5px;
+  font-size: 12px;
   color: #c7254e;
   background: #f4f4f4;
   border: 1px solid #e6e6e6;
 }
 
 .entry-content pre {
-  margin: 12px 0;
-  padding: 10px 12px;
+  margin: 9px 0;
+  padding: 8px 10px;
   overflow-x: auto;
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.6;
   background: #f8f8f8;
-  border: 1px solid #dddddd;
+  border: 1px solid #cccccc;
   border-left: 4px solid #1b5a9e;
 }
 
 .entry-content pre code { padding: 0; color: inherit; background: none; border: 0; }
 
+/* 表格改回当年的"卫星格"：border-spacing 露 1px 深色底，
+   而不是现在这种细线平铺。当年的表格是页面骨架，这个缺口最明显。 */
 .entry-content table {
-  margin: 12px 0;
-  border-collapse: collapse;
-  font-size: 13px;
+  margin: 9px 0;
+  border-collapse: separate;
+  border-spacing: 1px;
+  background: #99a7b5;
+  border: 1px solid #6e7c8c;
+  font-size: 12px;
 }
 
 .entry-content th, .entry-content td {
-  padding: 5px 10px;
-  border: 1px solid #c3d9ef;
+  padding: 3px 8px;
+  background: #ffffff;
+  border: 0;
 }
 
-.entry-content th { background: #eef5fd; color: #123f70; }
+.entry-content th {
+  background: #dfeaf6;
+  color: #123f70;
+  font-weight: bold;
+}
 
 /* ---------- 13. 上下篇 / 操作按钮 ---------- */
 .entry-nav {
-  margin-top: 18px;
-  padding-top: 12px;
-  font-size: 13px;
-  border-top: 1px dashed #d7e3f0;
+  margin-top: 14px;
+  padding-top: 10px;
+  font-size: 12px;
+  border-top: 1px dashed #b9d0e8;
 }
 
 .entry-prev { float: left; width: 48%; }
 .entry-next { float: right; width: 48%; text-align: right; }
 
 .entry-actions {
-  margin-top: 14px;
-  padding-top: 12px;
+  margin-top: 11px;
+  padding-top: 10px;
   text-align: right;
-  border-top: 1px dashed #d7e3f0;
+  border-top: 1px dashed #b9d0e8;
 }
 
+/* 立体按钮：outset 边框 = 左上亮、右下暗，比圆角渐变"土"得多，正是要的效果。
+   底部再加 1px 暗边，是当年"玻璃按钮"的标准做法。 */
 .action-btn {
   display: inline-block;
-  padding: 3px 12px;
-  margin-left: 6px;
+  padding: 2px 10px;
+  margin-left: 5px;
   font-size: 12px;
   color: #123f70;
-  background: linear-gradient(180deg, #f6faff 0, #dcebfa 100%);
-  border: 1px solid #9dbfe0;
-  border-radius: 3px;
-}
-
-.action-btn:hover {
-  color: #ffffff;
-  background: #1b5a9e;
+  background: #dfeaf6;
+  border: 2px outset #c3d9ef;
+  border-bottom-color: #8aa6c4;
   text-decoration: none;
 }
 
+.action-btn:hover {
+  color: #123f70;
+  background: #ffd88a;
+  border-color: #e0a94a;
+  text-decoration: none;
+}
+
+.action-btn:active { border-style: inset; }
+
 /* ---------- 13b. 日记：每一天的回复区 ---------- */
 .day-reply {
-  margin: 12px 0 20px;
-  padding-top: 9px;
-  border-top: 1px dashed #d7e3f0;
+  margin: 9px 0 16px;
+  padding-top: 7px;
+  border-top: 1px dashed #b9d0e8;
 }
 
 .day-reply-btn {
   font-family: inherit;
   font-size: 12px;
-  padding: 2px 12px;
-  color: #1b5a9e;
+  padding: 1px 11px;
+  color: #123f70;
   cursor: pointer;
-  background: linear-gradient(180deg, #f6faff 0, #dcebfa 100%);
-  border: 1px solid #9dbfe0;
-  border-radius: 3px;
+  background: #dfeaf6;
+  border: 2px outset #c3d9ef;
+  border-bottom-color: #8aa6c4;
 }
 
-.day-reply-btn:hover { color: #ffffff; background: #1b5a9e; }
-.day-reply-btn:disabled { opacity: .55; cursor: default; }
+.day-reply-btn:hover { background: #ffd88a; border-color: #e0a94a; }
+.day-reply-btn:active { border-style: inset; }
+.day-reply-btn:disabled { color: #999999; cursor: default; }
 
-.day-reply-body { margin-top: 9px; }
+.day-reply-body { margin-top: 7px; }
 
 .day-reply-frame {
   display: block;
   width: 100%;
   height: 330px;
   background: #ffffff;
-  border: 1px solid #c3d9ef;
-  border-radius: 4px;
+  border: 1px solid #6699cc;
 }
 
 /* ---------- 13c. 导航页：月份日历居中 ----------
@@ -504,58 +633,62 @@ img { border: 0; }
 
 /* ---------- 14. 侧边栏挂件 ---------- */
 .widget {
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   background: #ffffff;
-  border: 1px solid #b9d0e8;
+  border: 1px solid #6699cc;
 }
 
+/* 挂件标题条：平色中蓝 + 上亮下暗各 1px。
+   原来那条是 5 段 XP 高光渐变 + 近黑收边，9 个挂件叠在一起分量太重、
+   把左侧内容区压住了；改成平色以后和内容盒标题条变成同一套语言。 */
 .widget-title {
-  padding: 5px 10px;
-  font-size: 13px;
+  padding: 4px 8px;
+  font-size: 12px;
   font-weight: bold;
   color: #ffffff;
-  background: linear-gradient(180deg, #4c93dc 0, #1c5c9f 100%);
-  border-bottom: 1px solid #123f70;
-  text-shadow: 1px 1px 0 rgba(0,0,0,.30);
+  background: #3b6ea5;
+  border-top: 1px solid #7fa8d4;
+  border-bottom: 1px solid #1e4272;
+  text-shadow: 1px 1px 0 #1b3a63;
 }
 
 .widget-title::before {
   content: "▸";
-  margin-right: 5px;
+  margin-right: 4px;
   color: #ffcc66;
 }
 
 .widget-body {
-  padding: 10px;
-  font-size: 13px;
+  padding: 8px;
+  font-size: 12px;
   background: #fbfdff;
 }
 
 /* 站长名片 */
 .widget-about { text-align: center; }
 
-.avatar-box { margin-bottom: 6px; }
+.avatar-box { margin-bottom: 5px; }
 
+/* 头像做成"相框"：白底内衬 + 硬边外框 + 硬偏移阴影 */
 .avatar {
   width: 96px;
   height: 96px;
-  padding: 3px;
+  padding: 2px;
   background: #ffffff;
-  border: 1px solid #b9d0e8;
-  border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(10,60,120,.22);
+  border: 1px solid #7f9db9;
+  box-shadow: 2px 2px 0 #c3d9ef;
 }
 
-.about-name { font-size: 14px; font-weight: bold; color: #123f70; }
-.about-desc { margin: 4px 0 6px; font-size: 12px; color: #7b8b9c; }
+.about-name { font-size: 13px; font-weight: bold; color: #123f70; }
+.about-desc { margin: 3px 0 5px; font-size: 11px; color: #444444; }
 
 .about-meta {
   list-style: none;
-  padding-top: 6px;
-  font-size: 12px;
+  padding-top: 5px;
+  font-size: 11px;
   text-align: left;
-  color: #7b8b9c;
-  border-top: 1px dashed #d7e3f0;
+  color: #444444;
+  border-top: 1px dashed #b9d0e8;
 }
 
 .about-meta li { padding: 1px 0; }
@@ -563,24 +696,24 @@ img { border: 0; }
 /* 侧栏列表 */
 .side-list { list-style: none; }
 .side-list li {
-  padding: 3px 0;
+  padding: 2px 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  border-bottom: 1px dotted #e2ecf7;
+  border-bottom: 1px dotted #d7e3f0;
 }
 
 .side-list li:last-child { border-bottom: 0; }
-.side-list .count { float: right; color: #9aa7b4; font-size: 12px; }
+.side-list .count { float: right; color: #555555; font-size: 11px; }
 
 .side-list-dot li::before {
   content: "·";
-  margin-right: 5px;
+  margin-right: 4px;
   font-weight: bold;
-  color: #ff9900;
+  color: #c94800;
 }
 
-.side-more { margin-top: 6px; font-size: 12px; text-align: right; }
+.side-more { margin-top: 5px; font-size: 11px; text-align: right; }
 
 /* 搜索框 */
 .search-form { overflow: hidden; }
@@ -588,18 +721,17 @@ img { border: 0; }
 .search-form input[type="text"] {
   float: left;
   width: 178px;
-  height: 24px;
-  padding: 0 6px;
+  height: 22px;
+  padding: 0 5px;
   font-family: inherit;
   font-size: 12px;
-  color: #333;
+  color: #000000;
   background: #ffffff;
-  border: 1px solid #9dbfe0;
-  border-right: 0;
+  border: 2px inset #a8c0d8;   /* 凹陷边框 */
   outline: none;
 }
 
-.search-form input[type="text"]:focus { background: #fffef0; }
+.search-form input[type="text"]:focus { background: #ffffcc; }
 
 .search-form button {
   float: left;
@@ -609,58 +741,60 @@ img { border: 0; }
   font-size: 12px;
   color: #123f70;
   cursor: pointer;
-  background: linear-gradient(180deg, #f6faff 0, #dcebfa 100%);
-  border: 1px solid #9dbfe0;
+  background: #dfeaf6;
+  border: 2px outset #c3d9ef;
+  border-bottom-color: #8aa6c4;
 }
 
-.search-form button:hover { color: #ffffff; background: #1b5a9e; }
+.search-form button:hover { background: #ffd88a; border-color: #e0a94a; }
+.search-form button:active { border-style: inset; }
 
-.search-tip { margin-top: 6px; font-size: 11px; color: #a8b6c4; }
+.search-tip { margin-top: 5px; font-size: 11px; color: #555555; }
 
 /* 标签云 */
 .tagcloud { line-height: 2.1; }
-.tagcloud .tag-item sup { font-size: 9px; color: #999; margin-left: 1px; }
 
 /* 计数器 */
 .counter-body { text-align: center; }
 
-.counter-row { padding: 2px 0; color: #7b8b9c; }
+.counter-row { padding: 2px 0; color: #333333; }
 
 .counter-num {
   display: inline-block;
-  padding: 0 7px;
+  padding: 0 6px;
   margin: 0 3px;
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 13px;
+  font-family: Tahoma, Consolas, "Courier New", monospace;
+  font-size: 12px;
   font-weight: bold;
   letter-spacing: 1px;
   color: #33ff33;
-  background: #111111;
-  border: 1px solid #333333;
+  background: #000000;
+  border: 1px solid #555555;
+  text-shadow: 0 0 4px rgba(51,255,51,.85);
 }
 
-.counter-label { font-size: 12px; }
+.counter-label { font-size: 11px; }
 
 /* 时钟 */
 .clock-body { text-align: center; }
 
 .retro-clock {
-  padding: 5px 0;
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 25px;
+  padding: 4px 0;
+  font-family: Tahoma, Consolas, "Courier New", monospace;
+  font-size: 24px;
   font-weight: bold;
   letter-spacing: 3px;
   color: #33ff33;
-  background: #111111;
-  border: 2px solid #444444;
-  box-shadow: inset 0 0 10px rgba(51,255,51,.35);
+  background: #000000;
+  border: 2px inset #666666;
+  text-shadow: 0 0 6px rgba(51,255,51,.9);
 }
 
-.retro-date { margin-top: 5px; font-size: 12px; color: #7b8b9c; }
+.retro-date { margin-top: 4px; font-size: 11px; color: #333333; }
 
 /* 一言 */
-.hitokoto { font-size: 12.5px; line-height: 1.8; color: #4a5b6c; }
-.hitokoto-from { margin-top: 4px; font-size: 12px; text-align: right; color: #9aa7b4; }
+.hitokoto { font-size: 12px; line-height: 1.75; color: #333333; }
+.hitokoto-from { margin-top: 3px; font-size: 11px; text-align: right; color: #555555; }
 
 /* 88×31 按钮墙 */
 .button-wall { overflow: hidden; }
@@ -671,6 +805,7 @@ img { border: 0; }
   height: 31px;
   margin: 0 4px 4px 0;
   padding: 0;
+  box-sizing: border-box;   /* 加上边框正好 88×31，不然是 90×33 */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -689,122 +824,141 @@ img { border: 0; }
 
 /* ---------- 15. 分页 ---------- */
 .pager {
-  margin-top: 14px;
-  padding-top: 10px;
-  font-size: 13px;
-  border-top: 1px dashed #d7e3f0;
+  margin-top: 11px;
+  padding-top: 8px;
+  font-size: 12px;
+  border-top: 1px dashed #b9d0e8;
 }
 
 .pager-prev { float: left; }
 .pager-next { float: right; }
-.pager-info { float: none; display: block; text-align: center; color: #7b8b9c; font-size: 12px; }
-.pager .disabled { color: #bcc7d2; }
-.pager-total { color: #a8b6c4; }
+.pager-info { float: none; display: block; text-align: center; color: #333333; font-size: 11px; }
+.pager .disabled { color: #aaaaaa; }
+.pager-total { color: #666666; }
 
 /* ---------- 16. 分类 / 标签总览页 ---------- */
 .taxo-list { list-style: none; }
-.taxo-item { padding: 6px 0; border-bottom: 1px dotted #e2ecf7; }
+.taxo-item { padding: 5px 0; border-bottom: 1px dotted #99bbdd; }
 .taxo-item:last-child { border-bottom: 0; }
-.taxo-name { font-size: 14px; }
-.taxo-count { font-size: 12px; color: #9aa7b4; }
+.taxo-name { font-size: 13px; }
+.taxo-count { font-size: 11px; color: #555555; }
 
 /* ---------- 17. 友情链接页 ---------- */
 .link-list { list-style: none; }
-.link-item { padding: 8px 0; border-bottom: 1px dotted #e2ecf7; }
+.link-item { padding: 7px 0; border-bottom: 1px dotted #99bbdd; }
 .link-item:last-child { border-bottom: 0; }
-.link-name { font-size: 14px; font-weight: bold; }
-.link-desc { display: block; margin-top: 2px; font-size: 12px; color: #7b8b9c; }
+.link-name { font-size: 13px; font-weight: bold; }
+.link-desc { display: block; margin-top: 2px; font-size: 11px; color: #444444; }
 
 .link-apply {
-  margin-top: 16px;
-  padding: 12px;
-  font-size: 13px;
+  margin-top: 14px;
+  padding: 10px;
+  font-size: 12px;
   background: #f5f9ff;
-  border: 1px dashed #b9d0e8;
+  border: 1px dashed #6699cc;
 }
 
 .sub-title {
-  margin-bottom: 6px;
-  padding-left: 8px;
-  font-size: 14px;
+  margin-bottom: 5px;
+  padding-left: 7px;
+  font-size: 13px;
   color: #123f70;
   border-left: 4px solid #ff9900;
 }
 
 .codebox {
   width: 96%;
-  margin-top: 8px;
-  padding: 8px;
+  margin-top: 6px;
+  padding: 6px;
   font-family: Consolas, "Courier New", monospace;
   font-size: 12px;
   line-height: 1.6;
-  color: #333;
+  color: #000000;
   background: #ffffff;
-  border: 1px solid #c3d9ef;
+  border: 2px inset #a8c0d8;
   resize: vertical;
 }
 
 /* ---------- 18. 404 ---------- */
-.error-body { text-align: center; padding: 24px 12px; }
+.error-body { text-align: center; padding: 20px 10px; }
 
 .error-code {
   font-family: "Comic Sans MS", {{ site.Params.fontStack }};
-  font-size: 72px;
+  font-size: 64px;
   line-height: 1;
   color: #dcebfa;
   text-shadow: 2px 2px 0 #9dbfe0, 4px 4px 0 #eef5fd;
 }
 
-.error-text { margin: 14px 0; font-size: 14px; color: #4a5b6c; }
-.error-tips { font-size: 13px; color: #7b8b9c; }
+.error-text { margin: 12px 0; font-size: 13px; color: #333333; }
+.error-tips { font-size: 12px; color: #444444; }
 
 .error-links {
-  margin: 8px 0 14px;
+  margin: 7px 0 12px;
   list-style: none;
 }
 
-.error-links li { display: inline-block; margin: 0 8px; }
-.error-quote { font-size: 12px; color: #a8b6c4; }
+.error-links li { display: inline-block; margin: 0 7px; }
+.error-quote { font-size: 11px; color: #666666; }
 
 /* ---------- 19. 留言板 ---------- */
-.comments-tip { margin-bottom: 10px; font-size: 12px; color: #9aa7b4; }
+.comments-tip { margin-bottom: 8px; font-size: 11px; color: #555555; }
 
 /* ---------- 20. 页脚 ---------- */
 #footer {
-  padding: 14px 12px 18px;
+  padding: 11px 10px 14px;
   text-align: center;
-  font-size: 12px;
-  line-height: 2;
-  color: #6b7a89;
+  font-size: 11px;
+  line-height: 1.9;
+  color: #444444;
   background: #eef5fd;
-  border-top: 3px solid #ff9900;
+  border-top: 3px double #6699cc;   /* 双线，比单线更有年代感 */
 }
 
-.footer-nav { margin-bottom: 6px; }
+.footer-nav { margin-bottom: 5px; }
 .footer-nav a { margin: 0 2px; }
 
-.footer-tips { color: #8a99a8; }
+.footer-tips { color: #444444; }
 .footer-tips strong { color: #1b5a9e; }
-.footer-copy { color: #8a99a8; }
+.footer-copy { color: #444444; }
 
-.sep { margin: 0 5px; color: #c3d9ef; }
+.sep { margin: 0 4px; color: #99bbdd; }
 
-/* ---------- 21. 回到顶部 ---------- */
+/* ---------- 21. 回到顶部 ----------
+   原来是淡蓝灰底 + 细体字距，看着像现代排版；
+   改回橙底白粗字，就是当年那种刺眼的 GIF 按钮。
+   定位用 left:50% + margin-left:508px，让它永远贴在 1000px 版心右边线外侧
+   （500 + 8 像素缝），而不是用 right 相对视窗定位 —— 那样在 1100 宽左右的
+   视窗下会压到侧栏挂件上。视窗不够宽时(<=1140)退化成贴着右下角。 */
 #gotop {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
+  left: 50%;
+  margin-left: 508px;
+  bottom: 14px;
   z-index: 999;
-  padding: 6px 11px;
+  padding: 5px 10px;
   font-size: 12px;
+  font-weight: bold;
   color: #ffffff;
-  background: #1b5a9e;
-  border: 1px solid #123f70;
-  border-radius: 3px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+  background: #ff9900;
+  border: 2px solid #a85c00;
+  text-decoration: none;
+  text-shadow: 1px 1px 0 #7a4200;
 }
 
-#gotop:hover { color: #ffffff; background: #ff9900; text-decoration: none; }
+#gotop:hover { color: #ffff00; background: #e07d00; text-decoration: none; }
+
+/* 视窗放不下版心外侧那条缝时（<=1179），退化成贴右下角并做窄一点，
+   免得压在侧栏挂件的标题条上 */
+@media (max-width: 1179px) {
+  #gotop { left: auto; right: 6px; margin-left: 0; font-size: 11px; padding: 4px 7px; }
+}
+
+/* 老式滚动条（IE 时代的彩色滚动条，这里只用标准属性做个意思） */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track { background: #eef2f7; border-left: 1px solid #d5dde6; }
+::-webkit-scrollbar-thumb { background: #cdd9e6; border: 1px solid #a8b8c8; }
+::-webkit-scrollbar-thumb:hover { background: #b9cbe0; }
 
 /* ---------- 22. 鼠标跟随小星星 ---------- */
 .sparkle {
@@ -820,12 +974,33 @@ img { border: 0; }
   100% { opacity: 0; transform: translate(-50%, -160%) scale(.25) rotate(200deg); }
 }
 
-/* ---------- 23. 小屏幕退化（当年其实不做响应式，这里加一点点） ---------- */
-@media (max-width: 1040px) {
-  #page { width: 100%; box-shadow: none; }
+/* 系统里开了"减少动态效果"就把闪烁/星星关掉 */
+@media (prefers-reduced-motion: reduce) {
+  .notice-label,
+  .post-item:first-child .post-title a::after,
+  .sparkle { animation: none; }
+}
+
+/* ---------- 23. 小屏幕退化（当年其实不做响应式，这里加一点点） ----------
+   断点取 1004px 而不是常见的 1040：页脚自己写着「Best viewed in 1024×768」，
+   而版心 1000 + 左右各 1px 边框 = 1002，1024 的窗口减掉 15px 常驻滚动条
+   还剩 1009，放得下。原来断点 1040 会把 1024 当成小屏，底纹、版心投影、
+   两栏全被关掉，等于把当年最常见的那个分辨率给拆了。 */
+@media (max-width: 1004px) {
+  body { background-image: none; }
+  /* box-sizing: border-box 让 100% 把 1px 边框也算进去，
+     否则版心会正好比视窗宽 2px、右边框被挤出屏幕 */
+  #page { width: 100%; box-sizing: border-box; box-shadow: none; }
   #content, #sidebar { float: none; width: auto; }
-  #sidebar { margin-top: 12px; }
-  .site-name { font-size: 28px; }
+  #sidebar { margin-top: 8px; }
+  .site-name { font-size: 24px; }
+  #site-logo { right: 16px; }
+  /* 这里原来是 display:none，会把「EST. 2010」整块藏掉；
+     改小一点保留 */
+  #header-right { top: 10px; right: 10px; }
+  .header-stamp { padding: 2px 6px; font-size: 10px; letter-spacing: 0; }
+}
+
+@media (max-width: 700px) {
   #header-right { display: none; }
-  #site-logo { right: 20px; }
 }
