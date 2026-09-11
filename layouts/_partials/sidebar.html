@@ -93,14 +93,27 @@
   {{ end }}
 
   {{/* ============ 一言 ============ */}}
+  {{/* 句子取自站长自己写的小说（data/hitokoto.json），不再是外部一言 API。
+       全部逐字摘自原作、只收在句子边界上，出处统一署笔名「平铃」。
+       这里先随机渲染一条（无 JS 也能看），JS 加载后会再随机换一条。 */}}
   {{ if site.Params.showHitokoto }}
+  {{ $quotes := hugo.Data.hitokoto.quotes }}
+  {{ $line := "" }}
+  {{ with $quotes }}
+    {{ $line = index (shuffle .) 0 }}
+  {{ end }}
   <div class="widget">
     <div class="widget-title">一言</div>
     <div class="widget-body">
-      <p id="hitokoto-text" class="hitokoto">正在向服务器请求…</p>
-      <p id="hitokoto-from" class="hitokoto-from"></p>
+      <p id="hitokoto-text" class="hitokoto">「{{ $line }}」</p>
+      <p id="hitokoto-from" class="hitokoto-from">—— 平铃</p>
     </div>
   </div>
+  {{/* 注意：<script> 里 Go 模板会做 JS 上下文转义，jsonify 的结果会被再包一层
+       引号变成字符串，所以必须 safeJS。 */}}
+  {{ with $quotes }}
+  <script>window.SITE_HITOKOTO = {{ . | jsonify | safeJS }};</script>
+  {{ end }}
   {{ end }}
 
   {{/* ============ 88×31 小按钮墙 ============ */}}

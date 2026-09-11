@@ -32,17 +32,19 @@
   }
   if (clockEl || dateEl) { tick(); setInterval(tick, 1000); }
 
-  /* ---------- 3. 一言 ---------- */
+  /* ---------- 3. 一言 ----------
+     句子来自站长自己写的小说，打包在页面里的 window.SITE_HITOKOTO（见
+     data/hitokoto.json），不再请求外部一言 API。
+     模板里已经随机渲染了一条，这里再换一条，让每次打开页面都不一样。 */
   var hk = document.getElementById('hitokoto-text');
   if (hk) {
-    fetch('https://v1.hitokoto.cn/?c=i&c=k')
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        hk.textContent = '「' + data.hitokoto + '」';
-        var from = document.getElementById('hitokoto-from');
-        if (from) { from.textContent = '—— ' + (data.from || '佚名'); }
-      })
-      .catch(function () { hk.textContent = '一言服务器好像挂掉了……'; });
+    var quotes = window.SITE_HITOKOTO;
+    if (quotes && quotes.length) {
+      var pick = quotes[Math.floor(Math.random() * quotes.length)];
+      hk.textContent = '「' + pick + '」';
+    }
+    var from = document.getElementById('hitokoto-from');
+    if (from) { from.textContent = '—— 平铃'; }
   }
 
   /* ---------- 4. 站内搜索：自动补 site: 前缀 ---------- */
