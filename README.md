@@ -48,7 +48,7 @@ hugo --gc --minify
 | 图片上传 | 直接**拖拽 / 粘贴 / 选图**，自动存进 `static/images/` 并插入标签 |
 | 草稿箱 | `draft: true` 的页面单独一组，一键在草稿 / 发布之间切换 |
 | 导航页同步 | 扫日记里的日期锚点，自动刷新 `/navigator/` 的日历 |
-| 实时预览 | 右侧内嵌 iframe，保存后自动刷新 |
+| 实时预览 | 右侧内嵌 iframe，**跟着你正在编辑的那一页走**，保存后自动刷新；顶部有预览地址栏，可单独刷新或新标签打开 |
 | 一键发布 | 顶部「发布」= `git add` + `commit` + `push` |
 
 ### 写日记：三步走
@@ -108,7 +108,10 @@ https://cdn.jsdelivr.net/npm/xxx/xxx.min.js
 
 ### 小技巧
 
-- 地址栏可以直接带锚点跳到某个面板：`#settings` `#links` `#buttons` `#scripts` `#nav`
+- 地址栏可以直接带锚点跳：
+  - `#settings` `#links` `#buttons` `#scripts` `#nav` —— 打开工具面板
+  - `#preview` —— 进预览模式
+  - `#f=content/niki/niki_202602.md&preview` —— 打开某个文件并预览它（可以收藏成书签）
   例如 <http://127.0.0.1:4321/#nav> 直接打开导航页同步
 - 编辑器**已经在跑**的时候再双击一次，不会报错，会直接把浏览器打开
 

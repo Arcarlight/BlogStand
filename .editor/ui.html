@@ -62,13 +62,17 @@
     font:13.5px/1.75 Consolas,"Courier New","Microsoft YaHei",monospace;
     background:#fbfdff;color:#22303f;tab-size:2;
   }
-  #preview{flex:1;min-width:0;border:0;border-left:1px solid var(--line);background:#fff;display:none}
-  body.preview #preview{display:block}
+  #previewPane{flex:1;min-width:0;display:none;flex-direction:column;border-left:1px solid var(--line);background:#fff}
+  body.preview #previewPane{display:flex}
+  #previewBar{display:flex;align-items:center;gap:6px;padding:3px 8px;background:#f2f7fc;border-bottom:1px solid var(--line);flex:none}
+  #previewPath{flex:1;font-family:Consolas,monospace;font-size:12px;color:#44586e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #previewBar button{padding:1px 9px;font-size:12px;line-height:1.5}
+  #preview{flex:1;min-width:0;border:0;background:#fff}
   body.preview #editor{flex:1}
   #panel{flex:1;overflow:auto;padding:16px;background:var(--panel);display:none}
   body.panel #panel{display:block}
   body.panel #editor{display:none}
-  body.panel #preview{display:none}
+  body.panel #previewPane{display:none}
 
   /* ---------- 表单 ---------- */
   h2.sec{margin:0 0 4px;font-size:15px;color:var(--accent)}
@@ -150,7 +154,14 @@
     <div id="panes">
       <textarea id="editor" spellcheck="false" placeholder="从左边选一个文件开始编辑…"></textarea>
       <div id="panel"></div>
-      <iframe id="preview"></iframe>
+      <div id="previewPane">
+        <div id="previewBar">
+          <span id="previewPath">/</span>
+          <button id="btnPreviewRefresh" title="重新加载预览">⟳</button>
+          <button id="btnPreviewNew" title="在新标签打开这一页">↗</button>
+        </div>
+        <iframe id="preview"></iframe>
+      </div>
     </div>
   </section>
 </div>
@@ -269,6 +280,8 @@ async function openFile(p) {
     $('#editor').value = d.text;
     $('#curPath').textContent = p;
     $('#btnDelete').disabled = false;
+    const u = urlForFile(p);
+    if (u) CUR_URL = u;
     $('#btnInsertDay').hidden = !/^content\/niki\/niki_\d{6}\.md$/.test(p);
     const showDraft = /\.md$/.test(p);
     $('#btnToggleDraft').hidden = !showDraft;
@@ -312,10 +325,26 @@ $('#btnDelete').addEventListener('click', async () => {
 });
 
 /* ---------- 预览 ---------- */
-let PREVIEW_URL = 'http://127.0.0.1:1313/';
+let PREVIEW_URL = 'http://127.0.0.1:1313/';  // 预览站根地址
+let LIVE_URL = '';                           // 线上站地址
+let CUR_URL = '/';                           // 正在预览的页面路径
+
+/* 当前编辑的文件 -> 对应的页面地址 */
+function urlForFile(p) {
+  if (!p || !p.startsWith('content/') || !p.endsWith('.md')) return null;
+  let rel = p.slice('content/'.length).replace(/\.md$/, '');
+  if (rel === '_index') return '/';
+  if (rel.endsWith('/_index')) rel = rel.slice(0, -'/_index'.length);
+  return '/' + rel + '/';
+}
+function previewTarget() {
+  return PREVIEW_URL.replace(/\/+$/, '') + (CUR_URL || '/');
+}
 function refreshPreview() {
-  const f = $('#preview');
-  f.src = PREVIEW_URL + (PREVIEW_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+  const path = CUR_URL || '/';
+  $('#preview').src = previewTarget() + '?t=' + Date.now();
+  $('#previewPath').textContent = path;
+  $('#previewPath').title = previewTarget();
 }
 $('#btnPreview').addEventListener('click', async () => {
   const on = document.body.classList.toggle('preview');
@@ -341,7 +370,15 @@ $('#btnPreview').addEventListener('click', async () => {
   }
   refreshPreview();
 });
-$('#btnLive').addEventListener('click', () => window.open(PREVIEW_URL, '_blank'));
+$('#btnLive').addEventListener('click', () => {
+  if (LIVE_URL) window.open(LIVE_URL, '_blank');
+  else toast('读不到线上地址（hugo.toml 里的 baseURL）', 'err');
+});
+$('#btnPreviewRefresh').addEventListener('click', () => {
+  if (document.body.classList.contains('preview')) refreshPreview();
+  else $('#btnPreview').click();
+});
+$('#btnPreviewNew').addEventListener('click', () => window.open(previewTarget(), '_blank'));
 $('#btnBuild').addEventListener('click', async () => {
   toast('正在构建…');
   const r = await apiPost('/api/hugo', { action: 'build' });
@@ -834,19 +871,29 @@ async function bootstrap() {
   const d = await apiGet('/api/bootstrap');
   TREE = d.tree;
   PREVIEW_URL = d.previewUrl;
+  LIVE_URL = d.liveUrl || '';
   renderTree();
   if (CUR) {
     const r = document.querySelector(`.row[data-file="${CSS.escape(CUR)}"]`);
     if (r) r.classList.add('active');
   }
-  // 首次打开时，按地址栏的 #锚点 直达某个工具面板 / 预览
+  // 首次打开时按地址栏的 #锚点 直达：
+  //   #settings / #links / #buttons / #scripts / #nav   打开工具面板
+  //   #preview                                          进预览模式
+  //   #f=content/niki/niki_202602.md&preview             打开某个文件并预览它
   if (!BOOTED) {
     BOOTED = true;
-    const h = location.hash.replace(/^#/, '');
-    if (PANELS.includes(h)) {
-      const row = document.querySelector(`.row[data-panel="${h}"]`);
+    const raw = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (raw.startsWith('f=')) {
+      const hp = new URLSearchParams(raw);
+      const file = hp.get('f');
+      const row = file && document.querySelector(`.row[data-file="${CSS.escape(file)}"]`);
       if (row) row.click();
-    } else if (h === 'preview') {
+      if (hp.has('preview')) setTimeout(() => { if (!document.body.classList.contains('preview')) $('#btnPreview').click(); }, 500);
+    } else if (PANELS.includes(raw)) {
+      const row = document.querySelector(`.row[data-panel="${raw}"]`);
+      if (row) row.click();
+    } else if (raw === 'preview') {
       $('#btnPreview').click();
     }
   }

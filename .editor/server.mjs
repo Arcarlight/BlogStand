@@ -729,6 +729,12 @@ async function handle(req, res, url) {
   /* ---------- 路由 ---------- */
   if (p === '/api/bootstrap' && req.method === 'GET') {
     const alive = await hugoAlive();
+    let liveUrl = '';
+    try {
+      const cfg = await readText('hugo.toml');
+      const m = cfg.match(/^\s*baseURL\s*=\s*"([^"]*)"/m);
+      if (m) liveUrl = m[1];
+    } catch { /* 读不到就算了 */ }
     let gitStatus = [], gitLog = [];
     const s = await git(['status', '--porcelain']);
     gitStatus = s.stdout.split('\n').map((x) => x.trimEnd()).filter(Boolean);
@@ -738,6 +744,7 @@ async function handle(req, res, url) {
       root: ROOT,
       hugo: HUGO,
       previewUrl: hugoUrl,
+      liveUrl,
       hugoRunning: alive,
       tree: await buildTree(),
       gitStatus, gitLog,
