@@ -44,7 +44,14 @@ canonifyURLs = true
   showHitokoto  = true
   cursorSparkle = true
 
-  fontStack = '"Microsoft YaHei","微软雅黑","Trebuchet MS",Verdana,SimSun,"宋体",sans-serif'
+  # ---- 字体栈 ----
+  # 全站观感就看这一行，想整体换风格改这里就行。
+  # 现在用的是「2010 年代中文网站」的原味组合：宋体 SimSun 打头。
+  # 宋体自带点阵位图，在 12~17px 会直接以点阵渲染，出来是硬边像素、
+  # 完全没有抗锯齿——也就是当年那种感觉；18px 以上才退回描边（大标题）。
+  # 回退到改版前的现代黑体，把下面这行换成：
+  #   fontStack = '"Microsoft YaHei","微软雅黑","Trebuchet MS",Verdana,SimSun,"宋体",sans-serif'
+  fontStack = 'SimSun,"宋体","MS PGothic","ＭＳ Ｐゴシック",sans-serif'
 
   # ---- 留言板（utterances）----
   comments        = true
