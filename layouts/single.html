@@ -20,14 +20,16 @@
     </div>
 
     {{/* ============ 上一篇 / 下一篇 ============ */}}
+    {{- $prev := .PrevInSection -}}
+    {{- $next := .NextInSection -}}
+    {{- $hasPrev := and $prev $prev.IsPage -}}
+    {{- $hasNext := and $next $next.IsPage -}}
+    {{- if or $hasPrev $hasNext }}
     <div class="entry-nav clearfix">
-      <div class="entry-prev">
-        {{ with .PrevInSection }}{{ if not .IsPage }}{{ else }}&laquo; <a href="{{ .RelPermalink }}">上一篇：{{ .Title }}</a>{{ end }}{{ end }}
-      </div>
-      <div class="entry-next">
-        {{ with .NextInSection }}{{ if not .IsPage }}{{ else }}<a href="{{ .RelPermalink }}">下一篇：{{ .Title }}</a> &raquo;{{ end }}{{ end }}
-      </div>
+      <div class="entry-prev">{{ if $hasPrev }}&laquo; <a href="{{ $prev.RelPermalink }}">上一篇：{{ $prev.Title }}</a>{{ end }}</div>
+      <div class="entry-next">{{ if $hasNext }}<a href="{{ $next.RelPermalink }}">下一篇：{{ $next.Title }}</a> &raquo;{{ end }}</div>
     </div>
+    {{- end }}
 
     {{/* ============ 打赏（那个年代叫"支付宝"） ============ */}}
     <div class="entry-actions">
