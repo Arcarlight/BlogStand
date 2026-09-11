@@ -93,13 +93,35 @@
     var titleEl = document.querySelector('.entry-title');
     var pageTitle = titleEl ? titleEl.textContent.replace(/\s+/g, ' ').trim() : '';
 
-    // 找出所有「日期锚点」标题（span id 是四位数字，比如 0206）
+    /* 找出所有「日期锚点」。
+       约定是给每一天一个四位数字的 id（比如 0206、0703），
+       导航页的日历也是靠这个 id 跳转的。但标题级别一直不统一：
+         <h2><span id="0206">2月 6日</span></h2>          …… 2~6 月
+         <h1> <span id="0702">7月 2日</span></h1>         …… 7 月起
+         <span id="0703"><h3>随后是，7月 3日的接续。</h3></span>
+       所以这里不再写死 h2：正文里谁带四位数字 id，就认谁，
+       回复区插在「它所在的那个标题」之后。
+       以后新月份不管写成 h1 还是 h2，都会自动长出回复区。 */
     var heads = [];
-    var h2s = content.querySelectorAll('h2');
-    for (var i = 0; i < h2s.length; i++) {
-      var sp = h2s[i].querySelector('span[id]');
-      if (sp && /^\d{4}$/.test(sp.id)) {
-        heads.push({ el: h2s[i], day: sp.textContent.replace(/\s+/g, ' ').trim() });
+    var seen = {};
+    var marked = content.querySelectorAll('[id]');
+    for (var i = 0; i < marked.length; i++) {
+      var el = marked[i];
+      if (!/^\d{4}$/.test(el.id) || seen[el.id]) { continue; }
+      seen[el.id] = 1;
+      heads.push({
+        el: el.closest('h1,h2,h3,h4,h5,h6') || el,
+        day: el.textContent.replace(/\s+/g, ' ').trim()
+      });
+    }
+
+    /* 兜底：整页一个日期锚点都没有时（比如手写新月份忘了加 id），
+       退一步认「M月D日」开头的标题，免得又变成整页没有回复区。 */
+    if (!heads.length) {
+      var hs = content.querySelectorAll('h1,h2,h3,h4,h5,h6');
+      for (var j = 0; j < hs.length; j++) {
+        var t = hs[j].textContent.replace(/\s+/g, ' ').trim();
+        if (/^\d{1,2}月\s*\d{1,2}日/.test(t)) { heads.push({ el: hs[j], day: t }); }
       }
     }
     if (!heads.length) { return; }
@@ -141,8 +163,13 @@
       box.appendChild(btn);
       box.appendChild(body);
 
-      // 插到「下一天」的标题之前；最后一天就放到正文末尾
-      if (next) { content.insertBefore(box, next.el); }
+      // 插到「下一天」的标题之前；最后一天就放到正文末尾。
+      // 注意 next.el 未必是内容区的直接子元素（日期锚点的 span 可能被
+      // goldmark 包进 <p> 里），所以要往上找到那个直接子块再插，
+      // 否则 insertBefore 会抛异常、整页回复区全挂。
+      var ref = next ? next.el : null;
+      while (ref && ref.parentNode !== content) { ref = ref.parentNode; }
+      if (ref) { content.insertBefore(box, ref); }
       else { content.appendChild(box); }
     }
 
