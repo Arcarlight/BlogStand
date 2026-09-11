@@ -371,7 +371,67 @@ comments      = true    # 文末留言板
 
 ---
 
-## 六、部署到 GitHub Pages
+## 六、日期、字数与阅读时间
+
+### 字数和阅读时间为什么不能用 Hugo 自带的
+
+Hugo 的 `.WordCount` 是**按空白分词**算的，中文没有空格，整段中文只算一个词。
+实测偏差：
+
+| 页面 | `.WordCount` | 实际字符数 | 差 |
+| --- | --- | --- | --- |
+| niki_202607 | 176 | 7,994 | 45× |
+| ihsobijin2006 | 21 | 3,842 | **183×** |
+| blog/tabideru_20260901 | 48 | 2,494 | 52× |
+
+`.ReadingTime` 又是 词数 ÷ 213，所以全站都显示「阅读 1 分钟」。
+
+所以改用 `layouts/_partials/stats.html`：
+
+- **字数** = 正文 `plainify` 去掉 HTML 标签后，再删掉所有空白的字符数
+- **阅读时间** = 字数 ÷ `readingSpeed`（`hugo.toml`，默认 400 字/分钟）
+
+模板里用法：`{{ $st := partial "stats.html" . }}`，然后 `$st.Chars` / `$st.Minutes`。
+`post-meta.html`、`home.html`、`list.html` 都用它。
+
+### 「发布于」这些日期是哪来的
+
+内容里的日期**不是**旧站直接给的，来源分三类，改之前先看清楚：
+
+| 页面 | 日期来源 |
+| --- | --- |
+| blog 的 3 篇（tabideru / sokuzai_cattest / sokuzai-collected） | 旧站 RSS / Atom / `/blog/` 列表页的**精确时间戳**，UTC 换算成 +8 |
+| niki_202602 ~ 202609（8 个月记） | `date` = **当月第一条日记的日期**，`lastmod` = **当月最后一条日记的日期**（从正文的 `<span id="MMDD">` 锚点取） |
+| gallery / navigator / tobitaiaaken / ihsobijin2006 / self_intros | 旧站 `sitemap.xml` 的 **`lastmod`** |
+
+> ⚠️ 旧站的日记页和其他页面在 Bear Blog 里是 **page**，page **本身没有发布日期**
+> （页面里没有日期文本，`<meta>` 和 JSON-LD 里也没有 `datePublished`）。
+> 唯一可用的真实数据就是 sitemap 的 `lastmod`（= 最后修改日期）。
+> 所以上面第三类的日期语义是「最后修改」，不是「发布」——想改就直接编辑
+> 对应 .md 的 front matter。
+
+旧站的这两份数据仍在，需要时可以重新取：
+
+- sitemap：<https://hoshi-rainbowsou.bearblog.dev/sitemap.xml>（含全部 17 页 lastmod）
+- `/blog/` 列表页：<https://hoshi-rainbowsou.bearblog.dev/blog/>（3 篇博客的精确 `<time datetime>`）
+- RSS：<https://hoshi-rainbowsou.bearblog.dev/feed/?type=rss>
+
+### 时区
+
+`hugo.toml` 里设了 `timeZone = "Asia/Shanghai"`。
+
+注意 Hugo 的 `.Date.Format` 是**按时间戳自身的时区**渲染的，`timeZone` 配置不改这一点。
+所以带时间的 front matter 要写成 **+08:00 偏移**，例如：
+
+```yaml
+date: 2026-02-15T03:42:00+08:00   # = 旧站的 2026-02-14T19:42Z
+```
+
+写成 `...T19:42:00Z` 的话页面上就会显示 19:42（比实际发帖时间早 8 小时）。
+
+---
+
+## 七、部署到 GitHub Pages
 
 ### 1. 建仓库
 
@@ -409,7 +469,7 @@ git push -u origin main
 
 ---
 
-## 七、从 Bear Blog 迁移的说明
+## 八、从 Bear Blog 迁移的说明
 
 | 项目 | 处理方式 |
 | --- | --- |
@@ -442,7 +502,7 @@ git push -u origin main
 
 以上旧地址都会自动跳转到新地址，贴出去的链接不会失效。
 （另外 `/posts/niki_2026xx/` 这个中途用过的地址也保留了跳转。）
-## 八、还需要填的地方
+## 九、还需要填的地方
 
 - [ ] `hugo.toml` → `baseURL` 改成你的正式域名
 - [ ] `hugo.toml` → `email` 改成你的邮箱（页脚和「给我写信」会用到）

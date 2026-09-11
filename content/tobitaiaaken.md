@@ -1,5 +1,7 @@
 ---
 title: "想要飞的始祖小鸟【公式】"
+date: 2026-07-04
+# 上面这个日期取自老站 sitemap 的 lastmod（老站这类 page 没有发布日期）
 draft: false
 description: "[ STORY ] [ CHARACTERS ] [ DEVELOPING DIARY ] [ RESOURCE GIVEOUT ] STORY 鸟儿成群，宁静和平的繁盛之森里，坐"
 ---
