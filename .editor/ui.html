@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>星虹巢 · 本地编辑器</title>
+<style>
+  :root{
+    --bg:#eef2f7; --panel:#fff; --line:#c9d6e5; --ink:#22303f; --dim:#7488a0;
+    --accent:#1b5a9e; --accent2:#ff9900; --danger:#c0392b; --ok:#1e8e3e;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font:13px/1.6 "Microsoft YaHei","微软雅黑",-apple-system,Segoe UI,sans-serif;
+    color:var(--ink);background:var(--bg);display:flex;flex-direction:column;overflow:hidden;
+  }
+  /* ---------- 顶栏 ---------- */
+  header{
+    display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(180deg,#4c93dc,#1c5c9f);
+    color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2);z-index:10;
+  }
+  header .brand{font-weight:bold;font-size:14px;letter-spacing:.5px;text-shadow:1px 1px 0 rgba(0,0,0,.3)}
+  header .spacer{flex:1}
+  button{
+    font:inherit;padding:5px 12px;border:1px solid var(--line);border-radius:4px;background:#fff;
+    color:var(--ink);cursor:pointer;
+  }
+  button:hover{background:#f0f6ff}
+  button:disabled{opacity:.5;cursor:default}
+  button.primary{background:#ffb84d;border-color:#e08600;color:#4a2b00;font-weight:bold}
+  button.primary:hover{background:#ffc76b}
+  button.danger{background:#fff;border-color:#e0b4b0;color:var(--danger)}
+  button.danger:hover{background:#fdf0ef}
+  button.ghost{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.4);color:#fff}
+  button.ghost:hover{background:rgba(255,255,255,.28)}
+  .dirty{background:#fff3cd;color:#7a5b00;border:1px solid #e5c76b;border-radius:3px;padding:1px 7px;font-size:12px}
+
+  /* ---------- 布局 ---------- */
+  #main{flex:1;display:flex;min-height:0}
+  #side{width:250px;flex:none;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:8px 0}
+  #work{flex:1;display:flex;flex-direction:column;min-width:0}
+  #toolbar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+  #curPath{font-family:Consolas,monospace;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #toolbar .spacer{flex:1}
+  #panes{flex:1;display:flex;min-height:0}
+
+  /* ---------- 侧栏树 ---------- */
+  .grp{padding:10px 12px 4px;font-size:11px;font-weight:bold;color:var(--dim);letter-spacing:1px}
+  .row{
+    display:flex;align-items:center;gap:6px;padding:4px 12px 4px 18px;cursor:pointer;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .row:hover{background:#eef5fd}
+  .row.active{background:#dcebfa;font-weight:bold;color:var(--accent)}
+  .row.tool{padding-left:12px}
+  .row .badge{font-size:10px;color:var(--dim);margin-left:auto}
+
+  /* ---------- 编辑区 ---------- */
+  #editor{
+    flex:1;min-width:0;border:0;outline:0;padding:14px 16px;resize:none;
+    font:13.5px/1.75 Consolas,"Courier New","Microsoft YaHei",monospace;
+    background:#fbfdff;color:#22303f;tab-size:2;
+  }
+  #preview{flex:1;min-width:0;border:0;border-left:1px solid var(--line);background:#fff;display:none}
+  body.preview #preview{display:block}
+  body.preview #editor{flex:1}
+  #panel{flex:1;overflow:auto;padding:16px;background:var(--panel);display:none}
+  body.panel #panel{display:block}
+  body.panel #editor{display:none}
+  body.panel #preview{display:none}
+
+  /* ---------- 表单 ---------- */
+  h2.sec{margin:0 0 4px;font-size:15px;color:var(--accent)}
+  p.hint{margin:0 0 16px;color:var(--dim);font-size:12px}
+  .field{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px dashed #e6edf6}
+  .field label{width:190px;flex:none;font-family:Consolas,monospace;font-size:12px;color:#44586e}
+  .field input[type=text],.field textarea{
+    flex:1;font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:3px;background:#fff;
+  }
+  .field textarea{font-family:Consolas,monospace;font-size:12px;min-height:60px;resize:vertical}
+  .field input[type=checkbox]{width:16px;height:16px}
+  .field .cmt{color:#9db0c4;font-size:11px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  table.grid{width:100%;border-collapse:collapse;margin-bottom:10px}
+  table.grid th{background:#eef5fd;border:1px solid var(--line);padding:5px 8px;font-size:12px;text-align:left}
+  table.grid td{border:1px solid var(--line);padding:3px 5px}
+  table.grid input{width:100%;font:inherit;font-size:12px;border:1px solid transparent;background:transparent;padding:3px 5px;border-radius:3px}
+  table.grid input:focus{border-color:var(--accent);background:#fff;outline:0}
+  .swatch{width:34px;height:24px;border:1px solid var(--line);border-radius:3px;padding:0;vertical-align:middle}
+
+  /* ---------- 脚本卡 ---------- */
+  .card{border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:10px;background:#fbfdff}
+  .card h4{margin:0 0 6px;font-size:13px}
+  .card .meta{color:var(--dim);font-size:11px;font-family:Consolas,monospace}
+  .card .acts{margin-top:8px;display:flex;gap:6px;align-items:center}
+  .sw{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px}
+
+  #toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+    background:#22303f;color:#fff;padding:9px 18px;border-radius:5px;opacity:0;pointer-events:none;
+    transition:opacity .2s, transform .2s;z-index:99;max-width:70vw;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+  #toast.err{background:#a3352b}
+  #toast.ok{background:#1e7a3c}
+  code{background:#eef2f7;padding:1px 5px;border-radius:3px;font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">星虹巢 · 本地编辑器</span>
+  <span id="dirtyFlag" class="dirty" hidden>未保存</span>
+  <span class="spacer"></span>
+  <button class="ghost" id="btnPreview">预览 ▸</button>
+  <button class="ghost" id="btnLive">打开线上站</button>
+  <button class="ghost" id="btnBuild">构建检查</button>
+  <button class="primary" id="btnPublish">发布</button>
+</header>
+
+<div id="main">
+  <aside id="side"><div id="tree"></div></aside>
+  <section id="work">
+    <div id="toolbar">
+      <span id="curPath">← 从左边选一个文件</span>
+      <span class="spacer"></span>
+      <button id="btnSave" class="primary" disabled>保存 (Ctrl+S)</button>
+      <button id="btnDelete" class="danger" disabled>删除</button>
+    </div>
+    <div id="panes">
+      <textarea id="editor" spellcheck="false" placeholder="从左边选一个文件开始编辑…"></textarea>
+      <div id="panel"></div>
+      <iframe id="preview"></iframe>
+    </div>
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+let TREE = [], CUR = null, DIRTY = false;
+
+/* ---------- 小工具 ---------- */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function toast(msg, kind) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'show ' + (kind || '');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => { t.className = ''; }, kind === 'err' ? 6000 : 2800);
+}
+
+async function api(path, opts) {
+  const res = await fetch('/api' + path, Object.assign({
+    headers: { 'X-Editor-Token': TOKEN, 'Content-Type': 'application/json' },
+  }, opts));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+  return data;
+}
+const apiGet = (p) => api(p);
+const apiPost = (p, body) => api(p, { method: 'POST', body: JSON.stringify(body || {}) });
+
+function setDirty(v) {
+  DIRTY = v;
+  $('#dirtyFlag').hidden = !v;
+  $('#btnSave').disabled = !v;
+}
+window.addEventListener('beforeunload', (e) => { if (DIRTY) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- 侧栏 ---------- */
+function shortName(p) {
+  const b = p.split('/').pop().replace(/\.md$/, '');
+  return b;
+}
+
+function renderTree() {
+  const el = $('#tree');
+  let h = '';
+  h += '<div class="grp">工具</div>';
+  h += '<div class="row tool" data-panel="settings">⚙️ 站点设置</div>';
+  h += '<div class="row tool" data-panel="links">🔗 友情链接</div>';
+  h += '<div class="row tool" data-panel="buttons">🔲 小按钮</div>';
+  h += '<div class="row tool" data-panel="scripts">📜 脚本管理</div>';
+  for (const g of TREE) {
+    if (!g.files.length) continue;
+    h += `<div class="grp">${esc(g.group)}</div>`;
+    for (const f of g.files) {
+      h += `<div class="row" data-file="${esc(f)}" title="${esc(f)}">${esc(shortName(f))}</div>`;
+    }
+  }
+  el.innerHTML = h;
+}
+
+function markActive(sel) {
+  document.querySelectorAll('.row').forEach((r) => r.classList.remove('active'));
+  if (sel) sel.classList.add('active');
+}
+
+document.addEventListener('click', async (e) => {
+  const row = e.target.closest('.row');
+  if (!row) return;
+
+  if (row.dataset.panel) {
+    markActive(row);
+    CUR = null;
+    $('#curPath').textContent = '工具 / ' + row.textContent.trim();
+    $('#btnDelete').disabled = true;
+    setDirty(false);
+    document.body.classList.add('panel');
+    await openPanel(row.dataset.panel);
+    return;
+  }
+
+  if (row.dataset.file) {
+    if (DIRTY && !confirm('当前文件还没保存，确定要离开吗？')) return;
+    markActive(row);
+    document.body.classList.remove('panel');
+    await openFile(row.dataset.file);
+  }
+});
+
+/* ---------- 打开文件 ---------- */
+async function openFile(p) {
+  try {
+    const d = await apiGet('/api/file?p=' + encodeURIComponent(p));
+    CUR = p;
+    $('#editor').value = d.text;
+    $('#curPath').textContent = p;
+    $('#btnDelete').disabled = false;
+    setDirty(false);
+    if (document.body.classList.contains('preview')) refreshPreview();
+  } catch (e) { toast('打开失败: ' + e.message, 'err'); }
+}
+
+async function saveFile() {
+  if (!CUR) return;
+  try {
+    await apiPost('/api/file', { p: CUR, text: $('#editor').value });
+    setDirty(false);
+    toast('已保存 ' + CUR, 'ok');
+    if (document.body.classList.contains('preview')) refreshPreview();
+  } catch (e) { toast('保存失败: ' + e.message, 'err'); }
+}
+
+$('#editor').addEventListener('input', () => setDirty(true));
+$('#btnSave').addEventListener('click', saveFile);
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveFile(); }
+});
+
+$('#btnDelete').addEventListener('click', async () => {
+  if (!CUR) return;
+  if (!confirm(`确定删除 ${CUR} 吗？\n（会先挪到 .editor/trash/，可以手动找回）`)) return;
+  try {
+    await apiPost('/api/delete', { p: CUR });
+    toast('已删除（可在 .editor/trash 找回）', 'ok');
+    CUR = null; $('#editor').value = ''; $('#curPath').textContent = '← 从左边选一个文件';
+    $('#btnDelete').disabled = true; setDirty(false);
+    await bootstrap();
+  } catch (e) { toast('删除失败: ' + e.message, 'err'); }
+});
+
+/* ---------- 预览 ---------- */
+let PREVIEW_URL = 'http://127.0.0.1:1313/';
+function refreshPreview() {
+  const f = $('#preview');
+  f.src = PREVIEW_URL + (PREVIEW_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+}
+$('#btnPreview').addEventListener('click', async () => {
+  document.body.classList.toggle('preview');
+  const on = document.body.classList.contains('preview');
+  $('#btnPreview').textContent = on ? '预览 ▾' : '预览 ▸';
+  if (on) {
+    document.body.classList.remove('panel');
+    const s = await apiPost('/api/hugo', { action: 'status' });
+    if (!s.running) {
+      toast('正在启动预览服务器…');
+      const r = await apiPost('/api/hugo', { action: 'start' });
+      toast(r.ok ? '预览已就绪' : (r.note || '启动失败'), r.ok ? 'ok' : 'err');
+    }
+    refreshPreview();
+  } else { $('#preview').src = 'about:blank'; }
+});
+$('#btnLive').addEventListener('click', () => window.open(PREVIEW_URL, '_blank'));
+$('#btnBuild').addEventListener('click', async () => {
+  toast('正在构建…');
+  const r = await apiPost('/api/hugo', { action: 'build' });
+  toast(r.ok ? '构建通过，没有报错' : ('构建有问题：\n' + r.out).slice(0, 300), r.ok ? 'ok' : 'err');
+});
+
+/* ---------- 发布 ---------- */
+$('#btnPublish').addEventListener('click', async () => {
+  if (DIRTY) { toast('先保存当前文件再发布', 'err'); return; }
+  const g = await apiGet('/api/git');
+  if (!g.status.length) { toast('没有需要发布的改动'); return; }
+  const listing = g.status.map((s) => '  ' + s).join('\n');
+  const msg = prompt(`将要提交以下改动：\n\n${listing}\n\n写一句这次的更新说明：`, '更新');
+  if (msg === null) return;
+  toast('正在提交并推送…');
+  const r = await apiPost('/api/git', { action: 'commitpush', message: msg || '更新' });
+  if (r.quiet) { toast(r.note); return; }
+  if (r.ok) { toast('推送成功，GitHub 大约 1 分钟后更新线上', 'ok'); await bootstrap(); }
+  else {
+    const bad = r.steps.find((s) => s.code !== 0);
+    toast('出错了：\n' + (bad ? bad.out : ''), 'err');
+  }
+});
+
+/* ---------- 工具面板 ---------- */
+function showPanel(html) { $('#panel').innerHTML = html; }
+
+async function openPanel(which) {
+  if (which === 'settings') return renderSettings();
+  if (which === 'links')    return renderLinks();
+  if (which === 'buttons')  return renderButtons();
+  if (which === 'scripts')  return renderScripts();
+}
+
+/* --- 站点设置 --- */
+async function renderSettings() {
+  const d = await apiGet('/api/params');
+  const label = {
+    authorName:'站长昵称', authorHandle:'网名/ID', email:'邮箱', avatar:'头像路径',
+    slogan:'首页标语', notice:'顶部滚动公告', aboutDesc:'侧边栏自我介绍',
+    footerText:'页脚文字', icp:'备案号', startDate:'建站日期（算运行天数）',
+    busuanzi:'访客计数器', showClock:'时钟挂件', showHitokoto:'一言挂件',
+    cursorSparkle:'鼠标跟随星星', comments:'文末留言板',
+    utterancesRepo:'留言板仓库', utterancesIssue:'留言板 issue 名', fontStack:'字体栈',
+  };
+  let h = '<h2 class="sec">站点设置</h2><p class="hint">对应 <code>hugo.toml</code> 的 <code>[params]</code>。改完点下面的保存，注释会保留。</p><form id="fSettings">';
+  for (const k of d.order) {
+    const it = d.items[k];
+    const nm = label[k] || k;
+    if (it.type === 'bool') {
+      h += `<div class="field"><label title="${esc(k)}">${esc(nm)}</label>
+        <input type="checkbox" data-k="${esc(k)}" data-t="bool" ${it.value ? 'checked' : ''}>
+        <span class="cmt">${esc(k)}</span></div>`;
+    } else if (String(it.value).length > 60 || k === 'fontStack') {
+      h += `<div class="field"><label title="${esc(k)}">${esc(nm)}</label>
+        <textarea data-k="${esc(k)}" data-t="string">${esc(it.value)}</textarea></div>`;
+    } else {
+      h += `<div class="field"><label title="${esc(k)}">${esc(nm)}</label>
+        <input type="text" data-k="${esc(k)}" data-t="string" value="${esc(it.value)}">
+        ${it.comment ? `<span class="cmt">${esc(it.comment)}</span>` : ''}</div>`;
+    }
+  }
+  h += '</form><div style="margin-top:16px"><button class="primary" id="btnSaveSettings">保存设置</button></div>';
+  showPanel(h);
+
+  $('#btnSaveSettings').addEventListener('click', async () => {
+    const updates = {};
+    $('#fSettings').querySelectorAll('[data-k]').forEach((el) => {
+      const t = el.dataset.t;
+      updates[el.dataset.k] = t === 'bool'
+        ? { type: 'bool', value: el.checked }
+        : { type: 'string', value: el.value };
+    });
+    await apiPost('/api/params', { updates });
+    toast('设置已保存', 'ok');
+    await bootstrap();
+  });
+}
+
+/* --- 友情链接 / 小按钮 --- */
+async function renderLinks() {
+  const d = await apiGet('/api/list/links');
+  let h = '<h2 class="sec">友情链接</h2><p class="hint">显示在侧边栏「友情链接」挂件里，对应 <code>data/links.toml</code>。</p>';
+  h += '<table class="grid"><thead><tr><th style="width:22%">名称</th><th style="width:38%">网址</th><th>说明</th><th style="width:40px"></th></tr></thead><tbody id="tbLinks">';
+  d.items.forEach((it, i) => {
+    h += `<tr>
+      <td><input data-f="name" data-i="${i}" value="${esc(it.name || '')}"></td>
+      <td><input data-f="url"  data-i="${i}" value="${esc(it.url || '')}"></td>
+      <td><input data-f="desc" data-i="${i}" value="${esc(it.desc || '')}"></td>
+      <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+  });
+  h += '</tbody></table>';
+  h += '<button id="btnAddLink">＋ 加一条</button> <button class="primary" id="btnSaveLinks">保存</button>';
+  showPanel(h);
+
+  let items = d.items.map((x) => Object.assign({}, x));
+  const collect = () => {
+    document.querySelectorAll('#tbLinks input[data-f]').forEach((el) => {
+      items[+el.dataset.i][el.dataset.f] = el.value;
+    });
+  };
+  document.querySelectorAll('#tbLinks [data-del]').forEach((b) => b.addEventListener('click', () => {
+    collect(); items.splice(+b.dataset.del, 1); renderLinksWith(items);
+  }));
+  $('#btnAddLink').addEventListener('click', () => {
+    collect(); items.push({ name: '', url: 'https://', desc: '' }); renderLinksWith(items);
+  });
+  $('#btnSaveLinks').addEventListener('click', async () => {
+    collect();
+    await apiPost('/api/list/links', { items });
+    toast('友情链接已保存', 'ok');
+  });
+}
+function renderLinksWith(items) {
+  const d = { items };
+  const h0 = $('#panel').innerHTML;
+  // 简单起见：把数据塞回，重画
+  const save = window.__linksTmp || {};
+  window.__linksTmp = items;
+  renderLinksFrom(items);
+}
+async function renderLinksFrom(items) {
+  let h = '<h2 class="sec">友情链接</h2><p class="hint">显示在侧边栏「友情链接」挂件里，对应 <code>data/links.toml</code>。</p>';
+  h += '<table class="grid"><thead><tr><th style="width:22%">名称</th><th style="width:38%">网址</th><th>说明</th><th style="width:40px"></th></tr></thead><tbody id="tbLinks">';
+  items.forEach((it, i) => {
+    h += `<tr>
+      <td><input data-f="name" data-i="${i}" value="${esc(it.name || '')}"></td>
+      <td><input data-f="url"  data-i="${i}" value="${esc(it.url || '')}"></td>
+      <td><input data-f="desc" data-i="${i}" value="${esc(it.desc || '')}"></td>
+      <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+  });
+  h += '</tbody></table>';
+  h += '<button id="btnAddLink">＋ 加一条</button> <button class="primary" id="btnSaveLinks">保存</button>';
+  showPanel(h);
+  const collect = () => {
+    document.querySelectorAll('#tbLinks input[data-f]').forEach((el) => {
+      items[+el.dataset.i][el.dataset.f] = el.value;
+    });
+  };
+  document.querySelectorAll('#tbLinks [data-del]').forEach((b) => b.addEventListener('click', () => {
+    collect(); items.splice(+b.dataset.del, 1); renderLinksFrom(items);
+  }));
+  $('#btnAddLink').addEventListener('click', () => {
+    collect(); items.push({ name: '', url: 'https://', desc: '' }); renderLinksFrom(items);
+  });
+  $('#btnSaveLinks').addEventListener('click', async () => {
+    collect();
+    await apiPost('/api/list/links', { items });
+    toast('友情链接已保存', 'ok');
+  });
+}
+
+async function renderButtons() {
+  const d = await apiGet('/api/list/buttons');
+  const draw = (items) => {
+    let h = '<h2 class="sec">88×31 小按钮</h2><p class="hint">侧边栏底部那排小方块，纯 CSS 画的，对应 <code>data/buttons.toml</code>。</p>';
+    h += '<table class="grid"><thead><tr><th>第一行</th><th>第二行</th><th style="width:26%">网址</th><th style="width:70px">底色</th><th style="width:70px">字色</th><th style="width:110px">预览</th><th style="width:40px"></th></tr></thead><tbody id="tbBtns">';
+    items.forEach((it, i) => {
+      h += `<tr>
+        <td><input data-f="line1" data-i="${i}" value="${esc(it.line1 || '')}"></td>
+        <td><input data-f="line2" data-i="${i}" value="${esc(it.line2 || '')}"></td>
+        <td><input data-f="url"   data-i="${i}" value="${esc(it.url || '')}"></td>
+        <td><input type="color" class="swatch" data-f="bg" data-i="${i}" value="${esc(it.bg || '#1b5a9e')}"></td>
+        <td><input type="color" class="swatch" data-f="fg" data-i="${i}" value="${esc(it.fg || '#ffffff')}"></td>
+        <td><span style="display:inline-flex;flex-direction:column;justify-content:center;align-items:center;width:88px;height:31px;border:1px solid #999;background:${esc(it.bg||'#1b5a9e')};color:${esc(it.fg||'#fff')};font-size:8px;line-height:1.1;overflow:hidden">
+          <b style="font-size:9px">${esc(it.line1||'')}</b>${esc(it.line2||'')}</span></td>
+        <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+    });
+    h += '</tbody></table><button id="btnAddBtn">＋ 加一个</button> <button class="primary" id="btnSaveBtns">保存</button>';
+    showPanel(h);
+
+    const collect = () => {
+      document.querySelectorAll('#tbBtns input[data-f]').forEach((el) => {
+        items[+el.dataset.i][el.dataset.f] = el.value;
+      });
+    };
+    document.querySelectorAll('#tbBtns [data-del]').forEach((b) => b.addEventListener('click', () => {
+      collect(); items.splice(+b.dataset.del, 1); draw(items);
+    }));
+    $('#btnAddBtn').addEventListener('click', () => {
+      collect(); items.push({ line1: 'NEW', line2: 'BUTTON', url: '#', bg: '#1b5a9e', fg: '#ffffff' }); draw(items);
+    });
+    $('#btnSaveBtns').addEventListener('click', async () => {
+      collect();
+      await apiPost('/api/list/buttons', { items });
+      toast('小按钮已保存', 'ok');
+    });
+  };
+  draw(d.items.map((x) => Object.assign({}, x)));
+}
+
+/* --- 脚本管理 --- */
+async function renderScripts() {
+  const d = await apiGet('/api/scripts');
+  let h = '<h2 class="sec">脚本管理</h2>';
+  h += '<p class="hint">放在 <code>static/js/</code> 下的脚本。打开开关就会自动往 <code>layouts/baseof.html</code> 里插入 <code>&lt;script&gt;</code>，全站生效。';
+  h += '想加特效就往这儿加文件，比如鼠标拖尾、飘落的樱花、访客地图……</p>';
+
+  h += '<h3 style="font-size:13px;color:#44586e">本地脚本</h3>';
+  if (!d.files.length) h += '<p class="hint">还没有脚本。</p>';
+  const builtin = new Set(d.builtin || []);
+  for (const f of d.files) {
+    const on = d.loaded.includes(f);
+    const isBuiltin = builtin.has(f);
+    h += `<div class="card">
+      <h4>${esc(f)}${isBuiltin ? ' <span style="font-size:11px;color:#7488a0;font-weight:400">· 内置</span>' : ''}</h4>
+      <div class="meta">static/js/${esc(f)}</div>
+      <div class="acts">
+        <label class="sw"><input type="checkbox" data-toggle="${esc(f)}" ${on ? 'checked' : ''} ${isBuiltin ? 'disabled' : ''}> 在网站上加载</label>
+        ${isBuiltin ? '<span style="font-size:11px;color:#9db0c4">内置脚本由 layouts/baseof.html 直接引入，开关不在这里</span>' : ''}
+        <button data-edit="${esc(f)}">编辑</button>
+        <button class="danger" data-rm="${esc(f)}">删除</button>
+      </div></div>`;
+  }
+  h += '<button id="btnNewJs">＋ 新建脚本</button>';
+
+  h += '<h3 style="font-size:13px;color:#44586e;margin-top:24px">外部脚本</h3>';
+  h += '<p class="hint">贴第三方 CDN 的地址，每行一个。例如统计、评论、字体之类的挂件。</p>';
+  h += `<textarea id="extJs" style="width:100%;min-height:80px;font:12px/1.6 Consolas,monospace;padding:8px;border:1px solid var(--line);border-radius:4px" placeholder="https://cdn.example.com/widget.js">${esc(d.external.map((e) => e.src).join('\n'))}</textarea>`;
+  h += '<div style="margin-top:8px"><button class="primary" id="btnSaveExt">保存外部脚本</button></div>';
+  showPanel(h);
+
+  document.querySelectorAll('[data-toggle]').forEach((cb) => cb.addEventListener('change', async () => {
+    await apiPost('/api/scripts/toggle', { name: cb.dataset.toggle, on: cb.checked });
+    toast(cb.checked ? '已开启加载' : '已关闭加载', 'ok');
+  }));
+  document.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', async () => {
+    const name = b.dataset.edit;
+    document.body.classList.remove('panel');
+    CUR = 'static/js/' + name;
+    const f = await apiGet('/api/file?p=' + encodeURIComponent(CUR));
+    $('#editor').value = f.text;
+    $('#curPath').textContent = CUR;
+    $('#btnDelete').disabled = false;
+    setDirty(false);
+    document.querySelectorAll('.row').forEach((r) => r.classList.remove('active'));
+  }));
+  document.querySelectorAll('[data-rm]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('删除脚本 ' + b.dataset.rm + ' ？')) return;
+    await apiPost('/api/scripts/delete', { name: b.dataset.rm });
+    toast('已删除', 'ok');
+    renderScripts();
+  }));
+  $('#btnNewJs').addEventListener('click', async () => {
+    const name = prompt('新脚本文件名（英文，.js 结尾）：', 'effect.js');
+    if (!name) return;
+    await apiPost('/api/scripts/save', { name, text: '// ' + name + '\n(function () {\n  \'use strict\';\n\n})();\n' });
+    toast('已创建，记得把右边开关打开', 'ok');
+    renderScripts();
+  });
+  $('#btnSaveExt').addEventListener('click', async () => {
+    const urls = $('#extJs').value.split('\n').map((s) => s.trim()).filter(Boolean);
+    await apiPost('/api/scripts/external', { urls });
+    toast('外部脚本已保存', 'ok');
+  });
+}
+
+/* ---------- 启动 ---------- */
+async function bootstrap() {
+  const d = await apiGet('/api/bootstrap');
+  TREE = d.tree;
+  PREVIEW_URL = d.previewUrl;
+  renderTree();
+  if (CUR) {
+    const r = document.querySelector(`.row[data-file="${CSS.escape(CUR)}"]`);
+    if (r) r.classList.add('active');
+  }
+}
+bootstrap().catch((e) => toast('初始化失败: ' + e.message, 'err'));
+</script>
+</body>
+</html>
