@@ -72,7 +72,19 @@ timeZone = "Asia/Shanghai"
   # 一个灰边都没有；12px 会变成 18 设备像素，正好错过，就发虚了。
   # 打开后：侧栏 / meta / 页脚 / 标签这些次级文字换成 11px 宋体（锐利），
   # 正文仍然是无衬线 13px —— 11px 宋体物理尺寸只有 6pt 左右，读长文太累。
-  pixelSongSmall = true
+  pixelSongSmall = false
+
+  # ---- 像素字体模式（VonwaonBitmap 12px）----
+  # 打开后全站换成点阵字体。这份字体是「轮廓即像素方块」的矢量字体，
+  # unitsPerEm=1200、每个设计像素正好 100 单位，所以只要满足
+  #     字号(CSS px) × devicePixelRatio = 12 的整数倍
+  # 方块就能对齐像素网格。页面里的 JS 会按当前 DPR 自动算字号
+  # （实测：100% -> 12px，150% -> 16px，200% -> 18px）。
+  # 注意两条硬规则：
+  #   1. 不能加粗。实测加粗后灰边从 39% 涨到 52%，点阵全毁，所以代码里把
+  #      font-weight 统一压成 normal，标题改用更大的字号来区分层级。
+  #   2. 字号不能随便写。改了字号就必须保证 字号 x DPR 仍是 12 的整数倍。
+  pixelFont = true
 
   # ---- 留言板（utterances）----
   comments        = true

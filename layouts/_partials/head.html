@@ -17,6 +17,52 @@
     <link rel="stylesheet" href="{{ $css.RelPermalink }}">
   {{ end }}
 
+  {{/* ============ 像素字体：整倍缩放 ============
+       VonwaonBitmap 的设计栅格是 12px，只有满足
+          字号(CSS px) × devicePixelRatio = 12 的整数倍
+       方块才会对齐像素网格。所以这里在首屏渲染之前就把字号算好写进
+       CSS 变量，避免先按普通字号画一遍再跳。
+       放在 head 里内联执行（不用 defer），否则会闪一下。
+       --px    = 基础字号   (12 x k)
+       --px-lg = 标题       (12 x (k+1))
+       --px-xl = 大标题     (12 x (k+2))
+       k 取让基础字号最接近 15px 的那个整数；实在没有合适的
+       （极端缩放）就退回普通字体，不硬凑。 */}}
+  {{ if site.Params.pixelFont }}
+  <script>
+    (function () {
+      var BASE = 12, TARGET = 15, MIN = 10, MAX = 26;
+      var dpr = window.devicePixelRatio || 1;
+      var k = 0, bestErr = 1e9;
+      for (var i = 1; i <= 8; i++) {
+        var s = BASE * i / dpr;
+        if (s < MIN || s > MAX) continue;
+        var e = Math.abs(s - TARGET);
+        if (e < bestErr - 0.001) { bestErr = e; k = i; }
+      }
+      var root = document.documentElement;
+      if (!k) { return; }
+      root.className += ' pxfont';
+      // 乘除都按设备像素算，保证 字号 x dpr 正好是 12k（用 toFixed 去掉浮点尾巴）
+      var px = function (n) { return (BASE * n / dpr).toFixed(5) + 'px'; };
+      root.style.setProperty('--px', px(k));
+      root.style.setProperty('--px-lg', px(k + 1));
+      root.style.setProperty('--px-xl', px(k + 2));
+      root.style.setProperty('--px-sm', k > 1 ? px(k - 1) : px(k));
+      // 缩放率/页面缩放变了要重算（matchMedia 能捕获 DPR 变化）
+      var watch = function () {
+        var mq = window.matchMedia('(resolution: ' + (window.devicePixelRatio || 1) + 'dppx)');
+        var fire = function () { location.reload(); };
+        if (mq.addEventListener) { mq.addEventListener('change', fire, { once: true }); }
+        else if (mq.addListener) { mq.addListener(fire); }
+      };
+      watch();
+    })();
+  </script>
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="{{ "fonts/vonwaon-12px.woff2" | relURL }}">
+  {{ end }}
+
   {{/* RSS / Atom 自动发现 */}}
   {{ range .AlternativeOutputFormats -}}
   <link rel="{{ .Rel }}" type="{{ .MediaType.Type }}" href="{{ .Permalink }}" title="{{ site.Title }}">

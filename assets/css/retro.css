@@ -1125,3 +1125,83 @@ img { border: 0; }
 @media (max-width: 700px) {
   #header-right { display: none; }
 }
+
+/* ============================================================
+   25. 像素字体模式（VonwaonBitmap 12px，hugo.toml: pixelFont）
+   ------------------------------------------------------------
+   这份字体是「轮廓即像素方块」的矢量字体：unitsPerEm = 1200，
+   每个设计像素正好 100 单位（已全量核对，没有一个坐标落在网格外）。
+   所以它锐利的**充要条件**是
+       字号(CSS px) × devicePixelRatio = 12 的整数倍
+   字号由 head.html 里的内联脚本按当前 DPR 算好，写进 --px / --px-lg /
+   --px-xl。**千万不要在这里写死字号**，改了就会掉出整数倍。
+
+   两条硬规则：
+   1. 不能加粗。实测加粗后中间灰阶像素占比从 39% 涨到 52%，方块边缘全糊，
+      所以这里把 font-weight 统一压成 normal，层级改用字号表达。
+   2. 需要等宽或高亮的零件（LED 时钟、计数器数字、88×31 按钮）留在原字体，
+      它们靠加粗和等宽表达，换点阵只会更糟。
+   ============================================================ */
+{{ if site.Params.pixelFont }}
+@font-face {
+  font-family: 'VonwaonBitmap';
+  /* 用相对路径而不是 absURL：CSS 发布在 /xxx/css/retro.css，
+     ../fonts/ 就是 /xxx/fonts/。这样换域名、或者用 localhost/127.0.0.1
+     等不同主机名访问开发服务器时都不会变成跨域请求 —— 字体是 CORS 模式
+     加载的，一旦跨域又没有 ACAO 头就会被浏览器直接拒掉（实测踩过）。 */
+  src: url(../fonts/vonwaon-12px.woff2) format('woff2');
+  font-display: swap;
+}
+
+/* 全站换字体。字号统一取自 --px，保证设备像素数是 12 的整数倍 */
+html.pxfont body,
+html.pxfont body * {
+  font-family: 'VonwaonBitmap', monospace;
+  font-weight: normal;
+  font-size: var(--px, 16px);
+}
+
+/* 层级：不能靠加粗，只能靠字号。--px-lg / --px-xl 同样是 12 的整数倍 */
+html.pxfont .site-name,
+html.pxfont .error-code { font-size: var(--px-xl, 32px); }
+html.pxfont .entry-title,
+html.pxfont .post-title,
+html.pxfont .sub-title,
+html.pxfont .link-name,
+html.pxfont .entry-content h1,
+html.pxfont .entry-content h2,
+html.pxfont .error-text,
+html.pxfont .about-name { font-size: var(--px-lg, 24px); }
+html.pxfont .entry-content h3,
+html.pxfont .entry-content h4 { font-size: var(--px-lg, 24px); }
+html.pxfont .tagcloud .tag-item sup,
+html.pxfont sup { font-size: var(--px-sm, 8px); }
+html.pxfont .pd-y { font-size: var(--px-sm, 8px); }
+
+/* 这些零件保持原字体：它们靠加粗 / 等宽 / 固定尺寸表达 */
+html.pxfont .retro-clock,
+html.pxfont .counter-num,
+html.pxfont .btn88,
+html.pxfont .btn88 span {
+  font-family: Tahoma, Consolas, "Courier New", monospace;
+  font-weight: bold;
+}
+html.pxfont .retro-clock { font-size: 24px; }
+html.pxfont .counter-num { font-size: 12px; }
+html.pxfont .btn88-l1 { font-size: 8px; }
+html.pxfont .btn88-l2 { font-size: 9px; }
+/* 面板标题条是加粗蓝底白字，换点阵会糊，留原字体 */
+html.pxfont .widget-title,
+html.pxfont .box-title {
+  font-family: {{ site.Params.fontStack }};
+  font-weight: bold;
+}
+html.pxfont .widget-title { font-size: 12px; }
+html.pxfont .box-title { font-size: 13px; }
+/* 点阵下没有粗体，用「反白」代替原来的 <strong> 强调 */
+html.pxfont #footer strong,
+html.pxfont .footer-tips strong { background: #ffff00; color: #cc0000; }
+/* 正文行高：16px 点阵配 1.5 倍行距，接近当年的密排 */
+html.pxfont .entry-content { line-height: 1.55; }
+html.pxfont body { line-height: 1.55; }
+{{ end }}
