@@ -26,6 +26,10 @@
        --px    = 基础字号   (12 x k)
        --px-lg = 标题       (12 x (k+1))
        --px-xl = 大标题     (12 x (k+2))
+       --devpx = 一个「设备像素」等于多少 CSS px（= 1/dpr）
+                 给假粗体用：点阵字体没有粗体字形，正文里的 <b> 靠
+                 text-shadow 错开整一个设备像素再画一遍来加粗，
+                 偏移量必须是整数个设备像素，否则又会糊。
        k 取让基础字号最接近 15px 的那个整数；实在没有合适的
        （极端缩放）就退回普通字体，不硬凑。 */}}
   {{ if site.Params.pixelFont }}
@@ -49,6 +53,8 @@
       root.style.setProperty('--px-lg', px(k + 1));
       root.style.setProperty('--px-xl', px(k + 2));
       root.style.setProperty('--px-sm', k > 1 ? px(k - 1) : px(k));
+      // 一个设备像素 = 1/dpr 个 CSS px（假粗体的偏移量，必须整数设备像素）
+      root.style.setProperty('--devpx', (1 / dpr).toFixed(5) + 'px');
       // 缩放率/页面缩放变了要重算（matchMedia 能捕获 DPR 变化）
       var watch = function () {
         var mq = window.matchMedia('(resolution: ' + (window.devicePixelRatio || 1) + 'dppx)');

@@ -1289,9 +1289,23 @@ html.pxfont .widget-title {
 }
 html.pxfont .box-title { font-size: 13px !important; }
 
-/* 点阵下没有粗体，用「反白」代替原来的 <strong> 强调 */
+/* 点阵下没有粗体，用「反白」代替页脚里的 <strong> 强调 */
 html.pxfont #footer strong,
 html.pxfont .footer-tips strong { background: #ffff00; color: #cc0000; }
+
+/* 正文里的 <b>/<strong>：假粗体。
+   点阵字体没有粗体字形，浏览器合成的粗体会把方块边缘糊掉（实测灰边
+   39% -> 52%），所以上面把 font-weight 统一压成了 normal —— 结果是正文里
+   加粗**完全看不出来**（实测 computed font-weight 400，和普通 span 一模一样）。
+   这里的办法是「再画一遍」：用 text-shadow 把同一个字形往右错开**整一个
+   设备像素**，两遍都是像素对齐的，不会产生半像素灰边，笔画稳定地从
+   2 设备像素变成 3 设备像素（实测横切游程 2px×55 -> 3px×39）。
+   偏移量必须走 --devpx（= 1/dpr），写死 1px 的话 150% 缩放下就是 1.5 个
+   设备像素，又会糊。 */
+html.pxfont .entry-content b,
+html.pxfont .entry-content strong {
+  text-shadow: var(--devpx, 1px) 0 0 currentColor !important;
+}
 
 /* 正文行高：16px 点阵配 1.55 倍行距，接近当年的密排 */
 html.pxfont body { line-height: 1.55; }

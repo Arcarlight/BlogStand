@@ -3,10 +3,10 @@ title: "【素材】Cattest使用素材公开"
 date: 2026-02-15T03:42:00+08:00
 draft: false
 aliases: ["/sokuzai_cattest/"]
-description: "这是我试用RPGMAKER MV制作的游戏《Cattest》的使用素材，不知道对各位有没有用，不过暂且也公布出来吧*（虽然不全就是了）* 素材 链接 图标组 跳转 窗口素材 跳转 "
+description: "这是我试用RPGMAKER MV制作的游戏《Cattest》的使用素材，不知道对各位有没有用，不过暂且也公布出来吧（虽然不全就是了） 素材 链接 图标组 跳转 窗口素材 跳转 "
 ---
 
-<p>这是我试用RPGMAKER MV制作的游戏《Cattest》的使用素材，不知道对各位有没有用，不过暂且也公布出来吧*（虽然不全就是了）*</p>
+<p>这是我试用RPGMAKER MV制作的游戏《Cattest》的使用素材，不知道对各位有没有用，不过暂且也公布出来吧<i>（虽然不全就是了）</i></p>
 <table>
 <thead>
 <tr>
