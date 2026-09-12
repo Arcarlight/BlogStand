@@ -12,7 +12,7 @@
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
   body{
-    font:13px/1.6 "Microsoft YaHei","微软雅黑",-apple-system,Segoe UI,sans-serif;
+    font:13px/1.6 "Microsoft YaHei","微软雅黑","PingFang SC","Hiragino Sans GB",-apple-system,"Segoe UI",sans-serif;
     color:var(--ink);background:var(--bg);display:flex;flex-direction:column;overflow:hidden;
   }
   /* ---------- 顶栏 ---------- */
@@ -70,7 +70,7 @@
   /* ---------- 编辑区 ---------- */
   #editor{
     flex:1;min-width:0;border:0;outline:0;padding:14px 16px;resize:none;
-    font:13.5px/1.75 Consolas,"Courier New","Microsoft YaHei",monospace;
+    font:13.5px/1.75 Consolas,"SF Mono",Menlo,Monaco,"Courier New","Microsoft YaHei","PingFang SC",monospace;
     background:#fbfdff;color:#22303f;tab-size:2;
   }
   #previewPane{flex:1;min-width:0;display:none;flex-direction:column;border-left:1px solid var(--line);background:#fff}
@@ -1192,6 +1192,15 @@ const PANELS = ['settings', 'links', 'buttons', 'scripts', 'nav'];
 
 /** 恢复上次用的图片宽度、给顶栏的新建按钮接线 */
 function initToolbar() {
+  // macOS 上快捷键是 ⌘ 不是 Ctrl，按钮提示跟着换（代码里两种都认）
+  const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+  if (isMac) {
+    const mod = '⌘';
+    $('#btnSave').title = mod + 'S';
+    $('#btnBold').title = '加粗（' + mod + 'B）';
+    $('#btnItalic').title = '倾斜（' + mod + 'I）';
+  }
+
   const saved = localStorage.getItem('editor.imgWidth') || '';
   const sel = $('#imgWidthSel');
   if (saved && saved !== 'custom' && /^\d+%$/.test(saved)) {

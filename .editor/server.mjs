@@ -48,22 +48,39 @@ function openBrowser(url) {
   } catch { /* 打不开就算了，手动访问即可 */ }
 }
 
+const IS_WIN = process.platform === 'win32';
+const IS_MAC = process.platform === 'darwin';
+
 function findHugo() {
-  const guess = path.join(
-    process.env.LOCALAPPDATA || '',
-    'Microsoft', 'WinGet', 'Packages',
-    'Hugo.Hugo.Extended_Microsoft.Winget.Source_8wekyb3d8bbwe', 'hugo.exe'
-  );
-  if (fs.existsSync(guess)) return guess;
-  // 去 PATH 里找完整路径——有了完整路径就不用 shell:true，也就没有 DEP0190 警告
+  // 各个系统上常见的安装位置先看一眼（有完整路径就不用 shell:true，
+  // 也就没有 Node 的 DEP0190 警告）
+  const guesses = IS_WIN
+    ? [path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Packages',
+        'Hugo.Hugo.Extended_Microsoft.Winget.Source_8wekyb3d8bbwe', 'hugo.exe')]
+    : [
+        // macOS：Homebrew（Apple 芯片 / Intel）、MacPorts
+        '/opt/homebrew/bin/hugo', '/usr/local/bin/hugo', '/opt/local/bin/hugo',
+        // Linux
+        '/snap/bin/hugo', '/usr/bin/hugo', '/usr/local/bin/hugo',
+      ];
+  for (const g of guesses) if (g && fs.existsSync(g)) return g;
+  // 再去 PATH 里找：Windows 用 where、macOS/Linux 用 which
   try {
-    const out = execFileSync('where', ['hugo'], { encoding: 'utf8', windowsHide: true });
+    const out = execFileSync(IS_WIN ? 'where' : 'which', ['hugo'],
+      { encoding: 'utf8', windowsHide: true });
     const first = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)[0];
     if (first && fs.existsSync(first)) return first;
   } catch { /* 找不到就算了 */ }
   return 'hugo';
 }
 const HUGO = findHugo();
+
+/** hugo 到底能不能跑（找不到就只影响预览/构建/发布，编辑照常） */
+let hugoOk = false;
+try {
+  execFileSync(HUGO, ['version'], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+  hugoOk = true;
+} catch { /* 没装或者不在 PATH 里 */ }
 
 /** 解析出项目内的绝对路径，并挡住越界访问 */
 function safePath(rel) {
@@ -187,11 +204,23 @@ async function hugoStart() {
 
 async function hugoStop() {
   if (hugoProc && hugoProc.pid) {
-    await run('taskkill', ['/PID', String(hugoProc.pid), '/T', '/F']);
+    if (IS_WIN) {
+      await run('taskkill', ['/PID', String(hugoProc.pid), '/T', '/F']);
+    } else {
+      // macOS / Linux：hugo server 是单个进程，先好好请它退，赖着不走再强杀
+      try { process.kill(hugoProc.pid, 'SIGTERM'); } catch { /* 已经没了 */ }
+      await sleep(300);
+      try { process.kill(hugoProc.pid, 'SIGKILL'); } catch { /* 已经没了 */ }
+    }
     hugoProc = null;
   }
-  await run('powershell', ['-NoProfile', '-Command',
-    'Get-Process hugo -ErrorAction SilentlyContinue | Stop-Process -Force']);
+  // 兜底：还有别的 hugo 占着端口就一并收掉
+  if (IS_WIN) {
+    await run('powershell', ['-NoProfile', '-Command',
+      'Get-Process hugo -ErrorAction SilentlyContinue | Stop-Process -Force']);
+  } else {
+    await run('pkill', ['-f', 'hugo server']);
+  }
   await sleep(400);
   hugoUrl = `http://127.0.0.1:${HUGO_PORT}/`;
   return { ok: !(await hugoAlive()) };
@@ -1073,7 +1102,15 @@ server.listen(PORT, '127.0.0.1', async () => {
   console.log('');
   console.log('   地址:  http://127.0.0.1:' + PORT + '/');
   console.log('   项目:  ' + ROOT);
-  console.log('   hugo:  ' + HUGO);
+  console.log('   node:  ' + process.version + '  (' + process.platform + ')');
+  console.log('   hugo:  ' + HUGO + (hugoOk ? '' : '   ← 没找到！'));
+  if (!hugoOk) {
+    console.log('');
+    console.log('   编辑和保存不受影响，但预览 / 构建检查 / 发布会用不了。装一个：');
+    if (IS_MAC) console.log('     brew install hugo          （要 extended 版）： brew install hugo');
+    else if (IS_WIN) console.log('     winget install Hugo.Hugo.Extended');
+    else console.log('     见 https://gohugo.io/installation/');
+  }
   console.log('');
   console.log('   关掉这个窗口 = 停止编辑器。');
   console.log('');
@@ -1099,7 +1136,12 @@ server.on('error', async (e) => {
     }
     console.error('');
     console.error('  端口 ' + PORT + ' 被别的程序占用了。');
-    console.error('  换个端口再跑:  set EDITOR_PORT=4322 && node .editor\\server.mjs');
+    console.error('  换个端口再跑：');
+    if (IS_WIN) {
+      console.error('    set EDITOR_PORT=4322 && node .editor\\server.mjs');
+    } else {
+      console.error('    EDITOR_PORT=4322 node .editor/server.mjs');
+    }
     console.error('');
     process.exit(1);
   }
