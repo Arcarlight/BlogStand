@@ -1160,6 +1160,26 @@ img { border: 0; }
   font-display: swap;
 }
 
+{{ if site.Params.pixelFontJa }}
+/* 日文假名单独走 MS Gothic 的点阵（从 msgothic.ttc 的 12ppem 点阵提取）。
+   用 unicode-range 做「按字符路由」：只有平假名 / 片假名 / 半角片假名
+   会落到这份字体上，汉字和标点继续走上面那份宋体。
+   这样不需要给 HTML 加任何 lang 标记或额外 class。
+   注意它排在字体栈最前面，靠 unicode-range 把范围限死，不会抢走别的字符。
+
+   度量对齐宋体（宋体 hhea = 1280/1536 = 83.3333%，MS Gothic 原本是 1320），
+   否则同一行里日文和汉字的内容盒高度不同，行高会跳。 */
+@font-face {
+  font-family: 'MSGothic12JPPixel';
+  src: url(../fonts/msgothic12-jp-pixel.woff2) format('woff2');
+  unicode-range: U+301C, U+3040-30FF, U+FF65-FF9F;
+  ascent-override: 83.3333%;
+  descent-override: 16.6667%;
+  line-gap-override: 0%;
+  font-display: swap;
+}
+{{ end }}
+
 /* 全站换字体。字号统一取自 --px，保证设备像素数是 12 的整数倍。
    这里必须用 !important：基础样式里有 #notice、#gotop、#navbar .nav li a
    这类 ID 选择器写死了 12px / 13px，优先级比通配规则高，不强制的话它们会停
@@ -1167,11 +1187,20 @@ img { border: 0; }
    text-shadow 一并清掉：带模糊的描边会把点阵边缘糊成灰的。 */
 html.pxfont body,
 html.pxfont body * {
-  font-family: '{{ $pxName }}', monospace !important;
+  /* 字体栈：假名 -> 宋体 -> 系统宋体（兜底）。最后那个是安全网：
+     两份点阵都缺的字（比如 ゔゕゖ 这 14 个假名，MS Gothic 的 12px 点阵里
+     根本没有）会落到系统宋体上 —— 字形正确，只是边缘不点阵，
+     总比掉到 monospace 变成完全不同的字体好。 */
+  font-family: {{ if site.Params.pixelFontJa }}'MSGothic12JPPixel', {{ end }}'{{ $pxName }}', SimSun, "宋体", monospace !important;
   font-weight: normal !important;
   font-size: var(--px, 16px) !important;
   text-shadow: none !important;
 }
+
+/* letter-spacing 必须是整数个设备像素，否则单数字形会落在半个设备像素上、
+   一半的字边缘发灰。1px 在 150% 缩放下 = 1.5 设备像素，正好是半个，所以清掉。 */
+html.pxfont .site-name,
+html.pxfont .header-stamp { letter-spacing: normal !important; }
 
 /* 层级：不能靠加粗，只能靠字号。--px-lg / --px-xl 同样是 12 的整数倍 */
 html.pxfont .site-name,

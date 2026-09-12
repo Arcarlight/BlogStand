@@ -433,6 +433,47 @@ comments      = true    # 文末留言板
 两份都在 `static/fonts/`，都是按全站实际用到的 2212 个字符子集化后的 WOFF2
 （原文件 11.8 MB / 1.5 MB）。
 
+#### 日文假名单独走 MS Gothic（`pixelFontJa`，默认开）
+
+日文不用上面那份，而是用从 `msgothic.ttc` 的 12ppem 点阵提取的
+`msgothic12-jp-pixel.woff2`（**4.3 KB**）。分流靠 CSS **`unicode-range`**，
+不需要给 HTML 加 `lang` 标记或额外 class：
+
+```css
+@font-face {
+  font-family: 'MSGothic12JPPixel';
+  unicode-range: U+301C, U+3040-30FF, U+FF61-FF9F;   /* 假名 + 〜 + 半角标点 */
+}
+```
+字体栈写 `'MSGothic12JPPixel', 'SimSun12Pixel', SimSun, "宋体", monospace`，
+MS Gothic 靠 `unicode-range` 把范围限死，只接管假名，汉字和标点继续走宋体。
+
+浏览器实测（CDP `CSS.getPlatformFontsForNode`，这就是"到底用了哪个字体"的权威答案）：
+
+| 元素 | 文字 | 实际字体 |
+| --- | --- | --- |
+| `.site-name` | 虹星的星虹巢｜**ほしのほしにじそう** | SimSun **7** + MS Gothic **9** |
+| `.about-meta` | 昵称：**にじぼし** | SimSun **6** + MS Gothic **4** |
+| `.footer-copy` | Copyright **©** 2010-2026 虹星 | SimSun **47**（不再掉回系统 NSimSun） |
+
+几个坑：
+
+1. **两份字体的度量不一样**，MS Gothic 是 1320/−216、宋体是 1280/−256。
+   假名和汉字混在一行时行高会跳，所以 MS Gothic 那份用
+   `ascent-override: 83.3333%; descent-override: 16.6667%; line-gap-override: 0%`
+   把度量对齐到宋体。
+2. **MS Gothic 的 12px 点阵里有 14 个假名是空的**
+   （ゔゕゖ゗゘ ゙゚ ゟ ゠ ヷヸヹヺ ヿ —— 源字体本来就没给这些字点阵）。
+   所以字体栈最后挂了系统 `SimSun` 兜底，避免它们掉到 `monospace`
+   变成完全不同的字体。
+3. **字符集要从构建产物（`public/`，HTML 实体已解码）里提取，不能从源码提取。**
+   踩过：模板里写的是 `&copy;`，从源码提取只会拿到 `&copy;` 这 5 个 ASCII 字符，
+   `©` 本身没进子集，页面上那个 © 就掉回系统 NSimSun 了。
+   现在用 `mkcharset.py` 扫构建后的 HTML 再 `html.unescape` 一遍。
+4. **`letter-spacing` 必须是整数个设备像素。** `.site-name` 原来的 `1px`
+   在 150% 缩放下 = 1.5 设备像素，会让一半字形落在半个设备像素上、边缘发灰。
+   点阵模式下 `.site-name` / `.header-stamp` 的 `letter-spacing` 已清成 `normal`。
+
 > 宋体那份是用 `D:\DSHFiles\` 里的提取脚本做的，逐字形字节级比对过
 > 28515 个字形、零差异。原始 `simsun.ttc` 的 12~17ppem 六档点阵里只取了 12px 一档。
 

@@ -93,6 +93,12 @@ timeZone = "Asia/Shanghai"
   #                字体本身的 OS/2 fsType = 8（Editable），允许嵌入。
   pixelFontFile = "simsun12"
 
+  # 日文假名用 MS Gothic 的点阵（从 msgothic.ttc 的 12ppem 点阵提取，4 KB）。
+  # 用 CSS unicode-range 按字符路由：平假名 / 片假名 / 半角片假名走 MS Gothic，
+  # 汉字和标点继续走上面那份宋体。不需要给 HTML 加 lang 标记。
+  # 关掉即全部使用中文那份字体（宋体本身也含假名点阵，只是字形是中文风格）。
+  pixelFontJa = true
+
   # ---- 留言板（utterances）----
   comments        = true
   utterancesRepo  = "Arcarlight/BlogStand"
