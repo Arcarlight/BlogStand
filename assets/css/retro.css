@@ -1172,7 +1172,9 @@ img { border: 0; }
 @font-face {
   font-family: 'MSGothic12JPPixel';
   src: url(../fonts/msgothic12-jp-pixel.woff2) format('woff2');
-  unicode-range: U+301C, U+3040-30FF, U+FF65-FF9F;
+  /* U+FF61-FF64 是半角标点（｡｢｣､），宋体那份点阵里没有、MS Gothic 有，
+     所以也归到这边，免得它们掉到系统字体上变糊。 */
+  unicode-range: U+301C, U+3040-30FF, U+FF61-FF9F;
   ascent-override: 83.3333%;
   descent-override: 16.6667%;
   line-gap-override: 0%;
