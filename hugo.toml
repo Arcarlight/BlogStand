@@ -99,6 +99,14 @@ timeZone = "Asia/Shanghai"
   # 关掉即全部使用中文那份字体（宋体本身也含假名点阵，只是字形是中文风格）。
   pixelFontJa = true
 
+  # ---- emoji 用点阵字体（Mona12Emoji，55 KB）----
+  # 不开的话 Windows 会用 Segoe UI Emoji 渲染 emoji：彩色、带抗锯齿、
+  # 尺寸和正文也对不上，是全站唯一不是点阵的地方。
+  # 开：emoji 换成 Mona Font 的单色点阵 emoji（SIL OFL-1.1）。它同样是
+  # 12px 栅格（unitsPerEm 1200、1 设计像素 = 100 单位），跟着 --px 走就是锐的。
+  # 关掉即恢复成系统 emoji 字体。
+  emojiFont = true
+
   # ---- 留言板（utterances）----
   comments        = true
   utterancesRepo  = "Arcarlight/BlogStand"

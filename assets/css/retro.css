@@ -15,6 +15,24 @@
      · 正文链接 hover 改回"黄底红字"这种老式反馈
    ============================================================ */
 
+/* ============================================================
+   基础重置
+   ============================================================ */
+
+/* 字体栈先在这里算一次，下面 8 处引用都指向它。
+   emoji 字体（Mona12Emoji，见文件末尾第 26 节）必须插在通用族
+   sans-serif **之前**：通用族一定会命中系统字体，排在它后面就等于
+   永远轮不到，浏览器会直接用 Windows 自带的彩色 emoji。
+   反过来也不能排太前 —— 排在 SimSun / 宋体 之前的话，©®™♀♂ 这些
+   宋体点阵里本来就有的字符会被它抢走。夹在中间正好：
+   汉字标点走宋体点阵，剩下真正没人管的 emoji 才落到 Mona。 */
+{{ $fontStack := site.Params.fontStack }}
+{{ if site.Params.emojiFont }}
+  {{ $withEmoji := replace $fontStack "sans-serif" "'Mona12Emoji', sans-serif" }}
+  {{ if eq $withEmoji $fontStack }}{{ $withEmoji = printf "%s, 'Mona12Emoji'" $fontStack }}{{ end }}
+  {{ $fontStack = $withEmoji }}
+{{ end }}
+
 /* ---------- 1. 基础重置 ---------- */
 * { margin: 0; padding: 0; box-sizing: content-box; }
 
@@ -24,7 +42,7 @@ html {
 }
 
 body {
-  font-family: {{ site.Params.fontStack }};
+  font-family: {{ $fontStack }};
   font-size: 12px;
   line-height: 1.65;
   color: #000000;
@@ -114,7 +132,7 @@ img { border: 0; }
 
 .site-name {
   display: block;
-  font-family: "Comic Sans MS", {{ site.Params.fontStack }};
+  font-family: "Comic Sans MS", {{ $fontStack }};
   font-size: 30px;
   font-weight: bold;
   letter-spacing: 1px;
@@ -831,7 +849,7 @@ img { border: 0; }
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  font-family: Tahoma, {{ site.Params.fontStack }};
+  font-family: Tahoma, {{ $fontStack }};
   text-align: center;
   text-decoration: none;
   overflow: hidden;
@@ -904,7 +922,7 @@ img { border: 0; }
 .error-body { text-align: center; padding: 20px 10px; }
 
 .error-code {
-  font-family: "Comic Sans MS", {{ site.Params.fontStack }};
+  font-family: "Comic Sans MS", {{ $fontStack }};
   font-size: 64px;
   line-height: 1;
   color: #dcebfa;
@@ -1044,7 +1062,7 @@ img { border: 0; }
 @media (min-resolution: 1.71dppx) { :root { --song-size: 9px; } }
 @media (min-resolution: 1.89dppx) { :root { --song-size: 8px; } }
 @media (min-resolution: 2.13dppx) {
-  :root { --song-stack: {{ site.Params.fontStack }}; --song-size: 11px; }
+  :root { --song-stack: {{ $fontStack }}; --song-size: 11px; }
 }
 
 #sidebar,
@@ -1097,7 +1115,7 @@ img { border: 0; }
 /* 加粗会触发合成加粗、把点阵糊掉（实测 11px 常规 0% 灰边、加粗 41.8%），
    所以带 font-weight: bold 的地方一律留在原字体上。 */
 #footer strong,
-.notice-label { font-family: {{ site.Params.fontStack }}; }
+.notice-label { font-family: {{ $fontStack }}; }
 
 /* 表头用浅蓝底色区分就够了，不必再加粗（去掉加粗它就能安全地用宋体） */
 .entry-content th { font-weight: normal; }
@@ -1116,7 +1134,7 @@ img { border: 0; }
 .entry-content h1,
 .entry-content h2,
 .entry-content h3,
-.entry-content h4 { font-family: {{ site.Params.fontStack }}; }
+.entry-content h4 { font-family: {{ $fontStack }}; }
 
 #sidebar .about-name { font-size: 13px; }
 #sidebar .retro-clock { font-size: 24px; }
@@ -1214,7 +1232,7 @@ html.pxfont body * {
      两份点阵都缺的字（比如 ゔゕゖ 这 14 个假名，MS Gothic 的 12px 点阵里
      根本没有）会落到系统宋体上 —— 字形正确，只是边缘不点阵，
      总比掉到 monospace 变成完全不同的字体好。 */
-  font-family: {{ if site.Params.pixelFontJa }}'MSGothic12JPPixel', {{ end }}'{{ $pxName }}', SimSun, "宋体", monospace !important;
+  font-family: {{ if site.Params.pixelFontJa }}'MSGothic12JPPixel', {{ end }}'{{ $pxName }}', {{ if site.Params.emojiFont }}'Mona12Emoji', {{ end }}SimSun, "宋体", monospace !important;
   font-weight: normal !important;
   font-size: var(--px, 16px) !important;
   text-shadow: none !important;
@@ -1262,7 +1280,7 @@ html.pxfont .counter-num { text-shadow: 0 0 4px rgba(51,255,51,.85) !important; 
 /* 面板标题条是加粗蓝底白字，换点阵会糊，留原字体 */
 html.pxfont .widget-title,
 html.pxfont .box-title {
-  font-family: {{ site.Params.fontStack }} !important;
+  font-family: {{ $fontStack }} !important;
   font-weight: bold !important;
 }
 html.pxfont .widget-title {
@@ -1278,4 +1296,46 @@ html.pxfont .footer-tips strong { background: #ffff00; color: #cc0000; }
 /* 正文行高：16px 点阵配 1.55 倍行距，接近当年的密排 */
 html.pxfont body { line-height: 1.55; }
 html.pxfont .entry-content { line-height: 1.55; }
+{{ end }}
+
+/* ============================================================
+   26. 点阵 emoji（hugo.toml: emojiFont）
+   ------------------------------------------------------------
+   不换的话，Windows 上 emoji 会落到 Segoe UI Emoji —— 彩色、带抗锯齿、
+   尺寸还跟正文对不上，是整站唯一"不是点阵"的地方。这里换成
+   Mona12Emoji（Mona Font 的单色 emoji 子集，SIL OFL-1.1，
+   https://github.com/MonadABXY/mona-font）。
+
+   它跟站里另外两份点阵是同一个栅格：unitsPerEm = 1200，
+   1 设计像素 = 正好 100 单位（1704 个字形、104012 个点全量核对过，
+   0 个出格点、0 段曲线），所以「字号 × DPR = 12 的整数倍」这条规矩
+   对它一样成立，不用另外算字号。
+
+   两点要注意：
+   1. 度量对齐宋体点阵。Mona 自己的 hhea 是 1100 / -300（em = 1200），
+      宋体是 1280 / -256（em = 1536）。不覆盖的话，一行里只要有 emoji，
+      行高就会比其它行高出一截。
+   2. unicode-range 只放开 emoji 区段：没有 emoji 的页面就完全不会
+      去下载这 55KB。范围里包含了 ©®™♀♂ 这些宋体点阵本来就有的字符，
+      但没关系 —— 字体栈里宋体排在 Mona 前面，先命中就轮不到 Mona。
+   ============================================================ */
+{{ if site.Params.emojiFont }}
+@font-face {
+  font-family: 'Mona12Emoji';
+  /* 相对路径，理由同另外两份点阵字体：localhost / 127.0.0.1 互换访问时
+     不会变成跨域请求（字体是 CORS 模式加载的，跨域没 ACAO 头就被拒） */
+  src: url(../fonts/mona12emoji.woff2) format('woff2');
+  unicode-range:
+    U+200D, U+203C, U+2049, U+20E3, U+2122, U+2139,
+    U+2194-2199, U+21A9-21AA, U+231A-231B, U+2328, U+23CF, U+23E9-23FA,
+    U+24C2, U+25AA-25AB, U+25B6, U+25C0, U+25FB-2604, U+260E-2653,
+    U+265F-2668, U+267B-267F, U+2692-26B1, U+26BD-26D4, U+26E9-2728, U+2733-2734,
+    U+2744-2757, U+2763-2764, U+2795-2797, U+27A1, U+27B0, U+27BF,
+    U+2934-2935, U+2B05-2B07, U+2B1B-2B1C, U+2B50-2B55, U+3030, U+303D,
+    U+3297-3299, U+FE0F, U+1F000-1FAFF, U+E0020-E007F;
+  ascent-override: 83.3333%;
+  descent-override: 16.6667%;
+  line-gap-override: 0%;
+  font-display: swap;
+}
 {{ end }}
