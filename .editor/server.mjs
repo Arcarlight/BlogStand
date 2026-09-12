@@ -521,7 +521,9 @@ function diaryTemplate(y, m, opts = {}) {
   L.push('<center>');
   L.push(`${y}年 ${m}月`);
   L.push('</center>');
-  L.push(calendarTable(y, m, (d) => `${d}日`));
+  // 日历表不再写死在这里：短代码会在构建时扫本页的 <span id="MMDD"> 锚点自己生成，
+  // 日记页和导航页共用这一份，以后加日期不用再手动改表。
+  L.push('{{< niki-cal >}}');
   L.push('<br>');
   L.push('<center>');
   L.push(`<b>${kana} ${phrase}</b>`);
@@ -583,7 +585,13 @@ async function collectDiaryAnchors() {
 }
 
 /** 把导航页的日历跟日记里的锚点对齐，缺的月份补上。
- *  opts.prune = true 时才会移除导航页里多出来的链接（默认保留手工加的） */
+ *  opts.prune = true 时才会移除导航页里多出来的链接（默认保留手工加的）
+ *
+ *  ⚠️ 2026-09-12 起已经**没有调用方**了：导航页的日历改由 Hugo 短代码
+ *  `{{< niki-cal-all >}}` 在构建时生成（layouts/_shortcodes/niki-cal-all.html），
+ *  正文里不再保存任何日历表。这套手工同步的代码先留着，万一要退回旧做法
+ *  还能用；直接调用它会把静态表格重新写进 navigator.md，跟短代码的表格
+ *  同时出现在页面上，所以**别再接到接口上**。 */
 async function syncNavigator(opts = {}) {
   const prune = !!opts.prune;
   const anchors = await collectDiaryAnchors();
@@ -764,7 +772,7 @@ async function handle(req, res, url) {
   }
 
   if (p === '/api/new' && req.method === 'POST') {
-    const { kind, name, title, date, asDraft, syncNav, headImage } = await readBody(req);
+    const { kind, name, title, date, asDraft, headImage } = await readBody(req);
     const clean = String(name || '').trim().replace(/[\\/:*?"<>|]/g, '');
     if (!clean) throw new Error('文件名不能为空');
     const d = date || new Date().toISOString().slice(0, 10);
@@ -792,7 +800,10 @@ async function handle(req, res, url) {
     await writeText(rel, body);
 
     let navSync = null;
-    if (kind === 'niki' && syncNav !== false) navSync = await syncNavigator();
+    // 导航页的日历现在是构建时生成的（短代码 niki-cal-all 会遍历所有日记页），
+    // 所以新建日记不需要再往 navigator.md 里插任何东西。
+    // 这里保留这个字段只为兼容前端的提示逻辑。
+    if (kind === 'niki') navSync = { updated: 0, added: [], auto: true };
 
     return json(res, 200, { ok: true, p: rel, navSync });
   }
@@ -838,9 +849,12 @@ async function handle(req, res, url) {
   if (p === '/api/nav' && req.method === 'GET') {
     const anchors = await collectDiaryAnchors();
     const nav = await readText('content/navigator.md');
-    const months = [...nav.matchAll(/<center>\s*(\d{4})年\s*(\d{1,2})月\s*<\/center>/g)]
-      .map((m) => `${m[1]}年${+m[2]}月`);
+    // 导航页正文里已经不再写月份标题了（日历由 niki-cal-all 短代码生成），
+    // 所以「导航页上有没有这个月」直接以日记页为准：有日记页就一定有。
+    const hasAll = /niki-cal-all/.test(nav);
+    const months = [...anchors.values()].map((v) => `${v.year}年${v.month}月`);
     return json(res, 200, {
+      auto: hasAll,
       diaries: [...anchors.entries()].map(([k, v]) => ({
         key: k, year: v.year, month: v.month, days: [...v.days].sort(),
       })).sort((a, b) => (b.year * 100 + b.month) - (a.year * 100 + a.month)),
@@ -849,8 +863,13 @@ async function handle(req, res, url) {
   }
 
   if (p === '/api/nav/sync' && req.method === 'POST') {
-    const { prune } = await readBody(req);
-    return json(res, 200, await syncNavigator({ prune }));
+    // 这个接口以前负责把日历写进 content/navigator.md。
+    // 2026-09-12 起改成构建时由短代码生成，再写一遍反而会多出一份表格，
+    // 所以这里直接不干活，只回一句说明。
+    return json(res, 200, {
+      updated: 0, added: [], auto: true,
+      message: '导航页的日历现在由短代码自动生成，不需要手动同步了。',
+    });
   }
 
   if (p === '/api/delete' && req.method === 'POST') {

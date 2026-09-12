@@ -1,0 +1,3 @@
+{{- /* 日记页顶部的日历表。用 {{< niki-cal >}} 调用。
+       日子从正文里的 <span id="MMDD"> 锚点自动推出来，新增日期不用手改表格。 */ -}}
+{{- partial "niki-calendar.html" (partial "niki-days.html" .Page) -}}

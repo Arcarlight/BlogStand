@@ -1,0 +1,15 @@
+{{- /* 导航页的整月列表。用 {{< niki-cal-all >}} 调用。
+       遍历所有日记页、按时间倒序，每页生成「分割线 + 年月标题 + 日历表 + 和名标语」。
+       新增一个月（或者给某个月补了日期）都会自动反映到这里。 */ -}}
+{{- $pages := where site.RegularPages "Section" "niki" -}}
+{{- range $pages.ByDate.Reverse -}}
+{{- $data := partial "niki-days.html" . }}
+<hr>
+<center>
+{{ $data.year }}年 {{ $data.month }}月
+</center>
+{{ partial "niki-calendar.html" $data }}
+{{- with $data.tagline }}
+<p><br><center><b>{{ . }}</b></center><br></p>
+{{- end }}
+{{- end }}

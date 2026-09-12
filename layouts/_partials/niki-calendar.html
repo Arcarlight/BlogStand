@@ -1,0 +1,58 @@
+{{- /*
+  渲染一个月的日历表（**只有 <table>**，年月标题仍然写在正文里）。
+
+  为什么不把 <center>年月</center> 也一起生成：niki_202603 在标题和表格之间
+  还夹了一张 <center><img></center> 的插图，如果短代码连标题一起输出，
+  要么得动那张插图的位置、要么得为它开个特例。标题留在正文里最省事，
+  而且 8 个页面的位置都一模一样，一个字节都不用挪。
+
+  输出必须紧跟在正文的 </center> 后面：retro.css 里有
+  `.entry-content center + table { margin-left:auto; margin-right:auto }`
+  这条相邻兄弟选择器负责把日历居中，中间插任何元素都会失效。
+
+  入参是 niki-days.html 返回的那个 dict。
+*/ -}}
+{{- $page := .page -}}
+{{- $year := .year -}}
+{{- $month := .month -}}
+{{- $entries := .days -}}
+
+{{- $first := time (printf "%04d-%02d-01" $year $month) -}}
+{{- $last := ($first.AddDate 0 1 0).AddDate 0 0 -1 -}}
+{{- $n := $last.Day -}}
+{{- $lead := int $first.Weekday -}}
+{{- $rows := div (add (add $lead $n) 6) 7 -}}
+<table>
+<thead>
+<tr>
+  <th>日</th>
+  <th>月</th>
+  <th>火</th>
+  <th>水</th>
+  <th>木</th>
+  <th>金</th>
+  <th>土</th>
+</tr>
+</thead>
+<tbody>
+{{- range $r := seq 0 (sub $rows 1) }}
+<tr>
+{{- range $c := seq 0 6 }}
+{{- $idx := add (mul $r 7) $c }}
+{{- if and (ge $idx $lead) (lt $idx (add $lead $n)) }}
+{{- $d := add (sub $idx $lead) 1 }}
+{{- $anchor := "" }}
+{{- range $entries }}{{ if eq .d $d }}{{ $anchor = .id }}{{ end }}{{ end }}
+{{- if $anchor }}
+  <td><a href="{{ $page.Permalink }}#{{ $anchor }}">{{ $d }}日</a></td>
+{{- else }}
+  <td>{{ $d }}日</td>
+{{- end }}
+{{- else }}
+  <td>--</td>
+{{- end }}
+{{- end }}
+</tr>
+{{- end }}
+</tbody>
+</table>

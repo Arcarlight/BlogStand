@@ -1,0 +1,62 @@
+{{- /*
+  从一篇日记里抽出「哪些日子有内容」，供日历表生成用。
+
+  数据来源只有一个：正文里的日期锚点 <span id="0901">…</span>。
+  所以以后写日记只要补上锚点，日记页和导航页的日历都会自己更新，
+  不用再手动往两个表格里加链接（以前就是这么手工维护的，已经飘过好几次）。
+
+  规则：
+    · <span id="MMDD"> 里的 MMDD 就是锚点，默认把「DD 日」这一格链到 #MMDD
+    · 标题里如果写了跨日（「9月 1日 ～ 9月 2日」），A 到 B 都链到同一个锚点
+      —— 但不解析括号里的补记说明（「（8月3日补记）」不会把 3 日也变成链接），
+      这是照抄现在手写日历的习惯
+
+  返回 dict：
+    page    页面对象（用来取 Permalink）
+    year    2026
+    month   9
+    days    slice of dict { d = 天号(int), id = 锚点字符串 }
+    tagline 「長月 秋雨连绵 云沉满天」之类的和名标语
+*/ -}}
+
+{{- $page := . -}}
+
+{{- /* 年月取自文件名 niki_YYYYMM —— 比 date 字段更明确 */ -}}
+{{- $base := "" -}}
+{{- with $page.File }}{{ $base = .ContentBaseName }}{{ end -}}
+{{- $year := 0 -}}
+{{- $month := 0 -}}
+{{- with findRESubmatch `(\d{4})(\d{2})$` $base -}}
+  {{- $m := index . 0 -}}
+  {{- $year = int (index $m 1) -}}
+  {{- $month = int (index $m 2 | strings.TrimLeft "0") -}}
+{{- end -}}
+
+{{- $days := slice -}}
+{{- range findRESubmatch `(?s)<span\s+id="?(\d{4})"?[^>]*>(.*?)</span>` $page.RawContent -}}
+  {{- $id := index . 1 -}}
+  {{- $text := index . 2 | plainify -}}
+  {{- $dd := int (substr $id 2 2 | strings.TrimLeft "0") -}}
+  {{- $days = $days | append (dict "d" $dd "id" $id) -}}
+  {{- /* 跨日：「A日 ～ B日」让 A..B 全部指向这个锚点 */ -}}
+  {{- with findRESubmatch `(\d+)日\s*[～〜~]\s*(?:\d+月\s*)?(\d+)日` $text -}}
+    {{- $a := int (index (index . 0) 1 | strings.TrimLeft "0") -}}
+    {{- $b := int (index (index . 0) 2 | strings.TrimLeft "0") -}}
+    {{- range seq $a $b -}}
+      {{- $days = $days | append (dict "d" . "id" $id) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* 和名标语：优先用 front matter 的 tagline，否则从正文里第一个含「月」的
+       <b>/<strong> 里抓（就是现在写在各页日历下面那一行） */ -}}
+{{- $tagline := "" -}}
+{{- with $page.Params.tagline -}}
+  {{- $tagline = . -}}
+{{- else -}}
+  {{- with findRESubmatch `(?s)<(?:b|strong)>\s*([^<]*月[^<]*?)\s*</(?:b|strong)>` $page.RawContent 1 -}}
+    {{- $tagline = index (index . 0) 1 -}}
+  {{- end -}}
+{{- end -}}
+
+{{- return (dict "page" $page "year" $year "month" $month "days" $days "tagline" $tagline) -}}
