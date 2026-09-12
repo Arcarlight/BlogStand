@@ -216,6 +216,33 @@ async function listDir(rel) {
   } catch { return []; }
 }
 
+/* ---------- 侧栏自定义排序 ----------
+   左侧列表可以用鼠标拖动排序，顺序存在 .editor/order.json 里
+   （按「分组名 -> 文件路径数组」存）。这只是编辑器自己的显示顺序，
+   不影响站点本身，所以那个文件加进了 .gitignore，不进版本库。 */
+const ORDER_FILE = '.editor/order.json';
+let ORDER_CACHE = null;
+
+async function readOrder() {
+  if (ORDER_CACHE) return ORDER_CACHE;
+  try {
+    ORDER_CACHE = JSON.parse(await fsp.readFile(safePath(ORDER_FILE), 'utf8')) || {};
+  } catch { ORDER_CACHE = {}; }
+  return ORDER_CACHE;
+}
+
+/** 按保存的顺序重排。没记录过的文件（比如刚新建的）排到后面，
+ *  它们之间保持传进来的原顺序 —— Array#sort 在 Node 里是稳定的。 */
+function applyOrder(files, saved) {
+  if (!Array.isArray(saved) || !saved.length) return files;
+  const idx = new Map(saved.map((f, i) => [f, i]));
+  return files.slice().sort((a, b) => {
+    const ia = idx.has(a) ? idx.get(a) : Number.MAX_SAFE_INTEGER;
+    const ib = idx.has(b) ? idx.get(b) : Number.MAX_SAFE_INTEGER;
+    return ia - ib;
+  });
+}
+
 async function buildTree() {
   const tree = [];
 
@@ -271,6 +298,13 @@ async function buildTree() {
   }
   if (drafts.length) {
     tree.unshift({ group: `草稿（${drafts.length}）`, kind: 'content', files: drafts, draft: true });
+  }
+
+  // 应用侧栏自定义排序（草稿组不参与：它的成员会随草稿开关变，排了也没意义）
+  const order = await readOrder();
+  for (const g of tree) {
+    if (g.draft) continue;
+    g.files = applyOrder(g.files, order[g.group]);
   }
 
   return tree;
@@ -870,6 +904,20 @@ async function handle(req, res, url) {
       updated: 0, added: [], auto: true,
       message: '导航页的日历现在由短代码自动生成，不需要手动同步了。',
     });
+  }
+
+  /* ---------- 侧栏排序 ---------- */
+  if (p === '/api/order' && req.method === 'GET') {
+    return json(res, 200, await readOrder());
+  }
+  if (p === '/api/order' && req.method === 'POST') {
+    const { group, files } = await readBody(req);
+    if (!group || !Array.isArray(files)) throw new Error('参数不对：需要 group 和 files');
+    const order = await readOrder();
+    order[String(group)] = files.map(String);
+    ORDER_CACHE = order;
+    await writeText(ORDER_FILE, JSON.stringify(order, null, 2) + '\n');
+    return json(res, 200, { ok: true, group, count: files.length });
   }
 
   if (p === '/api/delete' && req.method === 'POST') {

@@ -40,7 +40,8 @@
   #main{flex:1;display:flex;min-height:0}
   #side{width:250px;flex:none;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:8px 0}
   #work{flex:1;display:flex;flex-direction:column;min-width:0}
-  #toolbar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+  #toolbar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #toolbar button{flex:none}
   #curPath{font-family:Consolas,monospace;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #toolbar .spacer{flex:1}
   #panes{flex:1;display:flex;min-height:0}
@@ -55,6 +56,11 @@
   .row.active{background:#dcebfa;font-weight:bold;color:var(--accent)}
   .row.tool{padding-left:12px}
   .row .badge{font-size:10px;color:var(--dim);margin-left:auto}
+  /* 拖动排序 */
+  .row[draggable="true"]{cursor:grab}
+  .row.dragging{opacity:.4}
+  .row.drop-before{box-shadow:inset 0 2px 0 0 var(--accent)}
+  .row.drop-after{box-shadow:inset 0 -2px 0 0 var(--accent)}
 
   /* ---------- 编辑区 ---------- */
   #editor{
@@ -73,6 +79,15 @@
   body.panel #panel{display:block}
   body.panel #editor{display:none}
   body.panel #previewPane{display:none}
+  /* 打开工具面板时，跟正文有关的那几个控件收起来（不然点了会改到别的文件） */
+  body.panel #toolbar button.fmt,
+  body.panel #toolbar .grp-label,
+  body.panel #toolbar .sep,
+  body.panel #imgWidthSel,
+  body.panel #btnApplyWidth,
+  body.panel #btnInsertImg,
+  body.panel #btnInsertDay,
+  body.panel #btnToggleDraft{display:none}
 
   /* ---------- 表单 ---------- */
   h2.sec{margin:0 0 4px;font-size:15px;color:var(--accent)}
@@ -114,6 +129,16 @@
   /* ---------- 拖拽上传 ---------- */
   #editor.dragover{background:#eef7ff;box-shadow:inset 0 0 0 3px #7fb8f0}
   .row.create{color:var(--accent);font-weight:bold}
+  .row.create:hover{background:#e3f0ff}
+
+  /* ---------- 工具栏的格式按钮 ---------- */
+  .grp-label{color:var(--dim);font-size:12px;white-space:nowrap}
+  #toolbar .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
+  #toolbar button.fmt{padding:3px 9px;line-height:1.4}
+  #toolbar button.fmt.b{font-weight:bold;font-size:14px}
+  #toolbar button.fmt.i{font-style:italic;font-family:Georgia,serif;font-size:14px}
+  #toolbar button.fmt.on{background:#dcebfa;border-color:var(--accent);color:var(--accent)}
+  #imgWidthSel{font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:4px;background:#fff}
 
   #toast{
     position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
@@ -132,6 +157,7 @@
   <span class="brand">星虹巢 · 本地编辑器</span>
   <span id="dirtyFlag" class="dirty" hidden>未保存</span>
   <span class="spacer"></span>
+  <button class="ghost" id="btnNewTop" title="新建日记 / 博客 / 单页">➕ 新建页面</button>
   <button class="ghost" id="btnPreview">预览 ▸</button>
   <button class="ghost" id="btnLive">打开线上站</button>
   <button class="ghost" id="btnBuild">构建检查</button>
@@ -144,6 +170,24 @@
     <div id="toolbar">
       <span id="curPath">← 从左边选一个文件</span>
       <span class="spacer"></span>
+      <span class="grp-label" title="先选中一段文字，再点按钮（再点一次取消）">选中文字：</span>
+      <button id="btnBold" class="fmt b" title="加粗（Ctrl+B）">B</button>
+      <button id="btnItalic" class="fmt i" title="倾斜（Ctrl+I）">I</button>
+      <button id="btnVoice" class="fmt" title="心声：淡灰色的内心独白">💭 心声</button>
+      <span class="sep"></span>
+      <span class="grp-label" title="插图时会带上这个宽度；选中已有的 &lt;img&gt; 再点「📐 应用」可以改它的宽度">宽</span>
+      <select id="imgWidthSel" title="插图 / 改宽度用">
+        <option value="">原尺寸</option>
+        <option value="650">650</option>
+        <option value="500">500</option>
+        <option value="400">400</option>
+        <option value="300">300</option>
+        <option value="200">200</option>
+        <option value="100%">100%（跟随栏宽）</option>
+        <option value="custom">自定义…</option>
+      </select>
+      <button id="btnApplyWidth" title="把上面选的宽度应用到选中的 &lt;img&gt;">📐 应用</button>
+      <span class="sep"></span>
       <button id="btnInsertImg" title="插入图片（也可以直接把图片拖进编辑区）">🖼 插图</button>
       <button id="btnInsertDay" title="插入某一天的锚点段落" hidden>📅 插入日期</button>
       <button id="btnToggleDraft" hidden>设为草稿</button>
@@ -228,16 +272,81 @@ function renderTree() {
   h += '<div class="row tool" data-panel="links">🔗 友情链接</div>';
   h += '<div class="row tool" data-panel="buttons">🔲 小按钮</div>';
   h += '<div class="row tool" data-panel="scripts">📜 脚本管理</div>';
-  h += '<div class="row tool" data-panel="nav">📅 导航页同步</div>';
+  h += '<div class="row tool" data-panel="nav">📅 日记日历</div>';
   for (const g of TREE) {
     if (!g.files.length) continue;
     h += `<div class="grp">${esc(g.group)}</div>`;
     for (const f of g.files) {
-      h += `<div class="row" data-file="${esc(f)}" title="${esc(f)}">${esc(shortName(f))}</div>`;
+      // data-group 是拖动排序用的（只允许同组内换位置）；草稿组不参与，不给拖
+      const drag = g.draft ? '' : ' draggable="true"';
+      const tip = esc(f) + (g.draft ? '' : '（按住可以拖动排序）');
+      h += `<div class="row" data-file="${esc(f)}" data-group="${esc(g.group)}"${drag}`
+        + ` title="${tip}">${esc(shortName(f))}</div>`;
     }
   }
   el.innerHTML = h;
 }
+
+/* ---------- 侧栏拖动排序 ---------- */
+let DRAG = null;
+
+function clearDropMarks() {
+  document.querySelectorAll('#tree .drop-before,#tree .drop-after')
+    .forEach((r) => r.classList.remove('drop-before', 'drop-after'));
+}
+
+/** 把当前 DOM 里这一组的顺序存到服务端 */
+async function saveTreeOrder(group) {
+  const files = [...document.querySelectorAll('#tree .row[data-file]')]
+    .filter((r) => r.dataset.group === group)
+    .map((r) => r.dataset.file);
+  try {
+    await apiPost('/api/order', { group, files });
+    toast(`「${group}」的顺序已保存`, 'ok');
+  } catch (e) { toast('顺序保存失败: ' + e.message, 'err'); }
+}
+
+$('#tree').addEventListener('dragstart', (e) => {
+  const row = e.target.closest('.row[data-file][draggable="true"]');
+  if (!row) { e.preventDefault(); return; }
+  DRAG = { el: row, group: row.dataset.group, file: row.dataset.file };
+  row.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  // Firefox 不调 setData 就不会真的开始拖
+  try { e.dataTransfer.setData('text/plain', row.dataset.file); } catch (err) { /* 忽略 */ }
+});
+
+$('#tree').addEventListener('dragover', (e) => {
+  if (!DRAG) return;
+  const row = e.target.closest('.row[data-file]');
+  // 只允许同一组内换位置（分组是按目录定死的，跨组没有意义）
+  if (!row || row.dataset.group !== DRAG.group || row === DRAG.el) { clearDropMarks(); return; }
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const r = row.getBoundingClientRect();
+  const after = e.clientY > r.top + r.height / 2;
+  clearDropMarks();
+  row.classList.add(after ? 'drop-after' : 'drop-before');
+});
+
+$('#tree').addEventListener('drop', async (e) => {
+  if (!DRAG) return;
+  const row = e.target.closest('.row[data-file]');
+  if (!row || row.dataset.group !== DRAG.group || row === DRAG.el) { clearDropMarks(); return; }
+  e.preventDefault();
+  const after = row.classList.contains('drop-after');
+  row.parentNode.insertBefore(DRAG.el, after ? row.nextSibling : row);
+  clearDropMarks();
+  const g = DRAG.group;
+  DRAG = null;
+  await saveTreeOrder(g);
+});
+
+$('#tree').addEventListener('dragend', () => {
+  if (DRAG) DRAG.el.classList.remove('dragging');
+  DRAG = null;
+  clearDropMarks();
+});
 
 function markActive(sel) {
   document.querySelectorAll('.row').forEach((r) => r.classList.remove('active'));
@@ -686,10 +795,86 @@ function insertText(text) {
   setDirty(true);
 }
 
+/** 替换编辑区里 [s,e) 这一段，顺便把选区设成 [ss,se) */
+function replaceRange(s, e, text, ss, se) {
+  const ta = $('#editor');
+  ta.value = ta.value.slice(0, s) + text + ta.value.slice(e);
+  ta.focus();
+  if (ss !== undefined) ta.setSelectionRange(ss, se === undefined ? ss : se);
+  setDirty(true);
+  updateFmtButtons();
+}
+
+/* ---------- 选中文字套格式（加粗 / 倾斜 / 心声） ----------
+   正文里必须写标签：这些页面的正文是整段原生 HTML，Markdown 的
+   **粗体** / *斜体* 在 HTML 块里不会被解析，只会原样显示成星号。 */
+const FMT = {
+  bold: { open: '<strong>', close: '</strong>' },
+  italic: { open: '<i>', close: '</i>' },
+  voice: { open: '<span class="inner-voice">', close: '</span>' },
+};
+
+function fmtRange(key) {
+  const { open, close } = FMT[key];
+  const ta = $('#editor');
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  const v = ta.value;
+  const sel = v.slice(s, e);
+  // ① 选中的就是整对标签：<strong>x</strong> → 拆掉
+  if (sel.length > open.length + close.length
+      && sel.slice(0, open.length) === open && sel.slice(-close.length) === close) {
+    const inner = sel.slice(open.length, sel.length - close.length);
+    replaceRange(s, e, inner, s, s + inner.length);
+    return;
+  }
+  // ② 标签紧贴在选区外侧：<strong>|x|</strong> → 拆掉
+  if (s >= open.length && e + close.length <= v.length
+      && v.slice(s - open.length, s) === open && v.slice(e, e + close.length) === close) {
+    replaceRange(s - open.length, e + close.length, sel, s - open.length, e - open.length);
+    return;
+  }
+  // ③ 其它情况：套上去。没选中就插一对空标签，光标停在中间
+  replaceRange(s, e, open + sel + close, s + open.length, s + open.length + sel.length);
+}
+
+/** 光标正处在这对标签里时，把工具栏按钮点亮 */
+function updateFmtButtons() {
+  const ta = $('#editor');
+  if (!ta || ta.selectionStart === undefined) return;
+  const s = ta.selectionStart, e = ta.selectionEnd, v = ta.value;
+  for (const [key, sel] of [['bold', '#btnBold'], ['italic', '#btnItalic'], ['voice', '#btnVoice']]) {
+    const { open, close } = FMT[key];
+    const on = (s >= open.length && v.slice(s - open.length, s) === open
+                && v.slice(e, e + close.length) === close)
+            || (v.slice(s, s + open.length) === open
+                && v.slice(Math.max(s, e - close.length), e) === close);
+    const btn = $(sel);
+    if (btn) btn.classList.toggle('on', on);
+  }
+}
+
+for (const [id, key] of [['#btnBold', 'bold'], ['#btnItalic', 'italic'], ['#btnVoice', 'voice']]) {
+  $(id).addEventListener('click', () => {
+    if (!CUR) { toast('先从左边选一个文件', 'err'); return; }
+    fmtRange(key);
+  });
+}
+
+['keyup', 'mouseup', 'click', 'select', 'input'].forEach((ev) =>
+  $('#editor').addEventListener(ev, updateFmtButtons));
+
+$('#editor').addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'b') { e.preventDefault(); fmtRange('bold'); }
+  else if (k === 'i') { e.preventDefault(); fmtRange('italic'); }
+});
+
 async function uploadImages(files) {
   const imgs = [...files].filter((f) => /^image\//.test(f.type));
   if (!imgs.length) { if (files.length) toast('只能上传图片文件', 'err'); return; }
   toast(`正在上传 ${imgs.length} 张图片…`);
+  const w = imgWidthValue();
   let out = '';
   try {
     for (const f of imgs) {
@@ -700,12 +885,87 @@ async function uploadImages(files) {
         r.readAsDataURL(f);
       });
       const r = await apiPost('/api/upload', { name: f.name, data });
-      out += `<img src="${r.url}" alt="${f.name.replace(/\.[^.]+$/, '')}" />\n`;
+      out += makeImg(r.url, f.name.replace(/\.[^.]+$/, ''), w) + '\n';
     }
     insertText(out);
-    toast(`已存入 static/images/，并在光标处插入 ${imgs.length} 个 <img>`, 'ok');
+    const wtxt = w ? `，宽度 ${w}${/%$/.test(w) ? '' : 'px'}` : '，原尺寸';
+    toast(`已存入 static/images/，并在光标处插入 ${imgs.length} 个 <img>${wtxt}`, 'ok');
   } catch (e) { toast('上传失败: ' + e.message, 'err'); }
 }
+
+/* ---------- 图片宽度 ----------
+   站点里的写法：整数用 width="300"，百分比只能用 style="width:100%"
+   （HTML 的 width 属性不接受 "100%" 这种值，写了会被浏览器直接忽略，
+   之前迁移过来的图里就有 width="500px" / width=30% 这种没生效的）。
+   宽度存在 localStorage，插图时自动带上。 */
+function imgWidthValue() {
+  const v = $('#imgWidthSel').value;
+  if (v === 'custom') return localStorage.getItem('editor.imgWidth.custom') || '';
+  return v;
+}
+
+function makeImg(url, alt, w) {
+  const attrs = [`src="${url}"`, `alt="${alt}"`];
+  if (w) attrs.push(/%$/.test(w) ? `style="width:${w}"` : `width="${w}"`);
+  attrs.push('loading="lazy"');
+  return `<img ${attrs.join(' ')} />`;
+}
+
+/** 改一个 <img> 标签上的宽度：两种写法都先清掉，再按需要写回去 */
+function setImgWidth(tag, w) {
+  let style = '';
+  let t = tag.replace(/\s+style\s*=\s*(?:"([^"]*)"|'([^']*)')/gi, (m, a, b) => {
+    style = a !== undefined ? a : (b || '');
+    return '';
+  });
+  t = t.replace(/\s+width\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  const props = style.split(';').map((s) => s.trim()).filter((s) => s && !/^width\s*:/i.test(s));
+  if (w && /%$/.test(w)) props.push(`width:${w}`);
+  const extra = [];
+  if (props.length) extra.push(`style="${props.join('; ')}"`);
+  if (w && !/%$/.test(w)) extra.push(`width="${w}"`);
+  const selfClose = /\/>\s*$/.test(t);
+  t = t.replace(/\s*\/?>\s*$/, '');
+  return t + (extra.length ? ' ' + extra.join(' ') : '') + (selfClose ? ' />' : '>');
+}
+
+/** 把当前宽度应用到选中的 <img>（可以一次选好几个） */
+function applyWidthToSelection() {
+  const ta = $('#editor');
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  if (s === e) { toast('先在编辑区里选中包含 <img> 的一段文字', 'err'); return; }
+  const sel = ta.value.slice(s, e);
+  if (!/<img\b/i.test(sel)) { toast('选中的这段里没有 <img>', 'err'); return; }
+  const w = imgWidthValue();
+  let n = 0;
+  const out = sel.replace(/<img\b[^>]*>/gi, (tag) => { n++; return setImgWidth(tag, w); });
+  replaceRange(s, e, out, s, s + out.length);
+  toast(`改了 ${n} 张图的宽度 → ${w ? w + (/%$/.test(w) ? '' : 'px') : '原尺寸'}`, 'ok');
+}
+
+$('#imgWidthSel').addEventListener('change', () => {
+  if ($('#imgWidthSel').value !== 'custom') { localStorage.setItem('editor.imgWidth', $('#imgWidthSel').value); return; }
+  const v = (prompt('想要多宽？填数字（像素），或者带 % 的百分比，比如 300 / 60%', '300') || '').trim();
+  if (!/^\d+%?$/.test(v)) {
+    toast('没填对，宽度得是数字或百分比', 'err');
+    $('#imgWidthSel').value = localStorage.getItem('editor.imgWidth') || '';
+    return;
+  }
+  localStorage.setItem('editor.imgWidth.custom', v);
+  localStorage.setItem('editor.imgWidth', 'custom');
+  const sel = $('#imgWidthSel');
+  let op = sel.querySelector('option[data-custom]');
+  if (!op) {
+    op = document.createElement('option');
+    op.dataset.custom = '1';
+    sel.insertBefore(op, sel.querySelector('option[value="custom"]'));
+  }
+  op.value = v;
+  op.textContent = `自定义 ${v}`;
+  sel.value = v;
+});
+
+$('#btnApplyWidth').addEventListener('click', applyWidthToSelection);
 
 $('#btnInsertImg').addEventListener('click', () => $('#filePicker').click());
 $('#filePicker').addEventListener('change', (e) => { uploadImages(e.target.files); e.target.value = ''; });
@@ -740,7 +1000,7 @@ $('#btnInsertDay').addEventListener('click', () => {
   if (!(n >= 1 && n <= 31)) { toast('日期不对', 'err'); return; }
   const dd = String(n).padStart(2, '0');
   insertText(`\n<h2><span id="${mm}${dd}">${mi}月 ${n}日</span></h2>\n\n`);
-  toast('锚点已插入。写完保存，再去「📅 导航页同步」点一下', 'ok');
+  toast('锚点已插入。写完保存就行，日记页和导航页的日历会自动多出这一天', 'ok');
 });
 
 /* ---------- 草稿开关 ---------- */
@@ -814,6 +1074,16 @@ async function newPage() {
   const res = await modal({
     title: '新建页面',
     okText: '创建',
+    // 换类型时把文件名/标题的默认值也跟着换（不然选了「博客」还留着 niki_202609）
+    bind() {
+      const sel = $('#mf_kind');
+      if (!sel) return;
+      sel.addEventListener('change', () => {
+        const d = defaultNameTitle(sel.value);
+        $('#mf_name').value = d.name;
+        $('#mf_title').value = d.title;
+      });
+    },
     fields: [
       { key: 'kind', type: 'select', label: '类型', value: 'niki', options: [
         { v: 'niki', t: '日记（挂到导航页，不进博客列表）' },
@@ -842,6 +1112,21 @@ async function newPage() {
 /* ---------- 启动 ---------- */
 let BOOTED = false;
 const PANELS = ['settings', 'links', 'buttons', 'scripts', 'nav'];
+
+/** 恢复上次用的图片宽度、给顶栏的新建按钮接线 */
+function initToolbar() {
+  const saved = localStorage.getItem('editor.imgWidth') || '';
+  const sel = $('#imgWidthSel');
+  if (saved && saved !== 'custom' && /^\d+%$/.test(saved)) {
+    const op = document.createElement('option');
+    op.dataset.custom = '1';
+    op.value = saved;
+    op.textContent = `自定义 ${saved}`;
+    sel.insertBefore(op, sel.querySelector('option[value="custom"]'));
+  }
+  if (saved && [...sel.options].some((o) => o.value === saved)) sel.value = saved;
+  $('#btnNewTop').addEventListener('click', () => newPage());
+}
 
 async function bootstrap() {
   const d = await apiGet('/api/bootstrap');
@@ -874,6 +1159,7 @@ async function bootstrap() {
     }
   }
 }
+initToolbar();
 bootstrap().catch((e) => toast('初始化失败: ' + e.message, 'err'));
 </script>
 </body>

@@ -470,6 +470,11 @@ img { border: 0; }
 .entry-content i p,
 .entry-content em p { text-indent: 0; }
 
+/* 心声：淡灰色的内心独白。编辑器工具栏那个「💭 心声」按钮插的就是它。
+   用 class 而不是内联 style="color:grey"，是为了以后想改颜色只动这一处
+   （旧站搬来的那几处还是内联写法，颜色一样是 #808080，不用动）。 */
+.entry-content .inner-voice { color: #808080; }
+
 /* 旧站的「更新日志」折叠区 */
 .entry-content details {
   margin: 9px 0;
