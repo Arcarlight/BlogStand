@@ -268,6 +268,11 @@ img { border: 0; }
 .welcome-inner { overflow: hidden; }
 .welcome-inner > p { margin-bottom: 6px; }
 
+/* 欢迎区不在 .entry-content 里面，拿不到上面那条 img 规则。
+   它外层是 overflow:hidden，所以图片一旦超过栏宽是「被切掉」而不是「戳出去」——
+   两种都难看。这里补上同样的约束。 */
+.welcome-inner img { box-sizing: border-box; max-width: 100%; height: auto; }
+
 .welcome-sign {
   margin-top: 12px;
   padding-top: 8px;
@@ -480,13 +485,29 @@ img { border: 0; }
   border: 1px solid #6699cc;
 }
 
+/* 图片：白底 + 1px 灰边 + 2px 内衬（当年贴图的样子）。
+   这里有两个叠加的坑，会让段落里的图从白色卡片右边戳出去 19px（CDP 量出来的）：
+   1) 全局 box-sizing 是 content-box，所以 max-width:100% 只管**内容盒**，
+      再加 padding 2px×2 + border 1px×2，整张图的边框盒比容器宽 6px
+      （实测 634 的列里图片渲染成 640）；
+   2) .entry-content p 有 text-indent:2em，段首那张图会被再往右推 2em（24px）。
+   6 + 24 = 30px，减掉 10px 内衬，正好戳出 19~20px，压在版心底纹和侧栏之间那条缝上。
+   修法：盒模型改 border-box（让 max-width 把衬边算进去）+ 段首是图时不缩进。 */
 .entry-content img {
+  box-sizing: border-box;
   max-width: 100%;
   height: auto;
   padding: 2px;
   background: #ffffff;
   border: 1px solid #999999;
 }
+
+/* 段首就是图的段落不缩进。text-indent 只作用于首行，所以只要把图从首行摘出来
+   就安全了 —— 图后面换行才出现的（比如 <p><br><img>）本来就不吃这个缩进。
+   用 :has() 而不是给 img 加 display:block，因为后者会把
+   <p><img><img></p> 这种并排的图拆成两行。 */
+.entry-content p:has(> img:first-child),
+.entry-content p:has(> a:first-child > img:first-child) { text-indent: 0; }
 
 .entry-content blockquote {
   margin: 9px 0;

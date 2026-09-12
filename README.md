@@ -602,7 +602,7 @@ html.pxfont .entry-content p { filter: url(#pxbin); }
 
 ### 优化策略
 
-正文列宽是 630px（`.entry-content` 的 `max-width: 100%`），所以：
+正文列宽是 634px（`.entry-content` 的 `max-width: 100%` 就是相对它算的），所以：
 
 - 长边超过 **1280px**（630 的 2 倍，够视网膜屏）的缩到 1280，JPEG 质量 85
 - 长边本来就不超 1280 的**原样保留**，不重新编码，避免二次损失
@@ -613,6 +613,39 @@ html.pxfont .entry-content p { filter: url(#pxbin); }
 
 另外所有 `<img>` 都带 `loading="lazy"`（老站原本就有，第一次迁移时丢了 72 个，已补回），
 首屏只加载可视区里的图。
+
+### 图片戳出白色卡片（2026-09-12 修）
+
+症状：日记页里的图会从白色卡片右边**戳出去约 19px**，压在版心底纹上，紧挨着侧栏。
+
+原因不是"图片太宽"，是两条 CSS 叠加起来多算了 30px（用 CDP 逐元素量出来的）：
+
+| 项 | 数值 | 说明 |
+| --- | --- | --- |
+| 正文列宽 | 634px | `#content` 656 − 卡片边框 2 − `.box-body` 内衬 20 |
+| `max-width: 100%` 的算法 | +6px | 全局 `box-sizing: content-box`，所以 100% 只管**内容盒**；再加 `padding: 2px`×2 和 `border: 1px`×2，图片实际渲染成 **640px** |
+| `.entry-content p` 的 `text-indent: 2em` | +24px | 段首那张图被再往右推 24px |
+
+640 + 24 = 664，减掉 10px 内衬 —— 于是右边缘落在 1036，而白色卡片右边缘在 1018，**戳出 19px**。
+（`<center>` 里的图因为不吃缩进、又左右对称，只多出 3px，基本看不出来，所以当时觉得"有些图"才这样。）
+
+修法两条，都在 `assets/css/retro.css`：
+
+```css
+.entry-content img { box-sizing: border-box; }        /* 让 max-width 把衬边算进去 */
+.entry-content p:has(> img:first-child) { text-indent: 0; }  /* 段首是图就不缩进 */
+```
+
+用 `:has()` 而不是给 `img` 加 `display: block`，是因为后者会把 `<p><img><img></p>`
+这种并排的图拆成两行。`text-indent` 只作用于**首行**，所以 `<p><br><img>` 这类
+图本来就在第二行、不吃缩进，不用管。
+
+改完实测：全部 44 个页面（含 21 个别名）**戳出 0 处、被裁 0 处**，
+图片右边缘停在 1006.5（卡片 1017.5），150% 缩放下同样是 −11px。
+
+> ⚠️ 顺带修的另一处：首页欢迎区（`.welcome-inner`）不在 `.entry-content` 里，
+> 拿不到那条 `img` 规则，而它外层是 `overflow: hidden`。所以那里的图一旦超宽是
+> **被切掉**而不是戳出去，两种都难看 —— 已补 `.welcome-inner img { max-width: 100% }`。
 
 旧站原址：<https://hoshi-rainbowsou.bearblog.dev/>
 
