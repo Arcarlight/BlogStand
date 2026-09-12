@@ -108,9 +108,25 @@ timeZone = "Asia/Shanghai"
   emojiFont = true
 
   # ---- 留言板（utterances）----
+  # 留言存在仓库的 Issue 里，所以仓库得先装 utterances App：
+  # https://github.com/apps/utterances → Install → Only select repositories → 选本站仓库
   comments        = true
   utterancesRepo  = "Arcarlight/BlogStand"
-  utterancesIssue = "留言板"
+
+  # 页面 → Issue 的对应方式（utterances 的 issue-term）。只有这五个是「关键字」：
+  #   pathname   按页面路径   → 每篇文章各自一块留言板（当前用的）
+  #   url        按完整网址
+  #   title      按 <title>
+  #   og:title   按 og:title
+  #   数字       直接指定某条 Issue 的编号，全站共用那一条
+  # 填其他内容会被当成「Issue 标题的字面量」，也就是全站共用一条 Issue
+  # （想做一个总留言板就填固定标题，比如 "留言板"）。
+  #
+  # ⚠️ 用 pathname / url 的话，Issue 标题里带着路径。以后要是换了域名、
+  #    或者把站从 /BlogStand/ 子目录搬到根目录，标题就对不上了 ——
+  #    留言不会丢（还在仓库 Issue 里），但页面上会显示成 0 条，
+  #    得去 GitHub 把对应 Issue 改个名才能接上。
+  utterancesIssue = "pathname"
 
 # ------------------------------------------------------------
 #  导航栏
