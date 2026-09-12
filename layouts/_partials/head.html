@@ -60,7 +60,7 @@
     })();
   </script>
   <link rel="preload" as="font" type="font/woff2" crossorigin
-        href="{{ "fonts/vonwaon-12px.woff2" | relURL }}">
+        href="{{ if eq (site.Params.pixelFontFile | default "vonwaon") "simsun12" }}{{ "fonts/simsun12-pixel.woff2" | relURL }}{{ else }}{{ "fonts/vonwaon-12px.woff2" | relURL }}{{ end }}">
   {{ end }}
 
   {{/* RSS / Atom 自动发现 */}}

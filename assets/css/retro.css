@@ -1143,65 +1143,87 @@ img { border: 0; }
       它们靠加粗和等宽表达，换点阵只会更糟。
    ============================================================ */
 {{ if site.Params.pixelFont }}
+{{/* 选哪一份点阵字体：vonwaon（默认，公有领域）或 simsun12（宋体 12px 点阵提取） */}}
+{{ $pxFile := "vonwaon-12px.woff2" }}
+{{ $pxName := "VonwaonBitmap" }}
+{{ if eq (site.Params.pixelFontFile | default "vonwaon") "simsun12" }}
+  {{ $pxFile = "simsun12-pixel.woff2" }}
+  {{ $pxName = "SimSun12Pixel" }}
+{{ end }}
 @font-face {
-  font-family: 'VonwaonBitmap';
+  font-family: '{{ $pxName }}';
   /* 用相对路径而不是 absURL：CSS 发布在 /xxx/css/retro.css，
      ../fonts/ 就是 /xxx/fonts/。这样换域名、或者用 localhost/127.0.0.1
      等不同主机名访问开发服务器时都不会变成跨域请求 —— 字体是 CORS 模式
      加载的，一旦跨域又没有 ACAO 头就会被浏览器直接拒掉（实测踩过）。 */
-  src: url(../fonts/vonwaon-12px.woff2) format('woff2');
+  src: url(../fonts/{{ $pxFile }}) format('woff2');
   font-display: swap;
 }
 
-/* 全站换字体。字号统一取自 --px，保证设备像素数是 12 的整数倍 */
+/* 全站换字体。字号统一取自 --px，保证设备像素数是 12 的整数倍。
+   这里必须用 !important：基础样式里有 #notice、#gotop、#navbar .nav li a
+   这类 ID 选择器写死了 12px / 13px，优先级比通配规则高，不强制的话它们会停
+   在 18 / 19.5 设备像素上 —— 不是 12 的整数倍，方块立刻糊（实测踩过）。
+   text-shadow 一并清掉：带模糊的描边会把点阵边缘糊成灰的。 */
 html.pxfont body,
 html.pxfont body * {
-  font-family: 'VonwaonBitmap', monospace;
-  font-weight: normal;
-  font-size: var(--px, 16px);
+  font-family: '{{ $pxName }}', monospace !important;
+  font-weight: normal !important;
+  font-size: var(--px, 16px) !important;
+  text-shadow: none !important;
 }
 
 /* 层级：不能靠加粗，只能靠字号。--px-lg / --px-xl 同样是 12 的整数倍 */
 html.pxfont .site-name,
-html.pxfont .error-code { font-size: var(--px-xl, 32px); }
+html.pxfont .error-code { font-size: var(--px-xl, 32px) !important; }
 html.pxfont .entry-title,
 html.pxfont .post-title,
 html.pxfont .sub-title,
 html.pxfont .link-name,
 html.pxfont .entry-content h1,
 html.pxfont .entry-content h2,
-html.pxfont .error-text,
-html.pxfont .about-name { font-size: var(--px-lg, 24px); }
 html.pxfont .entry-content h3,
-html.pxfont .entry-content h4 { font-size: var(--px-lg, 24px); }
+html.pxfont .entry-content h4,
+html.pxfont .error-text,
+html.pxfont .about-name { font-size: var(--px-lg, 24px) !important; }
 html.pxfont .tagcloud .tag-item sup,
-html.pxfont sup { font-size: var(--px-sm, 8px); }
-html.pxfont .pd-y { font-size: var(--px-sm, 8px); }
+html.pxfont sup,
+html.pxfont .pd-y { font-size: var(--px-sm, 8px) !important; }
 
-/* 这些零件保持原字体：它们靠加粗 / 等宽 / 固定尺寸表达 */
+/* 这些零件保持原字体：它们靠加粗 / 等宽 / 固定尺寸表达。
+   同样要 !important 才能从上面的通配规则手里抢回来。 */
 html.pxfont .retro-clock,
 html.pxfont .counter-num,
 html.pxfont .btn88,
 html.pxfont .btn88 span {
-  font-family: Tahoma, Consolas, "Courier New", monospace;
-  font-weight: bold;
+  font-family: Tahoma, Consolas, "Courier New", monospace !important;
+  font-weight: bold !important;
 }
-html.pxfont .retro-clock { font-size: 24px; }
-html.pxfont .counter-num { font-size: 12px; }
-html.pxfont .btn88-l1 { font-size: 8px; }
-html.pxfont .btn88-l2 { font-size: 9px; }
+html.pxfont .retro-clock { font-size: 24px !important; }
+html.pxfont .counter-num { font-size: 12px !important; }
+html.pxfont .btn88-l1 { font-size: 8px !important; }
+html.pxfont .btn88-l2 { font-size: 9px !important; }
+/* LED 的绿色辉光是故意留的 */
+html.pxfont .retro-clock { text-shadow: 0 0 6px rgba(51,255,51,.9) !important; }
+html.pxfont .counter-num { text-shadow: 0 0 4px rgba(51,255,51,.85) !important; }
+
 /* 面板标题条是加粗蓝底白字，换点阵会糊，留原字体 */
 html.pxfont .widget-title,
 html.pxfont .box-title {
-  font-family: {{ site.Params.fontStack }};
-  font-weight: bold;
+  font-family: {{ site.Params.fontStack }} !important;
+  font-weight: bold !important;
 }
-html.pxfont .widget-title { font-size: 12px; }
-html.pxfont .box-title { font-size: 13px; }
+html.pxfont .widget-title {
+  font-size: 12px !important;
+  text-shadow: 1px 1px 0 #1b3a63 !important;
+}
+html.pxfont .box-title { font-size: 13px !important; }
+
 /* 点阵下没有粗体，用「反白」代替原来的 <strong> 强调 */
 html.pxfont #footer strong,
 html.pxfont .footer-tips strong { background: #ffff00; color: #cc0000; }
-/* 正文行高：16px 点阵配 1.5 倍行距，接近当年的密排 */
-html.pxfont .entry-content { line-height: 1.55; }
+
+/* 正文行高：16px 点阵配 1.55 倍行距，接近当年的密排 */
 html.pxfont body { line-height: 1.55; }
+html.pxfont .entry-content { line-height: 1.55; }
 {{ end }}

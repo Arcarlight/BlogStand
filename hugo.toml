@@ -86,6 +86,13 @@ timeZone = "Asia/Shanghai"
   #   2. 字号不能随便写。改了字号就必须保证 字号 x DPR 仍是 12 的整数倍。
   pixelFont = true
 
+  # 用哪一份点阵字体：
+  #   "vonwaon"  = VonwaonBitmap 12px（公有领域，无版权顾虑，94 KB）
+  #   "simsun12" = 从系统宋体 12px 内嵌点阵提取的 SimSun12-Pixel（58 KB）。
+  #                字形就是 Windows 上经典的 12px 宋体点阵，观感最"原汁"；
+  #                字体本身的 OS/2 fsType = 8（Editable），允许嵌入。
+  pixelFontFile = "simsun12"
+
   # ---- 留言板（utterances）----
   comments        = true
   utterancesRepo  = "Arcarlight/BlogStand"
