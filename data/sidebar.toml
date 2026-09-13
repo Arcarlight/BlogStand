@@ -1,0 +1,16 @@
+# ============================================================
+#  侧栏挂件的顺序
+#
+#  由编辑器左侧的「侧栏排序」面板拖动生成，手改也行。
+#  挂件名不能乱写，认得的只有这些（写错的会被忽略）：
+#
+#    notices    公告栏        about      关于站长
+#    search     站内搜索      tags       标签云
+#    recent     最新博客      updates    更新日志
+#    links      友情链接      visitors   访客统计
+#    clock      现在时间      hitokoto   一言
+#    buttons    小按钮
+#
+#  没列到的挂件会自动补在最后，所以新加的挂件不会凭空消失。
+# ============================================================
+order = ["notices", "about", "search", "tags", "recent", "updates", "links", "visitors", "clock", "hitokoto", "buttons"]

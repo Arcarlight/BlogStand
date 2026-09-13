@@ -1,0 +1,18 @@
+{{/* ============ 88×31 小按钮墙 ============ */}}
+{{ with hugo.Data.buttons.items }}
+<div class="widget">
+  <div class="widget-title">小按钮</div>
+  <div class="widget-body">
+    <div class="button-wall">
+      {{ range . }}
+      <a class="btn88" href="{{ .url }}"{{ if ne .url "#" }} target="_blank" rel="noopener"{{ end }}
+         style="background:{{ .bg }};color:{{ .fg }};">
+        <span class="btn88-l1">{{ .line1 }}</span>
+        <span class="btn88-l2">{{ .line2 }}</span>
+      </a>
+      {{ end }}
+    </div>
+    <p class="side-more">欢迎交换按钮（88×31）</p>
+  </div>
+</div>
+{{ end }}

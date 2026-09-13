@@ -1,0 +1,12 @@
+{{/* ============ 访客计数器（不蒜子） ============ */}}
+{{ if site.Params.busuanzi }}
+<div class="widget" id="visitor-stats">
+  <div class="widget-title">访客统计</div>
+  <div class="widget-body counter-body">
+    <p class="counter-row"><span class="counter-label">您是第</span><span id="busuanzi_value_site_uv" class="counter-num">------</span><span class="counter-label">位访客</span></p>
+    <p class="counter-row"><span class="counter-label">总访问</span><span id="busuanzi_value_site_pv" class="counter-num">------</span><span class="counter-label">次</span></p>
+    <p class="counter-row"><span class="counter-label">本页阅读</span><span id="busuanzi_value_page_pv" class="counter-num">------</span><span class="counter-label">次</span></p>
+  </div>
+</div>
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+{{ end }}

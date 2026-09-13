@@ -130,6 +130,11 @@ timeZone = "Asia/Shanghai"
   # 所以这里填的是「更新日志开始算数的那一天」。哪天又大改版了，把日期往后挪即可。
   updateLogSince   = "2026-09-13"
 
+  # ---- 公告栏（侧栏那块「公告」）----
+  # 内容在 data/notices.toml，编辑器左侧「公告栏」面板里加。
+  # 注意和上面那条顶部滚动公告（notice）不是一回事。
+  noticeCount = 5           # 最多显示几条
+
   # ---- 留言板（utterances）----
   # 留言存在仓库的 Issue 里，所以仓库得先装 utterances App：
   # https://github.com/apps/utterances → Install → Only select repositories → 选本站仓库

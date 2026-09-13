@@ -1,0 +1,11 @@
+{{/* ============ 标签云 ============ */}}
+{{ with site.Taxonomies.tags }}
+<div class="widget">
+  <div class="widget-title">标签云</div>
+  <div class="widget-body tagcloud">
+    {{ range . }}
+    <a class="tag-item" href="{{ .Page.RelPermalink }}">{{ .Page.Title }}<sup>{{ .Count }}</sup></a>
+    {{ end }}
+  </div>
+</div>
+{{ end }}

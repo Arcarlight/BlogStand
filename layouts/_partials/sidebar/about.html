@@ -1,0 +1,15 @@
+{{/* ============ 站长名片 ============ */}}
+<div class="widget">
+  <div class="widget-title">关于站长</div>
+  <div class="widget-body widget-about">
+    <div class="avatar-box">
+      <img class="avatar" src="{{ site.Params.avatar | relURL }}" alt="{{ site.Params.authorName }} 的头像">
+    </div>
+    <p class="about-name">{{ site.Params.authorName }}</p>
+    <p class="about-desc">{{ site.Params.aboutDesc }}</p>
+    <ul class="about-meta">
+      <li>昵称：{{ site.Params.authorHandle }}</li>
+      <li>邮箱：<a href="mailto:{{ site.Params.email }}">{{ site.Params.email }}</a></li>
+    </ul>
+  </div>
+</div>

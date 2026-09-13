@@ -1,0 +1,13 @@
+{{/* ============ 友情链接 ============ */}}
+{{ with hugo.Data.links.items }}
+<div class="widget">
+  <div class="widget-title">友情链接</div>
+  <div class="widget-body">
+    <ul class="side-list side-list-dot">
+      {{ range . }}
+      <li><a href="{{ .url }}" target="_blank" rel="noopener" title="{{ .desc }}">{{ .name }}</a></li>
+      {{ end }}
+    </ul>
+  </div>
+</div>
+{{ end }}

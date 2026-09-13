@@ -1,0 +1,32 @@
+{{/* ============ 公告栏 ============
+     侧栏上一条一条挂着的公告。和顶部那条滚动公告不是一回事：
+       · 顶部滚动条：hugo.toml 里的 notice，一句话循环滚
+       · 这里：data/notices.toml，带日期，用编辑器左侧「公告栏」面板维护
+     最近 updateLogNewDays 天内加的会挂 NEW 牌子（和更新日志用的是同一个牌子）。 */}}
+{{ $items := hugo.Data.notices.items }}
+{{ with $items }}
+{{ $newDays := int (site.Params.updateLogNewDays | default 7) }}
+{{ $cut := now.AddDate 0 0 (mul -1 $newDays) }}
+{{ $list := slice }}
+{{ range . }}
+  {{ if .date }}
+    {{ $list = $list | append (dict "date" (time .date) "text" (.text | default "") "url" (.url | default "")) }}
+  {{ end }}
+{{ end }}
+{{ $list = sort $list "date" "desc" }}
+{{ with $list }}
+<div class="widget">
+  <div class="widget-title">公告栏</div>
+  <div class="widget-body">
+    <ul class="notice-list">
+      {{ range first (int (site.Params.noticeCount | default 5)) . }}
+      <li{{ if ge .date $cut }} class="is-new"{{ end }}>
+        <span class="nt-date">{{ .date.Format "2006-01-02" }}</span>
+        {{ if .url }}<a href="{{ .url }}">{{ .text }}</a>{{ else }}<span class="nt-text">{{ .text }}</span>{{ end }}
+      </li>
+      {{ end }}
+    </ul>
+  </div>
+</div>
+{{ end }}
+{{ end }}

@@ -1,0 +1,15 @@
+{{/* ============ 最新博客 ============ */}}
+{{ $recent := first 8 (where site.RegularPages "Section" "blog") }}
+{{ with $recent }}
+<div class="widget">
+  <div class="widget-title">最新博客</div>
+  <div class="widget-body">
+    <ul class="side-list side-list-dot">
+      {{ range . }}
+      <li><a href="{{ .RelPermalink }}" title="{{ .Title }}">{{ .Title }}</a></li>
+      {{ end }}
+    </ul>
+    <p class="side-more"><a href="{{ "/blog" | relURL }}">» 查看全部博客</a></p>
+  </div>
+</div>
+{{ end }}

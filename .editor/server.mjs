@@ -464,11 +464,69 @@ const UPDATES_HEADER = `# ======================================================
 #    url    = "/blog/xxx/"      可空，填了就变成链接
 # ============================================================`;
 
+const NOTICES_HEADER = `# ============================================================
+#  公告栏 —— 侧栏上那块「公告」
+#
+#  和顶部那条滚动公告不是一回事：
+#    · 顶部滚动条：hugo.toml 里的 notice，一句话循环滚过去
+#    · 这里：一条一条挂着，带日期，最近几天加的会挂 NEW 牌子
+#
+#  用本地编辑器左侧「公告栏」面板改最省事，注释会自动保留。
+#
+#    date   = "2026-09-13"      必填，YYYY-MM-DD（写错构建会报错）
+#    text   = "本站刚搬完家"      必填
+#    url    = "/blog/xxx/"      可空，填了就变成链接
+# ============================================================`;
+
+/* 侧栏挂件：key 是 partial 文件名，label 是给编辑器显示的名字。
+   这份表要和 layouts/_partials/sidebar.html 里的 $default 保持一致。 */
+const SIDEBAR_WIDGETS = [
+  ['notices',  '公告栏'],
+  ['about',    '关于站长'],
+  ['search',   '站内搜索'],
+  ['tags',     '标签云'],
+  ['recent',   '最新博客'],
+  ['updates',  '更新日志'],
+  ['links',    '友情链接'],
+  ['visitors', '访客统计'],
+  ['clock',    '现在时间'],
+  ['hitokoto', '一言'],
+  ['buttons',  '小按钮'],
+];
+
+const SIDEBAR_HEADER = `# ============================================================
+#  侧栏挂件的顺序
+#
+#  由编辑器左侧的「侧栏排序」面板拖动生成，手改也行。
+#  挂件名不能乱写，认得的只有这些（写错的会被忽略）：
+#
+#    notices    公告栏        about      关于站长
+#    search     站内搜索      tags       标签云
+#    recent     最新博客      updates    更新日志
+#    links      友情链接      visitors   访客统计
+#    clock      现在时间      hitokoto   一言
+#    buttons    小按钮
+#
+#  没列到的挂件会自动补在最后，所以新加的挂件不会凭空消失。
+# ============================================================`;
+
+function parseSidebarOrder(text) {
+  const m = text.match(/^\s*order\s*=\s*\[([^\]]*)\]/m);
+  if (!m) return [];
+  return m[1].split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean);
+}
+
+function writeSidebarOrder(order) {
+  const keys = order.filter((k) => SIDEBAR_WIDGETS.some((w) => w[0] === k));
+  return SIDEBAR_HEADER + '\norder = [' + keys.map((k) => `"${k}"`).join(', ') + ']\n';
+}
+
 /* data/*.toml 里那几张 [[items]] 列表：接口 /api/list/<key> 用这张表 */
 const DATA_LISTS = {
   links:   { file: 'data/links.toml',   keys: ['name', 'url', 'desc'],               header: LINKS_HEADER },
   buttons: { file: 'data/buttons.toml', keys: ['line1', 'line2', 'url', 'bg', 'fg'], header: BUTTONS_HEADER },
   updates: { file: 'data/updates.toml', keys: ['date', 'title', 'url'],              header: UPDATES_HEADER },
+  notices: { file: 'data/notices.toml', keys: ['date', 'text', 'url'],               header: NOTICES_HEADER },
 };
 
 /* ============================================================
@@ -996,9 +1054,11 @@ async function handle(req, res, url) {
     let { items } = await readBody(req);
     if (!Array.isArray(items)) throw new Error('参数不对：需要 items 数组');
 
-    if (which === 'updates') {
+    if (which === 'updates' || which === 'notices') {
+      // 这两个列表都是「日期 + 一句话 + 可选链接」，规则一样，只是正文的字段名不同
+      const textKey = which === 'updates' ? 'title' : 'text';
       // 空行（点了「加一条」还没填的）直接丢掉，免得往 toml 里写一堆空 [[items]]
-      items = items.filter((it) => String(it.date || '').trim() || String(it.title || '').trim());
+      items = items.filter((it) => String(it.date || '').trim() || String(it[textKey] || '').trim());
       const today = new Date().toISOString().slice(0, 10);
       for (const it of items) {
         // 日期写坏的话 Hugo 构建会直接报错（模板里要 time 解析它），所以这里先拦住
@@ -1006,12 +1066,35 @@ async function handle(req, res, url) {
         if (!d) d = today;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error(`日期要写成 YYYY-MM-DD：「${it.date}」`);
         it.date = d;
-        it.title = String(it.title || '').trim() || '（没写标题）';
+        it[textKey] = String(it[textKey] || '').trim() || (which === 'updates' ? '（没写标题）' : '（没写内容）');
       }
     }
 
     await writeText(spec.file, writeItems(spec.header, items, spec.keys));
     return json(res, 200, { ok: true, count: items.length });
+  }
+
+  /* ---------- 侧栏挂件顺序 ---------- */
+  if (p === '/api/sidebar' && req.method === 'GET') {
+    const saved = parseSidebarOrder(await readText('data/sidebar.toml')).filter(
+      (k) => SIDEBAR_WIDGETS.some((w) => w[0] === k));
+    // 文件里没列到的挂件补在最后，和 sidebar.html 的兜底逻辑保持一致
+    const order = [...saved];
+    for (const [key] of SIDEBAR_WIDGETS) if (!order.includes(key)) order.push(key);
+    return json(res, 200, {
+      order,
+      saved,
+      widgets: SIDEBAR_WIDGETS.map(([key, label]) => ({ key, label })),
+    });
+  }
+
+  if (p === '/api/sidebar' && req.method === 'POST') {
+    const { order } = await readBody(req);
+    if (!Array.isArray(order)) throw new Error('参数不对：需要 order 数组');
+    const unknown = order.filter((k) => !SIDEBAR_WIDGETS.some((w) => w[0] === k));
+    if (unknown.length) throw new Error('不认识的挂件：' + unknown.join('、'));
+    await writeText('data/sidebar.toml', writeSidebarOrder(order.map(String)));
+    return json(res, 200, { ok: true, order: order.map(String) });
   }
 
   if (p === '/api/scripts' && req.method === 'GET') return json(res, 200, await getScripts());

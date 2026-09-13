@@ -67,6 +67,17 @@
   .row.drop-before{box-shadow:inset 0 2px 0 0 var(--accent)}
   .row.drop-after{box-shadow:inset 0 -2px 0 0 var(--accent)}
 
+  /* ---------- 侧栏排序面板里的拖动列表 ---------- */
+  #sideOrder{list-style:none;max-width:440px;margin:10px 0}
+  #sideOrder li{
+    display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:4px;
+    background:#fff;border:1px solid var(--line);border-radius:4px;cursor:grab;font-size:13px;
+  }
+  #sideOrder li:hover{background:#f4f9ff}
+  #sideOrder li.dragging{opacity:.4}
+  #sideOrder li .handle{color:var(--dim);font-size:15px;line-height:1}
+  #sideOrder li code{margin-left:auto;font-size:11px;color:var(--dim);background:#f2f7fc;padding:1px 5px;border-radius:3px}
+
   /* ---------- 编辑区 ---------- */
   #editor{
     flex:1;min-width:0;border:0;outline:0;padding:14px 16px;resize:none;
@@ -349,6 +360,8 @@ function renderTree() {
   h += '<div class="row tool" data-panel="links">' + ico('link') + '友情链接</div>';
   h += '<div class="row tool" data-panel="buttons">' + ico('grid') + '小按钮</div>';
   h += '<div class="row tool" data-panel="updates">' + ico('refresh') + '更新日志</div>';
+  h += '<div class="row tool" data-panel="notices">' + ico('comment-quote') + '公告栏</div>';
+  h += '<div class="row tool" data-panel="sidebar">' + ico('pencil-ruler') + '侧栏排序</div>';
   h += '<div class="row tool" data-panel="scripts">' + ico('code') + '脚本管理</div>';
   h += '<div class="row tool" data-panel="nav">' + ico('calendar-alt') + '日记日历</div>';
   for (const g of TREE) {
@@ -598,6 +611,8 @@ async function openPanel(which) {
   if (which === 'links')    return renderLinks();
   if (which === 'buttons')  return renderButtons();
   if (which === 'updates')  return renderUpdates();
+  if (which === 'notices')  return renderNotices();
+  if (which === 'sidebar')  return renderSidebar();
   if (which === 'scripts')  return renderScripts();
   if (which === 'nav')      return renderNav();
 }
@@ -830,6 +845,99 @@ async function renderUpdates() {
     });
   };
   draw(d.items.map((x) => Object.assign({}, x)));
+}
+
+/* --- 公告栏（侧栏那块「公告」，和顶部滚动公告不是一回事） --- */
+async function renderNotices() {
+  const d = await apiGet('/api/list/notices');
+  const today = new Date().toISOString().slice(0, 10);
+  const draw = (items) => {
+    let h = '<h2 class="sec">公告栏</h2>';
+    h += '<p class="hint">侧栏上那块「公告」的内容，对应 <code>data/notices.toml</code>。</p>';
+    h += '<div class="note">和顶部那条<b>滚动公告</b>不是一回事：滚动那句在「站点设置」里改（<code>notice</code>），' +
+         '这里是一条一条挂着的。<br>最近 7 天内加的公告会自动挂上 NEW 小牌子（和更新日志是同一个牌子）。</div>';
+    h += '<table class="grid"><thead><tr><th style="width:150px">日期</th><th>公告内容</th><th style="width:28%">链接（可空）</th><th style="width:40px"></th></tr></thead><tbody id="tbNotice">';
+    items.forEach((it, i) => {
+      h += `<tr>
+        <td><input type="date" data-f="date" data-i="${i}" value="${esc(it.date || '')}"></td>
+        <td><input data-f="text" data-i="${i}" value="${esc(it.text || '')}" placeholder="比如：本站刚搬完家，样式还在微调"></td>
+        <td><input data-f="url"  data-i="${i}" value="${esc(it.url || '')}" placeholder="/blog/xxx/ 或留空"></td>
+        <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+    });
+    h += '</tbody></table>';
+    if (!items.length) h += '<p class="hint">还没有公告。没有公告时，侧栏那块不会显示出来。</p>';
+    h += '<button id="btnAddNotice">＋ 加一条公告</button> <button class="primary" id="btnSaveNotices">保存</button>';
+    showPanel(h);
+
+    const collect = () => {
+      document.querySelectorAll('#tbNotice input[data-f]').forEach((el) => {
+        items[+el.dataset.i][el.dataset.f] = el.value;
+      });
+    };
+    document.querySelectorAll('#tbNotice [data-del]').forEach((b) => b.addEventListener('click', () => {
+      collect(); items.splice(+b.dataset.del, 1); draw(items);
+    }));
+    $('#btnAddNotice').addEventListener('click', () => {
+      collect(); items.unshift({ date: today, text: '', url: '' }); draw(items);
+    });
+    $('#btnSaveNotices').addEventListener('click', async () => {
+      collect();
+      await apiPost('/api/list/notices', { items });
+      toast('公告已保存（预览里刷新一下就能看到）', 'ok');
+    });
+  };
+  draw(d.items.map((x) => Object.assign({}, x)));
+}
+
+/* --- 侧栏排序（拖动改挂件顺序，存到 data/sidebar.toml） --- */
+async function renderSidebar() {
+  const d = await apiGet('/api/sidebar');
+  const label = {};
+  d.widgets.forEach((w) => { label[w.key] = w.label; });
+  const items = d.order.slice();
+
+  let h = '<h2 class="sec">侧栏排序</h2>';
+  h += '<p class="hint">右侧「侧边栏」里那些挂件的上下顺序。<b>按住一行拖动</b>即可，松手就保存到 <code>data/sidebar.toml</code>。</p>';
+  h += '<div class="note">挂件本身的开关不在这一页 —— 访客统计 / 时钟 / 一言 / 更新日志 的开关在「站点设置」里，' +
+       '友情链接和小按钮的内容在各自的面板里。</div>';
+  h += '<ul id="sideOrder">';
+  items.forEach((k) => {
+    h += `<li draggable="true" data-key="${esc(k)}"><span class="handle">≡</span><span class="name">${esc(label[k] || k)}</span><code>${esc(k)}</code></li>`;
+  });
+  h += '</ul>';
+  h += '<p class="hint">没列进去的挂件（比如以后新加的）会自动排在最后。</p>';
+  showPanel(h);
+
+  const ul = $('#sideOrder');
+  let drag = null;
+  ul.addEventListener('dragstart', (e) => {
+    const li = e.target.closest('li[data-key]');
+    if (!li) { e.preventDefault(); return; }
+    drag = li;
+    li.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', li.dataset.key); } catch (err) { /* 忽略 */ }
+  });
+  ul.addEventListener('dragover', (e) => {
+    if (!drag) return;
+    const li = e.target.closest('li[data-key]');
+    if (!li || li === drag) return;
+    e.preventDefault();
+    const r = li.getBoundingClientRect();
+    const after = e.clientY > r.top + r.height / 2;
+    li.parentNode.insertBefore(drag, after ? li.nextSibling : li);
+  });
+  ul.addEventListener('drop', (e) => { if (drag) e.preventDefault(); });
+  ul.addEventListener('dragend', async () => {
+    if (!drag) return;
+    drag.classList.remove('dragging');
+    drag = null;
+    const order = [...ul.querySelectorAll('li[data-key]')].map((li) => li.dataset.key);
+    try {
+      await apiPost('/api/sidebar', { order });
+      toast('侧栏顺序已保存', 'ok');
+    } catch (err) { toast('保存失败：' + err.message, 'err'); }
+  });
 }
 
 /* --- 脚本管理 --- */

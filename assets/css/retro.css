@@ -345,7 +345,9 @@ img { border: 0; }
    而且 2 月的文章也叫 new! 很怪，所以只挂一条。 */
 .post-item:first-child .post-title a::after,
 .update-log li.is-new > a::after,
-.update-log li.is-new > .ul-title::after {
+.update-log li.is-new > .ul-title::after,
+.notice-list li.is-new > a::after,
+.notice-list li.is-new > .nt-text::after {
   content: "NEW";
   display: inline-block;
   margin-left: 5px;
@@ -792,6 +794,28 @@ img { border: 0; }
 
 .update-log a { color: #0033cc; }
 .update-log .ul-title { color: #333333; }
+
+/* ---------- 公告栏（侧栏挂件） ----------
+   和更新日志的区别：公告是一句话，所以日期单独占一行（更新日志里日期是行首前缀）。
+   字号同样走 --px-sm，保持「12 设备像素的整数倍」这个锐利条件。 */
+.notice-list { list-style: none; }
+
+.notice-list li {
+  padding: 3px 0;
+  line-height: 1.5;
+  border-bottom: 1px dotted #d7e3f0;
+}
+
+.notice-list li:last-child { border-bottom: 0; }
+
+.notice-list .nt-date {
+  display: block;
+  font-size: var(--px-sm, 11px) !important;
+  color: #7488a0;
+}
+
+.notice-list .nt-text { color: #333333; }
+.notice-list a { color: #0033cc; }
 
 /* 搜索框 */
 .search-form { overflow: hidden; }
