@@ -47,7 +47,7 @@ timeZone = "Asia/Shanghai"
   notice = "★ 欢迎来到星虹巢 ★ 公开日记、作品集与素材持续更新中 ★ 友情链接长期招募 ★"
 
   # 侧边栏「关于站长」的自我介绍
-  aboutDesc = "画画、作曲、写文、学习语言之类有超级多兴趣，最喜欢创作"
+  aboutDesc = "喜欢艺术创作的沙漠蜻蜓，正在和日常斗智斗勇！"
 
   # ---- 页脚 ----
   footerText = "Best viewed in 1024×768 with Internet Explorer 8 or Firefox 3.6"
@@ -65,14 +65,14 @@ timeZone = "Asia/Shanghai"
   # 宋体没有提到前面：正文用它只会走轮廓渲染、发灰发虚（宋体的点阵只在
   # 12~17 设备像素生效，150% 缩放下 12px 是 18 设备像素，正好错过）。
   # 想要像素宋体请用下面的 pixelSongSmall，那才是能生效的做法。
-  fontStack = 'Tahoma,"Microsoft YaHei","微软雅黑",Verdana,SimSun,"宋体",sans-serif'
+  fontStack = "'Tahoma,\"Microsoft YaHei\",\"微软雅黑\",Verdana,SimSun,\"宋体\",sans-serif'"
 
   # 阅读速度（字/分钟）—— 用来估算「阅读约 X 分钟」。
   # 中文阅读速度一般按 300~500 字/分钟估，这里取 400。
   # 注意：不能用 Hugo 自带的 .WordCount/.ReadingTime，它按空白分词，
   # 中文会被严重低估（实测差 15~183 倍），所以字数改由
   # layouts/_partials/stats.html 按字符数算。
-  readingSpeed = 400
+  readingSpeed = "400"
 
   # ---- 「点阵宋体」小字开关 ----
   # 宋体内嵌的点阵只存在于「12~17 设备像素」这一段，换算成 CSS 像素取决于
@@ -121,9 +121,9 @@ timeZone = "Asia/Shanghai"
   # 在编辑器左侧的「更新日志」面板里加）。
   # 侧栏那份什么都收（含日记）；首页那份不收日记 —— 日记一天一改，太频繁。
   updateLog        = true
-  updateLogCount   = 8      # 侧栏「更新日志」显示几条
-  updateLogHome    = 10     # 首页「更新日志」显示几条
-  updateLogNewDays = 7      # 多少天内算「新」，挂上那个红色 NEW 小牌子
+  updateLogCount   = "8"  # 侧栏「更新日志」显示几条
+  updateLogHome    = "10"  # 首页「更新日志」显示几条
+  updateLogNewDays = "7"  # 多少天内算「新」，挂上那个红色 NEW 小牌子
   # 「新」还有另半边条件：只有这个日期**当天及以后**改动过的才挂牌子。
   # 站点是 2026-09-10 从老站整批搬过来的，9/11~9/12 又跟着改版批量动过一遍 ——
   # 那些是「搬家」，不是「更新」，全挂上牌子等于没牌子。
@@ -133,7 +133,7 @@ timeZone = "Asia/Shanghai"
   # ---- 公告栏（侧栏那块「公告」）----
   # 内容在 data/notices.toml，编辑器左侧「公告栏」面板里加。
   # 注意和上面那条顶部滚动公告（notice）不是一回事。
-  noticeCount = 5           # 最多显示几条
+  noticeCount = "5"  # 最多显示几条
 
   # ---- 留言板（utterances）----
   # 留言存在仓库的 Issue 里，所以仓库得先装 utterances App：
