@@ -452,6 +452,24 @@ const BUTTONS_HEADER = `# ======================================================
 #  88×31 小按钮
 #  全部由 CSS 现场画出来，不需要准备图片文件
 # ============================================================`;
+const UPDATES_HEADER = `# ============================================================
+#  更新通报 —— 侧栏和首页的「更新日志」读取这个文件
+#
+#  这里只放「手动加的通报」。页面、博客、日记的更新是构建时自动收的
+#  （按 git 提交日期取最近更新的页面），不用在这里登记。
+#  用本地编辑器左侧「更新日志」面板改最省事，注释会自动保留。
+#
+#    date   = "2026-09-12"      必填，YYYY-MM-DD（写错构建会报错）
+#    title  = "换了新的点阵字体"  必填
+#    url    = "/blog/xxx/"      可空，填了就变成链接
+# ============================================================`;
+
+/* data/*.toml 里那几张 [[items]] 列表：接口 /api/list/<key> 用这张表 */
+const DATA_LISTS = {
+  links:   { file: 'data/links.toml',   keys: ['name', 'url', 'desc'],               header: LINKS_HEADER },
+  buttons: { file: 'data/buttons.toml', keys: ['line1', 'line2', 'url', 'bg', 'fg'], header: BUTTONS_HEADER },
+  updates: { file: 'data/updates.toml', keys: ['date', 'title', 'url'],              header: UPDATES_HEADER },
+};
 
 /* ============================================================
    脚本管理
@@ -971,13 +989,29 @@ async function handle(req, res, url) {
 
   if (p.startsWith('/api/list/')) {
     const which = p.split('/')[3];
-    const rel = which === 'links' ? 'data/links.toml' : 'data/buttons.toml';
-    const keys = which === 'links' ? ['name', 'url', 'desc'] : ['line1', 'line2', 'url', 'bg', 'fg'];
-    const header = which === 'links' ? LINKS_HEADER : BUTTONS_HEADER;
-    if (req.method === 'GET') return json(res, 200, { items: parseItems(await readText(rel)), keys });
-    const { items } = await readBody(req);
-    await writeText(rel, writeItems(header, items, keys));
-    return json(res, 200, { ok: true });
+    const spec = DATA_LISTS[which];
+    if (!spec) return json(res, 404, { error: '没有这个列表：' + which });
+    if (req.method === 'GET') return json(res, 200, { items: parseItems(await readText(spec.file)), keys: spec.keys });
+
+    let { items } = await readBody(req);
+    if (!Array.isArray(items)) throw new Error('参数不对：需要 items 数组');
+
+    if (which === 'updates') {
+      // 空行（点了「加一条」还没填的）直接丢掉，免得往 toml 里写一堆空 [[items]]
+      items = items.filter((it) => String(it.date || '').trim() || String(it.title || '').trim());
+      const today = new Date().toISOString().slice(0, 10);
+      for (const it of items) {
+        // 日期写坏的话 Hugo 构建会直接报错（模板里要 time 解析它），所以这里先拦住
+        let d = String(it.date || '').trim().slice(0, 10);
+        if (!d) d = today;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error(`日期要写成 YYYY-MM-DD：「${it.date}」`);
+        it.date = d;
+        it.title = String(it.title || '').trim() || '（没写标题）';
+      }
+    }
+
+    await writeText(spec.file, writeItems(spec.header, items, spec.keys));
+    return json(res, 200, { ok: true, count: items.length });
   }
 
   if (p === '/api/scripts' && req.method === 'GET') return json(res, 200, await getScripts());

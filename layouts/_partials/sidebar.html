@@ -54,6 +54,18 @@
   </div>
   {{ end }}
 
+  {{/* ============ 更新日志 ============ */}}
+  {{/* 自动收「最近更新的页面」（按 git 提交日期）+ data/updates.toml 里的手动通报。
+       侧栏这一份什么都收，包括日记；首页那份不收日记 —— 日记一天一改，太频繁。 */}}
+  {{ if site.Params.updateLog }}
+  <div class="widget">
+    <div class="widget-title">更新日志</div>
+    <div class="widget-body">
+      {{ partial "update-log.html" (dict "limit" (site.Params.updateLogCount | default 8)) }}
+    </div>
+  </div>
+  {{ end }}
+
   {{/* ============ 友情链接 ============ */}}
   {{ with hugo.Data.links.items }}
   <div class="widget">

@@ -336,10 +336,16 @@ img { border: 0; }
 .post-title { font-size: 14px; line-height: 1.5; }
 .post-title a { color: #0033cc; }
 
-/* 只给最新那一条挂一个 NEW 小牌子。
+/* NEW 小牌子。挂在两处：
+   1) 博客列表最新那一条（.post-item:first-child）
+   2) 侧栏 / 首页「更新日志」里最近几天更新过的条目（li.is-new）
+   做成 ::after 而不是 <span>：伪元素不会被点阵字体那条通配规则
+   （html.pxfont body *）改掉字体和字号，牌子才能一直是原来那个样子。
    之前给前三条都挂红色加粗带下划线的 new!，会读成第二个链接，
-   而且 2 月的文章也叫 new! 很怪。 */
-.post-item:first-child .post-title a::after {
+   而且 2 月的文章也叫 new! 很怪，所以只挂一条。 */
+.post-item:first-child .post-title a::after,
+.update-log li.is-new > a::after,
+.update-log li.is-new > .ul-title::after {
   content: "NEW";
   display: inline-block;
   margin-left: 5px;
@@ -758,6 +764,34 @@ img { border: 0; }
 }
 
 .side-more { margin-top: 5px; font-size: 11px; text-align: right; }
+
+/* ---------- 更新日志（侧栏挂件 / 首页列表共用） ----------
+   比普通列表多一列日期，日期用小一号的灰字 —— 2010 年的站很兴这个，
+   一条一条像值班表。
+   日期字号必须走 --px-sm：它是「12 的整数倍设备像素」那一档，
+   写死 11px 的话在点阵字体下会落在半个设备像素上、边缘发灰。 */
+.update-log { list-style: none; }
+
+.update-log li {
+  padding: 2px 0;
+  line-height: 1.55;
+  border-bottom: 1px dotted #d7e3f0;
+}
+
+.update-log li:last-child { border-bottom: 0; }
+
+/* 日期字号必须走 --px-sm，而且必须 !important：
+   点阵字体那条规则是 `html.pxfont body * { font-size: var(--px) !important }`，
+   不带 !important 的话这里会被它按回正文那档字号（日期就和标题一样大了）。
+   --px-sm 也是 12 的整数倍设备像素，所以小归小、边缘是锐的。 */
+.update-log .ul-date {
+  margin-right: 5px;
+  font-size: var(--px-sm, 11px) !important;
+  color: #7488a0;
+}
+
+.update-log a { color: #0033cc; }
+.update-log .ul-title { color: #333333; }
 
 /* 搜索框 */
 .search-form { overflow: hidden; }

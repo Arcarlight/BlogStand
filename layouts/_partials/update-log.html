@@ -1,0 +1,55 @@
+{{/* ============================================================
+     更新日志 —— 侧栏挂件和首页列表共用的一个零件
+
+     用法：
+       {{ partial "update-log.html" (dict "limit" 8) }}
+       {{ partial "update-log.html" (dict "limit" 10 "excludeSections" (slice "niki")) }}
+
+     内容两部分：
+       自动 —— 最近更新的页面。按 .Lastmod（= git 提交日期，见 hugo.toml 的
+               enableGitInfo）从近到远排。所以往老日记里补一天、改一篇文章，
+               都会立刻反映出来。
+       手动 —— data/updates.toml 里的「更新通报」，在编辑器左侧那个面板里加。
+
+     排除规则：
+       excludeSections  传进来要跳过的 section（首页那份用它排除 niki）
+       updateLog: false 页面 front matter 里写这个，就永远不进日志
+                        （隐藏页 / 工具页用，比如 reply、ihsobijin2006）
+     ============================================================ */}}
+{{- $limit := int (.limit | default 8) }}
+{{- $exclude := .excludeSections | default slice }}
+{{- $newDays := int (site.Params.updateLogNewDays | default 7) }}
+{{- $cut := now.AddDate 0 0 (mul -1 $newDays) }}
+
+{{- $entries := slice }}
+
+{{/* ---- 自动：最近更新的页面 ---- */}}
+{{- range site.RegularPages }}
+  {{- if and (not (in $exclude .Section)) (ne .Params.updateLog false) }}
+    {{- $entries = $entries | append (dict
+          "date"  .Lastmod
+          "title" .Title
+          "url"   .RelPermalink
+          "new"   (ge .Lastmod $cut)) }}
+  {{- end }}
+{{- end }}
+
+{{/* ---- 手动：更新通报 ---- */}}
+{{- range hugo.Data.updates.items }}
+  {{- if .date }}
+    {{- $d := time .date }}
+    {{- $entries = $entries | append (dict
+          "date"  $d
+          "title" (.title | default "（没写标题）")
+          "url"   (.url | default "")
+          "new"   (ge $d $cut)) }}
+  {{- end }}
+{{- end }}
+
+{{- $entries = sort $entries "date" "desc" }}
+
+<ul class="update-log">
+  {{- range first $limit $entries }}
+  <li{{ if .new }} class="is-new"{{ end }}><span class="ul-date">{{ .date.Format "2006-01-02" }}</span>{{ if .url }}<a href="{{ .url }}">{{ .title }}</a>{{ else }}<span class="ul-title">{{ .title }}</span>{{ end }}</li>
+  {{- end }}
+</ul>

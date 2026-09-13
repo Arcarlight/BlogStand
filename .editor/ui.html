@@ -348,6 +348,7 @@ function renderTree() {
   h += '<div class="row tool" data-panel="settings">' + ico('cog') + '站点设置</div>';
   h += '<div class="row tool" data-panel="links">' + ico('link') + '友情链接</div>';
   h += '<div class="row tool" data-panel="buttons">' + ico('grid') + '小按钮</div>';
+  h += '<div class="row tool" data-panel="updates">' + ico('refresh') + '更新日志</div>';
   h += '<div class="row tool" data-panel="scripts">' + ico('code') + '脚本管理</div>';
   h += '<div class="row tool" data-panel="nav">' + ico('calendar-alt') + '日记日历</div>';
   for (const g of TREE) {
@@ -596,6 +597,7 @@ async function openPanel(which) {
   if (which === 'settings') return renderSettings();
   if (which === 'links')    return renderLinks();
   if (which === 'buttons')  return renderButtons();
+  if (which === 'updates')  return renderUpdates();
   if (which === 'scripts')  return renderScripts();
   if (which === 'nav')      return renderNav();
 }
@@ -783,6 +785,48 @@ async function renderButtons() {
       collect();
       await apiPost('/api/list/buttons', { items });
       toast('小按钮已保存', 'ok');
+    });
+  };
+  draw(d.items.map((x) => Object.assign({}, x)));
+}
+
+/* --- 更新日志（只放手动加的通报，页面的自动更新是构建时收的） --- */
+async function renderUpdates() {
+  const d = await apiGet('/api/list/updates');
+  const today = new Date().toISOString().slice(0, 10);
+  const draw = (items) => {
+    let h = '<h2 class="sec">更新日志</h2>';
+    h += '<p class="hint">这里是<b>手动加的「更新通报」</b>，侧栏和首页的「更新日志」都会显示，对应 <code>data/updates.toml</code>。</p>';
+    h += '<div class="note">页面的更新是<b>自动</b>收的：按 git 提交日期取最近更新的页面（含日记），不用在这里登记。<br>';
+    h += '区别只有一条 —— <b>首页那份不收日记</b>（一天一改太频繁），侧栏那份收。</div>';
+    h += '<table class="grid"><thead><tr><th style="width:150px">日期</th><th>标题</th><th style="width:28%">链接（可空）</th><th style="width:40px"></th></tr></thead><tbody id="tbUpd">';
+    items.forEach((it, i) => {
+      h += `<tr>
+        <td><input type="date" data-f="date" data-i="${i}" value="${esc(it.date || '')}"></td>
+        <td><input data-f="title" data-i="${i}" value="${esc(it.title || '')}" placeholder="比如：换了新的点阵字体"></td>
+        <td><input data-f="url" data-i="${i}" value="${esc(it.url || '')}" placeholder="/blog/xxx/ 或留空"></td>
+        <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+    });
+    h += '</tbody></table>';
+    if (!items.length) h += '<p class="hint">还没有手动通报。不加也没关系，日志里已经有自动收集的最近更新。</p>';
+    h += '<button id="btnAddUpd">＋ 加一条通报</button> <button class="primary" id="btnSaveUpd">保存</button>';
+    showPanel(h);
+
+    const collect = () => {
+      document.querySelectorAll('#tbUpd input[data-f]').forEach((el) => {
+        items[+el.dataset.i][el.dataset.f] = el.value;
+      });
+    };
+    document.querySelectorAll('#tbUpd [data-del]').forEach((b) => b.addEventListener('click', () => {
+      collect(); items.splice(+b.dataset.del, 1); draw(items);
+    }));
+    $('#btnAddUpd').addEventListener('click', () => {
+      collect(); items.unshift({ date: today, title: '', url: '' }); draw(items);
+    });
+    $('#btnSaveUpd').addEventListener('click', async () => {
+      collect();
+      await apiPost('/api/list/updates', { items });
+      toast('更新通报已保存（预览里刷新一下就能看到）', 'ok');
     });
   };
   draw(d.items.map((x) => Object.assign({}, x)));

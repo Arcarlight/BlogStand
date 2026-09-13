@@ -38,4 +38,16 @@
 </div>
 {{ end }}
 
+{{/* ============ 更新日志 ============
+     只收「新增页面 / 新增博客 / 手动通报」，不收日记（一天一改，太频繁）。 */}}
+{{ if site.Params.updateLog }}
+<div class="box">
+  <div class="box-title">更新日志</div>
+  <div class="box-body">
+    {{ partial "update-log.html" (dict "limit" (site.Params.updateLogHome | default 10) "excludeSections" (slice "niki")) }}
+    <p class="list-footer"><a href="{{ "/navigator" | relURL }}">&raquo; 想看每日更新？翻翻日记本</a></p>
+  </div>
+</div>
+{{ end }}
+
 {{ end }}

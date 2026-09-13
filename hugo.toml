@@ -13,6 +13,15 @@ title = "虹星的星虹巢｜ほしのほしにじそう"
 enableRobotsTXT = true
 canonifyURLs = true
 
+# 让 Hugo 从 git 提交记录里取每个页面的「最后更新日期」（.Lastmod）。
+# 侧栏和首页的「更新日志」就是按这个排的 —— 不开的话 .Lastmod 会退化成
+# 发布日期，往老日记里补一天也看不出来。
+# 注意两点：
+#   1) 需要完整的 git 历史：GitHub Actions 那边已经是 fetch-depth: 0；
+#      本地用 git clone 下来的仓库也正常有。
+#   2) 只认「已提交」的改动 —— 刚写完还没 commit 的页面，日期不会变。
+enableGitInfo = true
+
 # 站点时区。旧站的时间戳是 UTC（例：sokuzai_cattest 的 2026-02-14T19:42Z），
 # 按 UTC 显示会比你当时实际发帖的本地时间早 8 小时，所以这里固定成 +8，
 # 页面上的「发布于」就是你当年看到的本地时间。
@@ -106,6 +115,15 @@ timeZone = "Asia/Shanghai"
   # 12px 栅格（unitsPerEm 1200、1 设计像素 = 100 单位），跟着 --px 走就是锐的。
   # 关掉即恢复成系统 emoji 字体。
   emojiFont = true
+
+  # ---- 更新日志（侧栏挂件 + 首页列表）----
+  # 内容 = 自动（按 git 提交日期取最近更新的页面）+ 手动（data/updates.toml，
+  # 在编辑器左侧的「更新日志」面板里加）。
+  # 侧栏那份什么都收（含日记）；首页那份不收日记 —— 日记一天一改，太频繁。
+  updateLog        = true
+  updateLogCount   = 8      # 侧栏「更新日志」显示几条
+  updateLogHome    = 10     # 首页「更新日志」显示几条
+  updateLogNewDays = 7      # 多少天内算「新」，挂上那个红色 NEW 小牌子
 
   # ---- 留言板（utterances）----
   # 留言存在仓库的 Issue 里，所以仓库得先装 utterances App：
