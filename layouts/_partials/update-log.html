@@ -21,6 +21,15 @@
 {{- $newDays := int (site.Params.updateLogNewDays | default 7) }}
 {{- $cut := now.AddDate 0 0 (mul -1 $newDays) }}
 
+{{/* NEW 牌子的第二个门槛：updateLogSince 之前的改动只算「搬家」，不挂牌子。
+     整批迁移过来的页面 git 日期都很新，不加这个条件会满屏都是 NEW。 */}}
+{{- $hasSince := false }}
+{{- $since := now }}
+{{- with site.Params.updateLogSince }}
+  {{- $hasSince = true }}
+  {{- $since = time . }}
+{{- end }}
+
 {{- $entries := slice }}
 
 {{/* ---- 自动：最近更新的页面 ---- */}}
@@ -30,11 +39,12 @@
           "date"  .Lastmod
           "title" .Title
           "url"   .RelPermalink
-          "new"   (ge .Lastmod $cut)) }}
+          "new"   (and (ge .Lastmod $cut) (or (not $hasSince) (ge .Lastmod $since)))) }}
   {{- end }}
 {{- end }}
 
 {{/* ---- 手动：更新通报 ---- */}}
+{{/* 手动加的通报都是「刚刚发生的事」，所以不受 updateLogSince 限制，只看 7 天窗口。 */}}
 {{- range hugo.Data.updates.items }}
   {{- if .date }}
     {{- $d := time .date }}
