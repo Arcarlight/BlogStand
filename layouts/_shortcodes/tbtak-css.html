@@ -1,0 +1,143 @@
+{{/* ==========================================================================
+     「想要飞的始祖小鸟」这一页的版式 —— 老站（Bear Blog）那一版的复刻
+
+     为什么放在短代码里、而不是直接写在页面内容里：
+     Hugo 的 markdown（Goldmark）遇到空行就结束 HTML 块。页面里的
+     <style>…</style> 一旦中间出现空行，后半段 CSS 会被当正文处理 ——
+     线上实测过：.float-img 那几条规则被渲染成了一个可见的 <pre> 代码块，
+     样式全部失效、页面上还多出一段 CSS 文字。短代码的输出不经过 markdown，
+     所以这里可以正常排版、写注释、留空行。
+
+     作用域：只有调用它的页面会加载这段样式（目前只有 content/tobitaiaaken.md），
+     所以改这里不会影响站内其他页面。
+
+     选择器为什么统一带 #content 前缀：
+     全站的点阵字体规则长这样 ——
+         html.pxfont body * { font-family: … !important; font-size: var(--px) !important; }
+     通配符 + !important，只有 ID 选择器才压得住它。
+     ========================================================================== */}}
+<style>
+/* ---- 1. 整页铺 TBTAK 背景图（老站是加在 body 上的）---- */
+body {
+  background-color: #e7f1fc !important;
+  background-image: url(../images/migrated/TBTAKPage-BG.png) !important;
+  background-repeat: repeat !important;
+  background-size: 550px auto !important;
+}
+
+/* 版心保留顶部那道彩虹条，但去掉白底和网格底纹，好让背景图透出来 */
+#page {
+  background-color: transparent !important;
+  background-image: url(../images/rainbow.png) !important;
+  background-repeat: repeat-x !important;
+  background-position: left top !important;
+}
+
+/* ---- 2. 老站这页没有侧栏，正文栏就是 720px 居中 ---- */
+#sidebar { display: none !important; }
+#content { float: none !important; width: 720px !important; margin: 0 auto !important; }
+
+/* ---- 3. 去掉文章卡片的外框，以及老站没有的那几行「家具」---- */
+.post-single.box { margin: 0 !important; background: none !important; border: 0 !important; }
+.post-single .box-body { padding: 0 !important; }
+.post-single .box-title,
+.post-single .entry-title,
+.post-single .entry-meta,
+.post-single .entry-tags,
+.post-single .entry-nav,
+.post-single .entry-actions { display: none !important; }
+
+/* ---- 4. 老站的排版：系统无衬线 17.6px / 行高 1.6 / 纯黑 ---- */
+#content .tbtak {
+  padding: 0 !important;        /* 站内给 .tbtak 加了内衬和一圈蓝框，老站没有 */
+  border: 0 !important;
+  font-size: 17.6px !important; /* 老站 body 的 1.1em */
+  line-height: 1.6 !important;  /* 老站 main 的 1.6 */
+  color: #000 !important;
+}
+
+#content .tbtak,
+#content .tbtak * {
+  font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial,
+               "Microsoft YaHei", "微软雅黑", sans-serif !important;
+  font-weight: normal !important;
+  text-shadow: none !important; /* 站内的点阵字体靠 text-shadow 假装粗体，这页不需要 */
+}
+
+/* 先把站内那套 --px 字号清掉，让所有元素回到「继承父元素」的常规行为 */
+#content .tbtak * { font-size: inherit !important; }
+
+/* 标题：回到浏览器默认的字号倍率和上下边距（老站没给标题单独写过样式） */
+#content .tbtak h1, #content .tbtak h2, #content .tbtak h3,
+#content .tbtak h4, #content .tbtak h5, #content .tbtak h6 {
+  margin: .67em 0 !important;
+  padding: 0 !important;        /* 站内给 h1 留了 5px 下内衬，会把标题顶高 5px */
+  font-weight: bold !important;
+  line-height: inherit !important;
+  color: #000 !important;
+  border: 0 !important;
+}
+#content .tbtak h1 { font-size: 2em !important; }
+#content .tbtak h2 { font-size: 1.5em !important; margin: .83em 0 !important; }
+#content .tbtak h3 { font-size: 1.17em !important; margin: 1em 0 !important; }
+#content .tbtak h4 { font-size: 1em !important; margin: 1.33em 0 !important; }
+#content .tbtak h5 { font-size: .83em !important; margin: 1.67em 0 !important; }
+#content .tbtak h6 { font-size: .67em !important; margin: 2.33em 0 !important; }
+
+/* 段落：老站用默认的 1em 上下边距且不缩进（站内是 5px 下边距 + 首行缩进两个字） */
+#content .tbtak p { margin: 1em 0 !important; text-indent: 0 !important; }
+
+/* 分隔线：老站是 1px 灰色虚线（站内是上灰下白的双层实线） */
+#content .tbtak hr {
+  height: 0 !important;
+  margin: .5em auto !important;
+  border: 0 !important;
+  border-top: 1px dashed #808080 !important;
+}
+
+/* 链接：老站本页的样式把标题和链接都改成了纯黑 */
+#content .tbtak a {
+  color: #000 !important;
+  text-decoration: underline !important;
+}
+#content .tbtak a:hover {
+  color: #000 !important;
+  background: none !important;
+  text-decoration-style: dashed !important;
+}
+
+/* 图片：老站只有 max-width:100%，没有站内那个白底灰边的「相框」 */
+#content .tbtak img {
+  max-width: 100% !important;
+  padding: 0 !important;
+  background: none !important;
+  border: 0 !important;
+}
+
+/* 老站大量使用 <center> */
+#content .tbtak center {
+  display: block !important;
+  text-align: center !important;
+  text-indent: 0 !important;
+}
+
+/* ---- 5. 顶部那张会飘的 logo（老站的 .float-img）---- */
+.float-img {
+  display: block;
+  width: 70%;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  opacity: 0;
+  animation: tbtak-fadeIn 1.2s ease-in forwards,
+             tbtak-float 3s ease-in-out 1.2s infinite alternate;
+}
+@keyframes tbtak-fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes tbtak-float {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-14px); }
+}
+</style>

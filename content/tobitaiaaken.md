@@ -7,44 +7,10 @@ description: "[ STORY ] [ CHARACTERS ] [ DEVELOPING DIARY ] [ RESOURCE GIVEOUT ]
 ---
 
 <div class="tbtak">
-<style> .tbtak {
-  background-image: url('../images/migrated/TBTAKPage-BG.png');
-  background-repeat: repeat;
-  background-size: 550px auto;
-} .tbtak h1, .tbtak h2, .tbtak h3, .tbtak h4, .tbtak h5, .tbtak h6 { color: #000;} .tbtak a {color: #000;} .tbtak {color: #000;} .tbtak {--text-color: #000;}
-  
-    .float-img {
-        display: block;
-        width: 70%;               
-        max-width: 100%;
-        height: auto;
-        margin: 0 auto;          
-        opacity: 0;
-        
-        animation: tbtak-fadeIn 1.2s ease-in forwards,
-            tbtak-float 3s ease-in-out 1.2s infinite alternate;
-    }
-
-    @keyframes tbtak-fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(8px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes tbtak-float {
-        from {
-            transform: translateY(0);
-        }
-        to {
-            transform: translateY(-14px);  
-        }
-    }
-</style>
+<!-- 这一页的版式（老站那一版的复刻）写在 layouts/_shortcodes/tbtak-css.html 里，
+     由下面这行引进来。别把 <style> 直接搬回这里：markdown 遇到空行就会结束
+     HTML 块，后面的 CSS 会被当正文渲染成可见的 <pre> 代码块（线上踩过）。 -->
+{{< tbtak-css >}}
 <p><img class="float-img"
      src="/images/migrated/tobetaiaakenchnlogo.png"
      alt="TBTAK LOGO"
@@ -75,7 +41,7 @@ description: "[ STORY ] [ CHARACTERS ] [ DEVELOPING DIARY ] [ RESOURCE GIVEOUT ]
 <div style="overflow:hidden;
 width: 800px;
 height: 400px;
-background-image: url(/images/migrated/Fliegen-sprite-cut.png);
+background-image: url(../images/migrated/Fliegen-sprite-cut.png);
 background-repeat: no-repeat;
 background-position: right; /* 靠右，垂直居中 */
 background-size: 350px auto;">
@@ -92,7 +58,7 @@ background-size: 350px auto;">
 <div style="overflow:hidden;
 width: 800px;
 height: 400px;
-background-image: url(/images/migrated/Actors-Script-Sm.png);
+background-image: url(../images/migrated/Actors-Script-Sm.png);
 background-repeat: no-repeat;
 background-position: right bottom; /* 靠右，垂直居中 */
 background-size: 500px auto;">
@@ -115,7 +81,7 @@ background-size: 500px auto;">
 <div style="overflow:hidden;
 width: 800px;
 height: 500px;
-background-image: url(/images/migrated/Nijiboshi-sprite-cut.png);
+background-image: url(../images/migrated/Nijiboshi-sprite-cut.png);
 background-repeat: no-repeat;
 background-position: right center; /* 靠右，垂直居中 */
 background-size: 350px auto;">
