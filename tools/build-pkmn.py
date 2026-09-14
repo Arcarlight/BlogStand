@@ -27,6 +27,7 @@
     static/pkmn/index.json          名单 + 每只的格子尺寸/帧数/帧时长（页面内联，所以尽量小）
     static/pkmn/talk/<dex>.json     每只的台词（点开才下载，一只一个文件）
     static/pkmn/pen-tile.png        放养区草地的点阵贴图（32×28 美术像素，横向平铺）
+    static/pkmn/icon-sheet.png      天气 / 时间图标表（24×24 一格，两行：深色 / 白色）
 
 （<dex> 就是图鉴号本身，不补零：579.png 对应 data/pkmn-talk/579.toml）
 
@@ -72,40 +73,66 @@ OUT_SPRITE = OUT_DIR / "sprite"
 OUT_TALK = OUT_DIR / "talk"
 OUT_INDEX = OUT_DIR / "index.json"
 OUT_TILE = OUT_DIR / "pen-tile.png"
+OUT_ICONS = OUT_DIR / "icon-sheet.png"
 
 BASE = "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master"
 UA = "BlogStand-pkmn-pipeline/1.0 (+https://arcarlight.github.io/BlogStand/)"
 
 # 精灵表的行号（固定，JS 里也写死同样的值）
 ROW_IDLE, ROW_WL, ROW_WR, ROW_FACE, ROW_SHADOW = 0, 1, 2, 3, 4
-N_ROWS = 5
+ROW_SLEEP = 5
+N_ROWS = 6
 
 # 下载下来的原始精灵表里，方向行的行号（PMD 固定 8 行，见文件头说明）
 DIR_DOWN, DIR_RIGHT, DIR_LEFT = 0, 2, 6
 
+# 天气 / 时间图标的精灵表：一格 24×24，两行（第 0 行深色图标白天用、第 1 行白色图标夜里用）。
+# 顺序就是列号，改顺序要同时改 JS 里的取用方式（JS 是从索引里读这份顺序的，所以只改这里也行）。
+ICON_SIZE = 24
+ICON_BASE = "https://raw.githubusercontent.com/hackernoon/pixel-icon-library/main/icons/PNG"
+ICON_KEYS = ["clear", "cloudy", "fog", "drizzle", "rain", "snow", "thunder",
+             "dawn", "day", "dusk", "night"]
+# 库里有的图标；cloudy / snow 库里没有，从 cloud-rain 抠出来（见 write_icon_sheet）
+ICON_SRC = {
+    "clear": "regular/sun",
+    "fog": "regular/cloud-fog",
+    "drizzle": "regular/cloud-rain",
+    "rain": "regular/cloud-rain",
+    "thunder": "regular/bolt",
+    "dawn": "regular/sun",
+    "day": "solid/sun-solid",
+    "dusk": "regular/star-crescent",
+    "night": "regular/moon",
+}
+
 PORTRAIT_SIZE = 40  # PMD 脸图固定 40×40
 
-# 三个表情槽：正常 / 笑（被摸） / 不耐烦（连着摸太多次）。
+# 四个表情槽：正常 / 笑（被摸） / 不耐烦（连着摸太多次） / 惊醒（被戳醒）。
 # 每只宝可梦有的表情不一样（比如宝包茧只有 Normal，三首恶龙没有 Joyous），
 # 按下面的优先顺序挑第一个存在的；都没有就退回 Normal。
 FACE_PREF = {
     "normal": ["Normal"],
     "smile": ["Joyous", "Happy", "Inspired", "Delighted", "Special0", "Normal"],
     "nag": ["Worried", "Sigh", "Shouting", "Angry", "Stunned", "Surprised", "Sad", "Pain", "Normal"],
+    "wake": ["Surprised", "Stunned", "Dizzy", "Determined", "Normal"],
 }
 
 # 台词文件允许出现的键（多写别的直接报错，免得拼错了没发现）
-TALK_TOP_KEYS = {"name", "pet", "pet_more", "idle", "night", "page", "weather"}
+TALK_TOP_KEYS = {"name", "pet", "pet_more", "idle", "night",
+                 "sleepy", "sleep", "wake", "page", "weather"}
 TALK_PAGE_KEYS = ["home", "about", "blog", "diary", "nav", "gallery", "tbtak", "other"]
 TALK_WEATHER_KEYS = ["clear", "cloudy", "rain", "snow", "thunder", "fog", "drizzle"]
 
-# 各段最少要写几条
+# 各段最少要写几条（写手的目标比这个高一截，这里只是兜底）
 TALK_MIN = {
-    "pet": 4,
-    "idle": 5,
+    "pet": 6,
+    "idle": 9,
+    "sleepy": 2,   # 打瞌睡前说的
+    "sleep": 2,    # 睡着时的梦话
+    "wake": 2,     # 被戳醒时说的
 }
-TALK_MIN_PAGE = {"home": 2, "about": 2, "blog": 2, "diary": 2, "nav": 2}
-TALK_MIN_WEATHER = {"clear": 1, "cloudy": 1, "rain": 1, "snow": 1, "thunder": 1}
+TALK_MIN_PAGE = {"home": 3, "about": 3, "blog": 3, "diary": 3, "nav": 3}
+TALK_MIN_WEATHER = {"clear": 2, "cloudy": 2, "rain": 2, "snow": 2, "thunder": 2}
 
 MAX_LINE = 40  # 一句台词最多多少字（对话框只有 3 行，一行 ~16 字）
 
@@ -146,6 +173,30 @@ def fetch(rel: str, force: bool = False):
     )
 
 
+def fetch_url(url: str, cache_key: str, force: bool = False):
+    """按完整网址下载（图标库不在 SpriteCollab 那边），同样走本地缓存。"""
+    cache_path = CACHE / cache_key
+    if cache_path.exists() and not force:
+        return cache_path.read_bytes()
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    last = None
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = resp.read()
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_bytes(data)
+            return data
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            last = e
+        except Exception as e:
+            last = e
+        time.sleep(1.0 + 2.0 * attempt)
+    raise SystemExit(f"下载失败：{url}\n  {last}")
+
+
 def load_pool() -> list[dict]:
     with POOL_FILE.open("rb") as f:
         data = tomllib.load(f)
@@ -155,7 +206,10 @@ def load_pool() -> list[dict]:
     out = []
     for it in items:
         dex = int(it["dex"])
-        out.append({"dex": dex, "name": str(it["name"]), "en": str(it.get("en", ""))})
+        sleep = str(it.get("sleep", "night")).strip().lower()
+        if sleep not in ("night", "day"):
+            raise SystemExit(f"{POOL_FILE}：{dex} 的 sleep 只能是 \"night\"（夜里睡）或 \"day\"（白天睡）")
+        out.append({"dex": dex, "name": str(it["name"]), "en": str(it.get("en", "")), "sleep": sleep})
     return out
 
 
@@ -295,6 +349,18 @@ def build_sprite(item: dict, faces_cache: dict, force: bool) -> dict:
         wr = [f.transpose(Image.FLIP_LEFT_RIGHT) for f in wl]
     groups["wl"], groups["wr"] = wl, wr
 
+    # 睡觉动画（35 只都有；万一哪只没有就退回 Idle）
+    sleep_info = anims.get("Sleep")
+    sl = None
+    if sleep_info:
+        sleep_png = fetch(f"sprite/{dd}/Sleep-Anim.png", force)
+        if sleep_png is not None:
+            sl = frames_of(Image.open(io.BytesIO(sleep_png)).convert("RGBA"), sleep_info, DIR_DOWN)
+    if not sl:
+        sleep_info = idle_info
+        sl = down
+    groups["sl"] = sl
+
     # 每组按「整组并集」裁一次：既去掉空白，又保住帧与帧之间的相对位置（走路的起伏就在里面）
     cropped: dict[str, list[Image.Image]] = {}
     for key, fr in groups.items():
@@ -307,7 +373,7 @@ def build_sprite(item: dict, faces_cache: dict, force: bool) -> dict:
     faces: dict[str, int] = {}
     face_imgs: list[Image.Image] = []
     face_file: dict[str, str] = {}
-    for slot in ("normal", "smile", "nag"):
+    for slot in ("normal", "smile", "nag", "wake"):
         fname = pick_face(dex, slot, faces_cache, force)
         face_file[slot] = fname
         if fname in [face_file.get(s) for s in faces]:
@@ -342,7 +408,7 @@ def build_sprite(item: dict, faces_cache: dict, force: bool) -> dict:
         return x - col * cell_w, y - row * cell_h
 
     anims_out = {}
-    for key, row in (("i", ROW_IDLE), ("wl", ROW_WL), ("wr", ROW_WR)):
+    for key, row in (("i", ROW_IDLE), ("wl", ROW_WL), ("wr", ROW_WR), ("sl", ROW_SLEEP)):
         for i, im in enumerate(cropped[key]):
             place(im, row, i)
     face_x = face_y = 0
@@ -354,25 +420,114 @@ def build_sprite(item: dict, faces_cache: dict, force: bool) -> dict:
     out_png = OUT_SPRITE / f"{dex}.png"
     sheet.save(out_png, optimize=True)
 
-    def dur_ms(info: dict) -> list[int]:
+    def dur_ms(info: dict, n: int) -> list[int]:
         # AnimData 的时长单位是 1/60 秒
-        return [int(round(d * 1000 / 60)) for d in info["durs"]]
+        d = [int(round(x * 1000 / 60)) for x in info["durs"]]
+        return (d + [500] * n)[:n]      # 万一时长表比帧数短，补个默认值
 
     entry = {
         "n": name,
         "cw": cell_w,
         "ch": cell_h,
         "cols": cols,
-        "i": {"n": len(cropped["i"]), "d": dur_ms(idle_info)[: len(cropped["i"])]},
-        "wl": {"n": len(cropped["wl"]), "d": dur_ms(walk_info)[: len(cropped["wl"])]},
-        "wr": {"n": len(cropped["wr"]), "d": dur_ms(walk_info)[: len(cropped["wr"])]},
+        "i": {"n": len(cropped["i"]), "d": dur_ms(idle_info, len(cropped["i"]))},
+        "wl": {"n": len(cropped["wl"]), "d": dur_ms(walk_info, len(cropped["wl"]))},
+        "wr": {"n": len(cropped["wr"]), "d": dur_ms(walk_info, len(cropped["wr"]))},
+        "sl": {"n": len(cropped["sl"]), "d": dur_ms(sleep_info, len(cropped["sl"]))},
+        # f.c 是四个表情在图上的列号：正常 / 笑 / 不耐烦 / 惊醒
         "f": {"w": PORTRAIT_SIZE, "h": PORTRAIT_SIZE, "x": face_x, "y": face_y,
-              "c": [faces["normal"], faces["smile"], faces["nag"]]},
+              "c": [faces["normal"], faces["smile"], faces["nag"], faces["wake"]]},
         "s": {"w": sh_w, "h": sh_h, "x": sh_x, "y": sh_y},
+        # 作息：night = 夜里睡（白天活动），day = 白天睡（夜行性），来自 data/pkmn-pool.toml
+        "z": item.get("sleep", "night"),
         # 只是给 --ascii 和人看的信息，页面不用
         "_face": face_file,
     }
     return entry
+
+
+# ============================================================
+#  天气 / 时间图标
+# ============================================================
+
+def _icon_png(variant: str, rel: str, force: bool) -> Image.Image:
+    data = fetch_url(f"{ICON_BASE}/{variant}/24px/{rel}.png",
+                     f"icon_{variant}_{rel.replace('/', '_')}.png", force)
+    if data is None:
+        raise SystemExit(f"图标库下载失败：{variant}/24px/{rel}.png")
+    im = Image.open(io.BytesIO(data)).convert("RGBA")
+    if im.size != (ICON_SIZE, ICON_SIZE):
+        im = im.resize((ICON_SIZE, ICON_SIZE), Image.NEAREST)
+    return im
+
+
+def _centered(im: Image.Image) -> Image.Image:
+    """把图形挪到格子正中（抠掉雨点之后云会偏上）。"""
+    bb = im.getbbox()
+    if not bb:
+        return im
+    out = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
+    out.paste(im.crop(bb), ((ICON_SIZE - (bb[2] - bb[0])) // 2,
+                            (ICON_SIZE - (bb[3] - bb[1])) // 2))
+    return out
+
+
+def _glyph_color(im: Image.Image) -> tuple:
+    """取图标的主色（深色变体是墨色、白色变体是白色），给小雪花用。"""
+    counts = {}
+    for c in im.getdata():
+        if c[3] > 200:
+            counts[c] = counts.get(c, 0) + 1
+    return max(counts, key=counts.get) if counts else (0, 0, 0, 255)
+
+
+def write_icon_sheet(path: Path, force: bool = False) -> None:
+    """天气 / 时间图标表：2 行 × len(ICON_KEYS) 列，一格 24×24。
+       第 0 行 = 库里的 for-light-mode（深色图标，白天配浅蓝天空）
+       第 1 行 = 库里的 for-dark-mode（白色图标，夜里配深蓝天空）
+
+    来源：HackerNoon Pixel Icon Library（MIT / CC BY 4.0），24px 那一档就是它
+    的原生栅格（1 个图标像素 = 1 个图像像素），所以放大的时候只能整倍放。
+    库里没有「纯云」和「雪」，这两个是从 cloud-rain 上抠的：
+    去掉雨点就是多云，把雨点换成小雪花就是雪。
+    """
+    sheet = Image.new("RGBA", (ICON_SIZE * len(ICON_KEYS), ICON_SIZE * 2), (0, 0, 0, 0))
+    for row, variant in enumerate(("for-light-mode", "for-dark-mode")):
+        rain = _icon_png(variant, ICON_SRC["rain"], force)
+        cloud = _centered(_mask_below(rain, 16))          # 雨点都在 y>=17，切掉剩下的就是云
+        for col, key in enumerate(ICON_KEYS):
+            if key == "cloudy":
+                im = cloud
+            elif key == "snow":
+                im = _snow_icon(cloud, _glyph_color(rain))
+            elif key == "drizzle":
+                im = rain                                    # 和小雨共用图标，页面上画得淡一点
+            else:
+                im = _icon_png(variant, ICON_SRC[key], force)
+            sheet.alpha_composite(im, (col * ICON_SIZE, row * ICON_SIZE))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(path, optimize=True)
+
+
+def _mask_below(im: Image.Image, y_cut: int) -> Image.Image:
+    out = im.copy()
+    px = out.load()
+    for y in range(y_cut, ICON_SIZE):
+        for x in range(ICON_SIZE):
+            px[x, y] = (0, 0, 0, 0)
+    return out
+
+
+def _snow_icon(cloud: Image.Image, color: tuple) -> Image.Image:
+    """云 + 三片小雪花（雪花是 1 像素十字，和库里的笔画粗细一致）。"""
+    out = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
+    out.alpha_composite(cloud, (0, -3))     # 云往上挪，给雪花腾地方
+    for cx, cy in ((6, 19), (12, 21), (18, 19)):
+        for dx, dy in ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)):
+            x, y = cx + dx, cy + dy
+            if 0 <= x < ICON_SIZE and 0 <= y < ICON_SIZE:
+                out.putpixel((x, y), color)
+    return out
 
 
 # ============================================================
@@ -495,7 +650,6 @@ def load_talk(dex: int, name: str) -> dict:
             errs.append(f"{key} 写了就要至少 2 条（现在 {len(got)}）")
         if got:
             out[key] = got
-
     page = data.get("page") or {}
     weather = data.get("weather") or {}
     if not isinstance(page, dict) or not isinstance(weather, dict):
@@ -643,6 +797,7 @@ def ascii_dump(dex: int) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="宝可梦放养区素材流水线")
     ap.add_argument("--talk", action="store_true", help="只重新生成台词 JSON（不联网、不动精灵表）")
+    ap.add_argument("--sprites", action="store_true", help="只重做精灵表和图标，不碰台词")
     ap.add_argument("--force", action="store_true", help="无视缓存重新下载")
     ap.add_argument("--ascii", type=int, metavar="DEX", help="把某只的精灵表打成字符画")
     args = ap.parse_args()
@@ -657,8 +812,8 @@ def main() -> None:
 
     if not args.talk:
         print(f"名单：{len(pool)} 只")
-        index = {"_doc": "由 tools/build-pkmn.py 生成；行号 0=Idle下 1=Walk左 2=Walk右 3=脸图 4=影子",
-                 "gen": 2, "sheet": {}}
+        index = {"_doc": "由 tools/build-pkmn.py 生成；行号 0=Idle下 1=Walk左 2=Walk右 3=脸图 4=影子 5=Sleep",
+                 "gen": 3, "sheet": {}}
         for item in pool:
             e = build_sprite(item, faces_cache, args.force)
             face_file = e.pop("_face")
@@ -670,9 +825,16 @@ def main() -> None:
         CACHE.mkdir(parents=True, exist_ok=True)
         faces_cache_path.write_text(json.dumps(faces_cache, ensure_ascii=False, indent=1), encoding="utf-8")
         write_pen_tile(OUT_TILE)
+        write_icon_sheet(OUT_ICONS, args.force)
+        index["icons"] = {"size": ICON_SIZE, "keys": ICON_KEYS,
+                          "_doc": "第 0 行是深色图标（白天用）、第 1 行是白色（夜里用）；列号 = keys 里的下标"}
         OUT_INDEX.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         print(f"索引：{OUT_INDEX.relative_to(ROOT)}  {OUT_INDEX.stat().st_size / 1024:.1f} KB")
         print(f"草地：{OUT_TILE.relative_to(ROOT)}")
+        print(f"图标：{OUT_ICONS.relative_to(ROOT)}  {OUT_ICONS.stat().st_size / 1024:.1f} KB  "
+              f"{ICON_SIZE}×{ICON_SIZE} × {len(ICON_KEYS)} 列 × 2 行")
+        if args.sprites:
+            return
 
     # 台词：署名信息优先从 index.json / 缓存里取
     credits_by_dex: dict[int, dict] = {}

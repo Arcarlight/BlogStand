@@ -15,6 +15,9 @@
 #  台词在 data/pkmn-talk/<图鉴号>.toml，一只一个文件。
 #
 #  dex = 全国图鉴编号   name = 显示出来的中文名   en = 英文名（只是备注）
+#  sleep = 作息：不写 = "night"（夜里睡、白天活动）；夜行性的写 "day"（白天睡）。
+#          放养区靠它决定什么时候趴下睡：白天睡的那几只，白天进去看基本在睡觉，
+#          戳一下会醒（醒来待一会儿又睡回去）。写错了脚本会报错。
 # ============================================================
 
 [[items]]
@@ -76,6 +79,7 @@
   dex  = 302
   name = "勾魂眼"
   en   = "Sableye"
+  sleep = "day"      # 夜行性：白天睡
 
 [[items]]
   dex  = 587
@@ -86,16 +90,19 @@
   dex  = 717
   name = "伊裴尔塔尔"
   en   = "Yveltal"
+  sleep = "day"      # 夜行性：白天睡
 
 [[items]]
   dex  = 171
   name = "电灯怪"
   en   = "Lanturn"
+  sleep = "day"      # 夜行性：白天睡
 
 [[items]]
   dex  = 354
   name = "诅咒娃娃"
   en   = "Banette"
+  sleep = "day"      # 夜行性：白天睡
 
 [[items]]
   dex  = 187
@@ -121,6 +128,7 @@
   dex  = 609
   name = "水晶灯火灵"
   en   = "Chandelure"
+  sleep = "day"      # 夜行性：白天睡
 
 [[items]]
   dex  = 206
@@ -131,6 +139,7 @@
   dex  = 477
   name = "黑夜魔灵"
   en   = "Dusknoir"
+  sleep = "day"      # 夜行性：白天睡
 
 [[items]]
   dex  = 579
@@ -166,11 +175,13 @@
   dex  = 724
   name = "狙射树枭"
   en   = "Decidueye"
+  sleep = "day"      # 夜行性：白天睡
 
 [[items]]
   dex  = 778
   name = "谜拟丘"
   en   = "Mimikyu"
+  sleep = "day"      # 夜行性：白天睡
 
 [[items]]
   dex  = 531

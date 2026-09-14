@@ -30,6 +30,14 @@
       <div class="pasture-pen" id="pasture-pen">
         <canvas class="pasture-shadow" id="pasture-shadow" width="1" height="1"></canvas>
         <canvas class="pasture-sprite" id="pasture-sprite" width="1" height="1"></canvas>
+        {{/* 右上角那对天气 / 时间图标：只在上面两个角上，站着的宝可梦永远碰不到
+             （它贴着地面站、而且居中），所以不会挡住它 */}}
+        <div class="pasture-icons">
+          <canvas class="pasture-icon" id="pkmn-icon-weather" width="1" height="1"></canvas>
+          <canvas class="pasture-icon" id="pkmn-icon-time" width="1" height="1"></canvas>
+        </div>
+        <span class="pasture-zzz" id="pkmn-zzz-a" hidden>Z</span>
+        <span class="pasture-zzz pasture-zzz-b" id="pkmn-zzz-b" hidden>Z</span>
       </div>
       <p class="pasture-hint" id="pasture-hint">点一下可以摸摸它</p>
     </div>

@@ -1472,6 +1472,48 @@ html.pkmn-night #pkmn-pasture .pasture-pen::before { background: rgba(12, 22, 48
 #pkmn-pasture .pasture-shadow { z-index: 2; }
 #pkmn-pasture .pasture-sprite { z-index: 3; }
 
+/* 右上角的天气 / 时间图标：半透明、不吃鼠标事件。
+   放在「上面的角」是有讲究的 —— 宝可梦是贴着地面站、而且水平居中的，
+   所以两个上角它永远碰不到，不会挡到它。 */
+#pkmn-pasture .pasture-icons {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+  opacity: .72;
+}
+
+#pkmn-pasture .pasture-icon {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* 睡着时头顶飘的 Z。位移必须是整数个设备像素（用 --devpx），
+   配 steps() 一跳一跳地走 —— 不然文字会落在半个设备像素上，点阵就糊了。 */
+#pkmn-pasture .pasture-zzz {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  color: #3b6ea5;
+  font-size: var(--px-sm, 11px) !important;
+  animation: pkmn-zzz 2.8s steps(10) infinite;
+}
+
+#pkmn-pasture .pasture-zzz-b { animation-delay: 1.4s; }
+
+html.pkmn-night #pkmn-pasture .pasture-zzz { color: #9fc4ea; }
+
+@keyframes pkmn-zzz {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  25%  { opacity: .9; }
+  100% { opacity: 0; transform: translate(calc(var(--devpx, 0.6667px) * 5), calc(var(--devpx, 0.6667px) * -12)); }
+}
+
 #pkmn-pasture .pasture-hint {
   margin: 4px 0 0;
   text-align: right;
