@@ -13,4 +13,4 @@
 #
 #  没列到的挂件会自动补在最后，所以新加的挂件不会凭空消失。
 # ============================================================
-order = ["notices", "about", "search", "tags", "recent", "updates", "links", "visitors", "clock", "hitokoto", "pasture", "buttons"]
+order = ["notices", "about", "search", "pasture", "recent", "updates", "links", "visitors", "clock", "hitokoto", "tags", "buttons"]
