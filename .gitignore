@@ -11,6 +11,12 @@ resources/_gen/
 .tools/
 .migration/
 preview/
+# 宝可梦素材的下载缓存（tools/build-pkmn.py 用，从 GitHub 拉下来的原图）
+tools/.pkmn-cache/
+
+# Python 运行 tools/ 下脚本时产生的字节码缓存
+__pycache__/
+*.pyc
 .editor/trash/
 .editor/access.log
 # 侧栏拖动排序的顺序（只是编辑器自己的显示顺序，不属于站点内容）

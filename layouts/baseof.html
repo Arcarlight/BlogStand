@@ -1,7 +1,21 @@
 <!DOCTYPE html>
 <html lang="{{ site.Language.Lang }}">
 {{ partial "head.html" . }}
-<body{{ if .Params.dayReplies }} data-day-replies="1"{{ end }}>
+{{/* 宝可梦放养区靠这个标记判断「现在在哪个页面」，台词按页面分池：
+     home / about / diary / nav / gallery / blog / tbtak / other */}}
+{{- $pctx := "other" -}}
+{{- $bn := "" -}}
+{{- with .File }}{{ $bn = .ContentBaseName }}{{ end -}}
+{{- if .IsHome }}{{ $pctx = "home" }}
+{{- else if eq .Section "niki" }}{{ $pctx = "diary" }}
+{{- else if eq .Section "blog" }}{{ $pctx = "blog" }}
+{{- else if eq $bn "self_intros" }}{{ $pctx = "about" }}
+{{- else if eq $bn "navigator" }}{{ $pctx = "nav" }}
+{{- else if eq $bn "gallery" }}{{ $pctx = "gallery" }}
+{{- else if eq $bn "tobitaiaaken" }}{{ $pctx = "tbtak" }}
+{{- else if eq .Kind "page" }}{{ $pctx = "blog" }}
+{{- end -}}
+<body{{ if .Params.dayReplies }} data-day-replies="1"{{ end }} data-pkmn-ctx="{{ $pctx }}">
 {{ if site.Params.comments }}
 <script>
   window.SITE_REPLY = {

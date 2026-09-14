@@ -491,6 +491,7 @@ const SIDEBAR_WIDGETS = [
   ['visitors', '访客统计'],
   ['clock',    '现在时间'],
   ['hitokoto', '一言'],
+  ['pasture',  '宝可梦放养区'],
   ['buttons',  '小按钮'],
 ];
 
@@ -505,7 +506,7 @@ const SIDEBAR_HEADER = `# ======================================================
 #    recent     最新博客      updates    更新日志
 #    links      友情链接      visitors   访客统计
 #    clock      现在时间      hitokoto   一言
-#    buttons    小按钮
+#    pasture    宝可梦放养区  buttons    小按钮
 #
 #  没列到的挂件会自动补在最后，所以新加的挂件不会凭空消失。
 # ============================================================`;

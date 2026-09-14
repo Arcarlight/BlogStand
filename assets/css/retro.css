@@ -1416,3 +1416,121 @@ html.pxfont .entry-content { line-height: 1.55; }
   font-display: swap;
 }
 {{ end }}
+
+/* ============================================================
+   27. 宝可梦放养区（侧栏挂件）
+   ------------------------------------------------------------
+   素材来自 PMD Sprite Repository（PMDCollab/SpriteCollab，CC BY-NC 4.0），
+   由 tools/build-pkmn.py 重新拼成精灵表，见 .notes/宝可梦放养区.md。
+
+   锐利的前提和点阵字体是同一条：**美术像素 × 整数 = 设备像素**。
+   精灵表里 1 个像素是美术像素，页面上按 2（小个子 3）个设备像素放大，
+   画布 width/height 直接设成设备像素数，CSS 尺寸 = 设备像素 / dpr，
+   于是浏览器把画布 1:1 贴到设备像素上，不重采样、不糊。
+   JS 还会把元素的 left/top 吸到整设备像素（见 pkmn.js 里的 snap()），
+   否则位置落在半个设备像素上，整张图会被重新采样一遍。
+
+   草地贴图同理：background-size 必须是整数设备像素，所以不用 em/百分比，
+   而是由 JS 按 dpr 写死（CSS 里那个 43px 只是首屏兜底）。
+   ============================================================ */
+#pkmn-pasture .pasture-pen {
+  position: relative;
+  height: 150px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid #7f9db9;
+  background-color: #d9ecff;
+  background-image: url(../pkmn/pen-tile.png);
+  background-repeat: repeat-x;
+  background-position: left bottom;
+  background-size: 43px auto;   /* = 64 设备像素 ÷ 1.5，JS 会按真实 DPR 覆盖 */
+  image-rendering: pixelated;
+}
+
+/* 夜里把天空调暗。用「半透明罩子」而不是 filter ——
+   filter 会先把这个盒子栅格化再处理，里面的点阵画布就被重采样了。 */
+#pkmn-pasture .pasture-pen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+html.pkmn-night #pkmn-pasture .pasture-pen { background-color: #24365c; }
+html.pkmn-night #pkmn-pasture .pasture-pen::before { background: rgba(12, 22, 48, .34); }
+
+#pkmn-pasture .pasture-sprite,
+#pkmn-pasture .pasture-shadow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  image-rendering: pixelated;
+}
+
+#pkmn-pasture .pasture-shadow { z-index: 2; }
+#pkmn-pasture .pasture-sprite { z-index: 3; }
+
+#pkmn-pasture .pasture-hint {
+  margin: 4px 0 0;
+  text-align: right;
+  color: #7488a0;
+  font-size: var(--px-sm, 11px) !important;
+}
+
+/* 「台词框」—— 上半行是脸图 + 名字/心情，下半行是台词。
+   固定最小高度，换台词时下面的挂件不会被挤得跳来跳去。 */
+#pkmn-pasture .pkmn-box {
+  margin-top: 6px;
+  padding: 6px;
+  min-height: 118px;
+  border: 1px solid #6699cc;
+  background: #fbfdff;
+}
+
+#pkmn-pasture .pkmn-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 脸图做成小相框，和侧栏头像一个语言 */
+#pkmn-pasture .pkmn-face {
+  display: block;
+  padding: 1px;
+  background: #ffffff;
+  border: 1px solid #7f9db9;
+  box-shadow: 1px 1px 0 #c3d9ef;
+}
+
+#pkmn-pasture .pkmn-who { min-width: 0; }
+
+#pkmn-pasture .pkmn-name {
+  margin: 0;
+  color: #123f70;
+  white-space: nowrap;
+}
+
+/* 心情那行用小一号（--px-sm 也是 12 的整数倍设备像素，所以不会糊） */
+#pkmn-pasture .pkmn-mood {
+  margin: 2px 0 0;
+  color: #7488a0;
+  white-space: nowrap;
+  font-size: var(--px-sm, 11px) !important;
+}
+
+#pkmn-pasture .pkmn-line {
+  margin: 5px 0 0;
+  color: #222222;
+  word-break: break-word;
+}
+
+#pkmn-pasture .pkmn-credit {
+  margin: 5px 0 0;
+  text-align: right;
+  color: #8a9aad;
+  font-size: var(--px-sm, 11px) !important;
+}
+
+#pkmn-pasture .pkmn-credit a { color: #0033cc; }

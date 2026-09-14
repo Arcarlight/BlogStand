@@ -9,7 +9,7 @@
      下面 $default 里的挂件会按默认顺序补在后面（新加的挂件不会凭空消失）。
      所以往侧栏加新挂件 = 建一个 partial + 在 $default 里排个位置。
      ============================================================ */}}
-{{ $default := slice "notices" "about" "search" "tags" "recent" "updates" "links" "visitors" "clock" "hitokoto" "buttons" }}
+{{ $default := slice "notices" "about" "search" "tags" "recent" "updates" "links" "visitors" "clock" "hitokoto" "pasture" "buttons" }}
 {{ $order := slice }}
 {{ with hugo.Data.sidebar.order }}{{ $order = . }}{{ end }}
 {{ range $default }}

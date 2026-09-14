@@ -135,6 +135,25 @@ timeZone = "Asia/Shanghai"
   # 注意和上面那条顶部滚动公告（notice）不是一回事。
   noticeCount = "5"  # 最多显示几条
 
+  # ---- 宝可梦放养区（侧栏挂件）----
+  # 每次打开网页随机放一只 data/pkmn-pool.toml 里的宝可梦在侧栏里走动，
+  # 点一下可以摸它（换笑脸 + 说一句），平时过一会儿也会自己嘟囔，台词按
+  # 「当前页面 / 访客当地天气 / 深夜」分池挑。
+  # 行走图和脸图来自 PMD Sprite Repository（PMDCollab/SpriteCollab，
+  # CC BY-NC 4.0，非商业 + 署名），由 tools/build-pkmn.py 下载后重拼成精灵表；
+  # 台词在 data/pkmn-talk/<图鉴号>.toml。**改完名单或台词都要重跑那个脚本**，
+  # 细节见 .notes/宝可梦放养区.md。
+  pkmnPasture = true
+
+  # 台词里用不用「访客当地的天气」那一池。
+  # 打开后页面会向 ipwho.is 发一次请求拿到大概的城市坐标（也就是把访客的 IP
+  # 交给这个第三方服务；它限流时会退到 get.geojs.io），再向 open-meteo.com
+  # 查一次实时天气；结果只在本标签页缓存 30 分钟。
+  # 任何一步失败（被墙、断网、接口改版）都当作不知道天气，台词自动退回
+  # 「页面 / 平常」那两池，不影响其它功能。
+  # 不想让访客被查 IP 的话把它关掉即可，关掉就完全不发这三个请求。
+  pkmnWeather = true
+
   # ---- 留言板（utterances）----
   # 留言存在仓库的 Issue 里，所以仓库得先装 utterances App：
   # https://github.com/apps/utterances → Install → Only select repositories → 选本站仓库

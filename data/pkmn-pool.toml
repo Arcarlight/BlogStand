@@ -1,0 +1,193 @@
+# ============================================================
+#  宝可梦放养区 —— 收藏名单
+#  ------------------------------------------------------------
+#  侧边栏那个「宝可梦放养区」挂件里会出现的宝可梦，就是下面这份名单。
+#  每次打开网页随机抽一只；同一个标签页里翻页不会换（存在 sessionStorage）。
+#
+#  ★ 改完这份名单必须重新跑生成脚本：
+#        python tools/build-pkmn.py
+#    它会下载素材、把行走图和脸图合成一张精灵表，再重新生成名单索引。
+#    删掉一只只是不再抽到它（已经下载的素材会留在 static/pkmn/ 里）。
+#
+#    只想改台词、不想重新下载素材：
+#        python tools/build-pkmn.py --talk
+#
+#  台词在 data/pkmn-talk/<图鉴号>.toml，一只一个文件。
+#
+#  dex = 全国图鉴编号   name = 显示出来的中文名   en = 英文名（只是备注）
+# ============================================================
+
+[[items]]
+  dex  = 330
+  name = "沙漠蜻蜓"
+  en   = "Flygon"
+
+[[items]]
+  dex  = 373
+  name = "暴飞龙"
+  en   = "Salamence"
+
+[[items]]
+  dex  = 621
+  name = "赤面龙"
+  en   = "Druddigon"
+
+[[items]]
+  dex  = 181
+  name = "电龙"
+  en   = "Ampharos"
+
+[[items]]
+  dex  = 328
+  name = "大颚蚁"
+  en   = "Trapinch"
+
+[[items]]
+  dex  = 329
+  name = "超音波幼虫"
+  en   = "Vibrava"
+
+[[items]]
+  dex  = 635
+  name = "三首恶龙"
+  en   = "Hydreigon"
+
+[[items]]
+  dex  = 547
+  name = "风妖精"
+  en   = "Whimsicott"
+
+[[items]]
+  dex  = 541
+  name = "宝包茧"
+  en   = "Swadloon"
+
+[[items]]
+  dex  = 566
+  name = "始祖小鸟"
+  en   = "Archen"
+
+[[items]]
+  dex  = 298
+  name = "露力丽"
+  en   = "Azurill"
+
+[[items]]
+  dex  = 302
+  name = "勾魂眼"
+  en   = "Sableye"
+
+[[items]]
+  dex  = 587
+  name = "电飞鼠"
+  en   = "Emolga"
+
+[[items]]
+  dex  = 717
+  name = "伊裴尔塔尔"
+  en   = "Yveltal"
+
+[[items]]
+  dex  = 171
+  name = "电灯怪"
+  en   = "Lanturn"
+
+[[items]]
+  dex  = 354
+  name = "诅咒娃娃"
+  en   = "Banette"
+
+[[items]]
+  dex  = 187
+  name = "毽子草"
+  en   = "Hoppip"
+
+[[items]]
+  dex  = 393
+  name = "波加曼"
+  en   = "Piplup"
+
+[[items]]
+  dex  = 722
+  name = "木木枭"
+  en   = "Rowlet"
+
+[[items]]
+  dex  = 255
+  name = "火稚鸡"
+  en   = "Torchic"
+
+[[items]]
+  dex  = 609
+  name = "水晶灯火灵"
+  en   = "Chandelure"
+
+[[items]]
+  dex  = 206
+  name = "土龙弟弟"
+  en   = "Dunsparce"
+
+[[items]]
+  dex  = 477
+  name = "黑夜魔灵"
+  en   = "Dusknoir"
+
+[[items]]
+  dex  = 579
+  name = "人造细胞卵"
+  en   = "Reuniclus"
+
+[[items]]
+  dex  = 358
+  name = "风铃铃"
+  en   = "Chimecho"
+
+[[items]]
+  dex  = 286
+  name = "斗笠菇"
+  en   = "Breloom"
+
+[[items]]
+  dex  = 334
+  name = "七夕青鸟"
+  en   = "Altaria"
+
+[[items]]
+  dex  = 327
+  name = "晃晃斑"
+  en   = "Spinda"
+
+[[items]]
+  dex  = 359
+  name = "阿勃梭鲁"
+  en   = "Absol"
+
+[[items]]
+  dex  = 724
+  name = "狙射树枭"
+  en   = "Decidueye"
+
+[[items]]
+  dex  = 778
+  name = "谜拟丘"
+  en   = "Mimikyu"
+
+[[items]]
+  dex  = 531
+  name = "差不多娃娃"
+  en   = "Audino"
+
+[[items]]
+  dex  = 706
+  name = "黏美龙"
+  en   = "Goodra"
+
+[[items]]
+  dex  = 445
+  name = "烈咬陆鲨"
+  en   = "Garchomp"
+
+[[items]]
+  dex  = 357
+  name = "热带龙"
+  en   = "Tropius"

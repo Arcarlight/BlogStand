@@ -1,0 +1,48 @@
+{{/* ============================================================
+     宝可梦放养区（侧栏挂件）
+
+     随机放一只站长喜欢的宝可梦在栏里走动，点一下可以摸它。
+     素材来自 PMD Sprite Repository（PMDCollab SpriteCollab，CC BY-NC 4.0），
+     由 tools/build-pkmn.py 下载并重新拼成一张精灵表 —— 细节见
+     .notes/宝可梦放养区.md。
+
+     这里只负责搭骨架：名单索引（static/pkmn/index.json）被内联进页面，
+     免得每次打开还要多发一个请求；台词是点开才按需下载的
+     （static/pkmn/talk/<图鉴号>.json），因为全部 35 只的台词加起来上百 KB，
+     内联的话每页都得背。
+
+     开关在 hugo.toml：pkmnPasture（整个挂件）、pkmnWeather（天气台词，
+     会向 ipwho.is / open-meteo.com 各发一个请求）。
+     ============================================================ */}}
+{{ if site.Params.pkmnPasture }}
+{{ $idx := "" }}
+{{ if fileExists "static/pkmn/index.json" }}{{ $idx = os.ReadFile "static/pkmn/index.json" }}{{ end }}
+{{ if $idx }}
+<div class="widget" id="pkmn-pasture" data-base="{{ "pkmn/" | relURL }}"
+     {{- if site.Params.pkmnWeather }} data-weather="1"{{ end }}>
+  <div class="widget-title">宝可梦放养区</div>
+  <div class="widget-body">
+    <div class="pasture">
+      <div class="pasture-pen" id="pasture-pen">
+        <canvas class="pasture-shadow" id="pasture-shadow" width="1" height="1"></canvas>
+        <canvas class="pasture-sprite" id="pasture-sprite" width="1" height="1"></canvas>
+      </div>
+      <p class="pasture-hint" id="pasture-hint">点一下可以摸摸它</p>
+    </div>
+    <div class="pkmn-box">
+      <div class="pkmn-head">
+        <canvas class="pkmn-face" id="pkmn-face" width="1" height="1"></canvas>
+        <div class="pkmn-who">
+          <p class="pkmn-name" id="pkmn-name">？？？</p>
+          <p class="pkmn-mood" id="pkmn-mood">心情 悠闲</p>
+        </div>
+      </div>
+      <p class="pkmn-line" id="pkmn-line">……</p>
+    </div>
+    <p class="pkmn-credit" id="pkmn-credit">素材：<a href="https://sprites.pmdcollab.org/" target="_blank" rel="noopener">PMD Sprite Repository</a>（CC BY-NC 4.0）</p>
+  </div>
+</div>
+<script type="application/json" id="pkmn-index">{{ $idx | safeJS }}</script>
+<script src="{{ "js/pkmn.js" | relURL }}" defer></script>
+{{ end }}
+{{ end }}
