@@ -4,6 +4,9 @@ date: 2026-07-04
 # 上面这个日期取自老站 sitemap 的 lastmod（老站这类 page 没有发布日期）
 draft: false
 description: "[ STORY ] [ CHARACTERS ] [ DEVELOPING DIARY ] [ RESOURCE GIVEOUT ] STORY 鸟儿成群，宁静和平的繁盛之森里，坐"
+# 页面底部的「放养区」（留言板上面那一格）：符利根他们会在里面走动、点一下可以摸。
+# 名单和素材见 data/tbtak-pool.toml 与 tools/build-tbtak.py；不想要就删掉这一行。
+tbtakPasture: true
 ---
 
 <div class="tbtak">

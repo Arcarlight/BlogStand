@@ -64,22 +64,18 @@
   var GROUND = 14;         // 脚底线距围栏底部多少 CSS px
   var SPEED_ART = 18;      // 走动速度（美术像素/秒）
   var HOP_ART = 7;         // 跳跃高度（美术像素）
-  // 天气桶对不上时的退路
-  var W_ALIAS = { drizzle: 'rain', fog: 'cloudy' };
 
-  // 作息：夜里 = 22:00–06:00。meta.z 是「什么时候睡」：
+  // 作息：夜里 = 22:00–06:00（NIGHT_FROM / NIGHT_TO 在 js/pkmn-weather.js 里）。
+  // meta.z 是「什么时候睡」：
   //   "night" = 夜里睡（白天活动的普通宝可梦，多数）
   //   "day"   = 白天睡（夜行性那 8 只：勾魂眼、诅咒娃娃、黑夜魔灵、水晶灯火灵、
   //             电灯怪、伊裴尔塔尔、谜拟丘、狙射树枭）
-  var NIGHT_FROM = 22, NIGHT_TO = 6;
   // 在同一个页面停留超过这么久也会开始打瞌睡（分钟）
   var DOZE_MINUTES = 10;
   // 被戳醒之后能撑多久（秒）——之后如果还是它的睡觉时段就再睡回去
   var AWAKE_AFTER_WAKE = [120, 360];
 
-  var WEATHER_LABEL = { clear: '晴', cloudy: '阴', fog: '雾', drizzle: '小雨',
-                        rain: '雨', snow: '雪', thunder: '雷雨' };
-  var TIME_LABEL = { dawn: '早上', day: '白天', dusk: '傍晚', night: '深夜' };
+  // 天气 / 时间的名字表在 js/pkmn-weather.js 里（和始祖小鸟页面共用一份）
 
   var dpr = window.devicePixelRatio || 1;
   var SS = null;
@@ -210,24 +206,24 @@
   // ---------------- 天气 / 时间图标 ----------------
   // 图标表来自 HackerNoon Pixel Icon Library（MIT / CC BY 4.0），
   // 一格 24×24、两行：第 0 行深色（白天配浅蓝天空）、第 1 行白色（夜里配深蓝天空）。
+  // 天气本身（定位 + open-meteo）和时段判断都在 js/pkmn-weather.js 里，
+  // 始祖小鸟页面那只放养区用的也是同一份。
   var iconImg = null;
+  var WX = window.PkmnWeather || null;
+  var WEATHER_LABEL = WX ? WX.WEATHER_LABEL : {};
+  var TIME_LABEL = WX ? WX.TIME_LABEL : {};
+  var W_ALIAS = WX ? WX.W_ALIAS : { drizzle: 'rain', fog: 'cloudy' };
 
-  function hourNow() { return (new Date()).getHours(); }
+  function hourNow() { return WX ? WX.hour() : (new Date()).getHours(); }
 
-  // 早 / 中 / 晚 / 深夜 —— 也是睡觉时段判断用的同一套时间
+  // 早 / 中 / 晚 / 深夜 —— 也是睡觉时段判断用的同一套时间（实现在 pkmn-weather.js）
   // （?pkmn-time= 只是把「显示」固定住，睡觉那套仍然按真实时间走）
   function timePart(h) {
-    if (h == null && forcedTime) return forcedTime;
-    h = (h == null) ? hourNow() : h;
-    if (h >= 5 && h < 11) return 'dawn';
-    if (h >= 11 && h < 17) return 'day';
-    if (h >= 17 && h < NIGHT_FROM) return 'dusk';
-    return 'night';
+    return WX ? WX.timePart(h, forcedTime) : 'day';
   }
 
   function isNightNow() {
-    var h = hourNow();
-    return h >= NIGHT_FROM || h < NIGHT_TO;
+    return WX ? WX.isNight(hourNow()) : false;
   }
 
   // 现在是不是它的睡觉时段
@@ -537,76 +533,16 @@
   }
 
   // ---------------- 天气（IP 定位 → Open-Meteo） ----------------
-  // 只在这个会话里查一次、缓存 30 分钟；任何一步失败就当作不知道天气，
-  // 台词自然退回「页面 / 平常」那两池，不会卡页面。
-  // 定位服务排了两家：ipwho.is 偶尔会限流（429），失败就换 get.geojs.io。
-  // 两家的响应字段名一样，但 geojs 的经纬度是字符串，所以统一 parseFloat。
-  var GEO = [
-    { url: 'https://ipwho.is/', pick: function (j) { return j && j.success !== false ? [j.latitude, j.longitude] : null; } },
-    { url: 'https://get.geojs.io/v1/ip/geo.json',
-      pick: function (j) { return j ? [parseFloat(j.latitude), parseFloat(j.longitude)] : null; } }
-  ];
-
-  function wmo(code) {
-    if (code === 0 || code === 1) return 'clear';
-    if (code === 2 || code === 3) return 'cloudy';
-    if (code === 45 || code === 48) return 'fog';
-    if (code >= 51 && code <= 57) return 'drizzle';
-    if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return 'rain';
-    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
-    if (code >= 95) return 'thunder';
-    return null;
-  }
-
-  function timedFetch(url, ms) {
-    if (typeof AbortController === 'undefined') return fetch(url);
-    var ac = new AbortController();
-    setTimeout(function () { ac.abort(); }, ms);
-    return fetch(url, { signal: ac.signal });
-  }
-
-  function geoAt(i) {
-    if (i >= GEO.length) return Promise.reject(new Error('no geo'));
-    var p = GEO[i];
-    return timedFetch(p.url, 6000)
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        var ll = p.pick(j);
-        if (!ll || typeof ll[0] !== 'number' || typeof ll[1] !== 'number' ||
-            isNaN(ll[0]) || isNaN(ll[1])) throw new Error('bad geo');
-        return ll;
-      })
-      .catch(function () { return geoAt(i + 1); });
-  }
-
+  // 链路本身在 js/pkmn-weather.js 里（始祖小鸟页面那只放养区共用同一份，
+  // 也共用那份 30 分钟的 sessionStorage 缓存）。这里只管拿到结果之后
+  // 补画图标和天空 —— 天气是后到的，两样都要重画一次。
   function loadWeather() {
-    if (!widget.getAttribute('data-weather')) return;
-    if (SS) {
-      try {
-        var c = JSON.parse(SS.getItem('pkmn.weather') || 'null');
-        if (c && Date.now() - c.t < 30 * 60 * 1000) {
-          weather = c.w;
-          drawWeatherIcon();
-          syncSky();
-          return;
-        }
-      } catch (e) {}
-    }
-    geoAt(0)
-      .then(function (ll) {
-        return timedFetch('https://api.open-meteo.com/v1/forecast?latitude=' + ll[0] +
-                          '&longitude=' + ll[1] + '&current=weather_code', 6000);
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        var w = wmo(j && j.current && j.current.weather_code);
-        if (!w) throw new Error('no weather');
-        weather = w;
-        drawWeatherIcon();     // 角上的天气图标是后到的，要补画一次
-        syncSky();             // 天空同理：天是后到的，也要补画一次
-        if (SS) { try { SS.setItem('pkmn.weather', JSON.stringify({ t: Date.now(), w: w })); } catch (e) {} }
-      })
-      .catch(function () { weather = null; drawWeatherIcon(); syncSky(); });
+    if (!widget.getAttribute('data-weather') || !WX) return;
+    WX.load(function (w) {
+      weather = w;
+      drawWeatherIcon();
+      syncSky();
+    });
   }
 
   // ---------------- 摸它 ----------------

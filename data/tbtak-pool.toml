@@ -1,0 +1,69 @@
+# 始祖小鸟页面（/tobitaiaaken/）放养区的名单
+# ------------------------------------------------------------
+# 素材在本机游戏工程里（默认 D:\MakingGame\TobenaiArchen\Graphics），由
+# tools/build-tbtak.py 取出来重排成网页用的精灵表 —— 见 .notes/始祖小鸟放养区.md
+#
+# walk  Characters 里那张走图（RPG Maker 格式：一行 3 帧、共 4 行 = 下 / 左 / 右 / 上）
+# face  Faces 里那张表情表（4 列 × 2 行，一格 96×96 的半身像）
+# faces 四个表情槽，填 0~7 的数字（0~3 = 上排左到右，4~7 = 下排左到右）：
+#       依次是「正常 / 被摸时的笑 / 被连摸太多次的不耐烦 / 被戳醒的惊醒」
+# group "trio" 的三只是幼驯染三人组，页面上互斥：一次最多出现其中一只
+#
+# 改完跑：python tools/build-tbtak.py
+
+[[chara]]
+id    = "fliegen"
+name  = "符利根"
+en    = "Fliegen"
+kind  = "始祖小鸟"
+walk  = "$WalkFliegen.png"
+face  = "Actor1.png"
+faces = [0, 6, 1, 5]
+
+[[chara]]
+id    = "pontus"
+name  = "庞特斯"
+en    = "Pontus"
+kind  = "波加曼"
+walk  = "$WalkPontus.png"
+face  = "Actor2.png"
+faces = [0, 4, 1, 5]
+group = "trio"
+
+[[chara]]
+id    = "dryad"
+name  = "德蕊艾德"
+en    = "Dryad"
+kind  = "木木枭"
+walk  = "$WalkDryad.png"
+face  = "Actor4.png"
+faces = [0, 4, 7, 3]
+group = "trio"
+
+[[chara]]
+id    = "ignis"
+name  = "以格尼斯"
+en    = "Ignis"
+kind  = "火稚鸡"
+walk  = "$WalkIgnis.png"
+face  = "Actor3.png"
+faces = [0, 6, 2, 5]
+group = "trio"
+
+[[chara]]
+id    = "hoshi"
+name  = "虹星"
+en    = "Hoshi"
+kind  = "沙漠蜻蜓"
+walk  = "$WalkHoshi.png"
+face  = "Hoshi1.png"
+faces = [1, 6, 5, 0]
+
+[[chara]]
+id    = "momoka"
+name  = "桃桃加"
+en    = "Momoka"
+kind  = "电飞鼠"
+walk  = "$WalkEmolga.png"
+face  = "OtherAll_3.png"
+faces = [0, 1, 2, 2]

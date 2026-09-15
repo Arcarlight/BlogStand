@@ -1,0 +1,52 @@
+{{/* ============================================================
+     始祖小鸟页面底部的放养区（在留言板上面那一格）
+
+     从繁盛之森里随机来 1~2 位（符利根 / 庞特斯 / 德蕊艾德 / 以格尼斯 /
+     虹星 / 桃桃加），在草皮上来回走、点一下可以摸他，会说一句话。
+     背景沿用侧栏那只放养区的天空（js/pkmn-sky.js）+ 同一份天气（js/pkmn-weather.js）。
+
+     素材：本站游戏企划「想要飞的始祖小鸟」里的 RPG Maker 走图和半身像，
+     由 tools/build-tbtak.py 从本机工程取出来拼成网页精灵表 —— 见
+     .notes/始祖小鸟放养区.md。
+
+     谁会在哪一页出现靠 front matter 的 tbtakPasture 开关（见
+     content/tobitaiaaken.md）；要不要查访客天气沿用站点设置里的 pkmnWeather。
+     ============================================================ */}}
+{{ $idx := "" }}
+{{ if fileExists "static/tbtak/index.json" }}{{ $idx = os.ReadFile "static/tbtak/index.json" }}{{ end }}
+{{ if $idx }}
+<div class="box" id="tbtak-pasture" data-base="{{ "tbtak/" | absURL }}"
+     data-icons="{{ "pkmn/icon-sheet.png" | absURL }}"
+     {{- if site.Params.pkmnWeather }} data-weather="1"{{ end }}>
+  <div class="box-title">放养区</div>
+  <div class="box-body">
+    <div class="tbtak-paddock">
+      <div class="tbtak-pen" id="tbtak-pen">
+        {{/* 天空画布：天气 / 时间的背景（和侧栏那只同一份代码） */}}
+        <canvas class="tbtak-sky" id="tbtak-sky" width="1" height="1"></canvas>
+        {{/* 宝可梦…不，这些角色的画布是 JS 按上场人数插进来的 */}}
+        <div class="tbtak-icons">
+          <canvas class="tbtak-icon" id="tbtak-icon-weather" width="1" height="1"></canvas>
+          <canvas class="tbtak-icon" id="tbtak-icon-time" width="1" height="1"></canvas>
+        </div>
+      </div>
+      <p class="tbtak-hint" id="tbtak-hint">点一下可以摸摸他们</p>
+    </div>
+    <div class="tbtak-box">
+      <div class="tbtak-head">
+        <canvas class="tbtak-face" id="tbtak-face" width="1" height="1"></canvas>
+        <div class="tbtak-who">
+          <p class="tbtak-name" id="tbtak-name">？？？</p>
+          <p class="tbtak-kind" id="tbtak-kind">&nbsp;</p>
+        </div>
+      </div>
+      <p class="tbtak-line" id="tbtak-line">……</p>
+    </div>
+    <p class="tbtak-credit" id="tbtak-credit">角色素材：本站游戏企划「想要飞的始祖小鸟」</p>
+  </div>
+</div>
+<script type="application/json" id="tbtak-index">{{ $idx | safeJS }}</script>
+<script src="{{ "js/pkmn-weather.js" | relURL }}" defer></script>
+<script src="{{ "js/pkmn-sky.js" | relURL }}" defer></script>
+<script src="{{ "js/tbtak-pasture.js" | relURL }}" defer></script>
+{{ end }}

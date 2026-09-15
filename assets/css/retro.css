@@ -1603,3 +1603,126 @@ html.pkmn-night #pkmn-pasture .pasture-zzz { color: #9fc4ea; }
 }
 
 #pkmn-pasture .pkmn-credit a { color: #0033cc; }
+
+/* ============================================================
+   28. 始祖小鸟页面的放养区（/tobitaiaaken/ 底部、留言板上面那一格）
+   ------------------------------------------------------------
+   和侧栏那只（第 27 节）是同一套做法：天由 pkmn-sky.js 画（画布尺寸 = 美术像素 × 2），
+   角色的走图是 RPG Maker 的 3 帧走图，按整数倍设备像素放大、位置吸到整设备像素，
+   所以边缘永远是硬的。区别只是这一格宽得多、一次上 1~2 位。
+
+   角色画布（.tbtak-sprite / .tbtak-shadow）是 JS 按上场人数插进来的，
+   所以这里只写通用规则；它们的 z-index 由 JS 按前后排定。
+   ============================================================ */
+#tbtak-pasture .tbtak-pen {
+  position: relative;
+  height: 180px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid #7f9db9;
+  background-color: #d9ecff;
+  background-image: url(../tbtak/pen-tile.png);
+  background-repeat: repeat-x;
+  background-position: left bottom;
+  background-size: 43px auto;   /* = 64 设备像素 ÷ 1.5，JS 会按真实 DPR 覆盖 */
+  image-rendering: pixelated;
+}
+
+#tbtak-pasture .tbtak-sky {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  display: block;
+  image-rendering: pixelated;
+}
+
+#tbtak-pasture .tbtak-sprite,
+#tbtak-pasture .tbtak-shadow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* 右上角的天气 / 时间图标：半透明、不吃鼠标事件（z-index 要高过角色） */
+#tbtak-pasture .tbtak-icons {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+  opacity: .72;
+}
+
+#tbtak-pasture .tbtak-icon {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* 夜空画布自己会压暗，这里只留一条兜底（JS 没跑起来时用的浅蓝底） */
+html.tbtak-night #tbtak-pasture .tbtak-pen { background-color: #24365c; }
+
+#tbtak-pasture .tbtak-hint {
+  margin: 4px 0 0;
+  text-align: right;
+  color: #7488a0;
+  font-size: var(--px-sm, 11px) !important;
+}
+
+/* 说话的那一格：左边脸图相框 + 右边名字/种类，下面一句台词 */
+#tbtak-pasture .tbtak-box {
+  margin-top: 7px;
+  padding: 7px;
+  min-height: 120px;
+  border: 1px solid #6699cc;
+  background: #fbfdff;
+}
+
+#tbtak-pasture .tbtak-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#tbtak-pasture .tbtak-face {
+  display: block;
+  padding: 1px;
+  background: #ffffff;
+  border: 1px solid #7f9db9;
+  box-shadow: 1px 1px 0 #c3d9ef;
+}
+
+#tbtak-pasture .tbtak-who { min-width: 0; }
+
+#tbtak-pasture .tbtak-name {
+  margin: 0;
+  color: #123f70;
+  white-space: nowrap;
+}
+
+#tbtak-pasture .tbtak-kind {
+  margin: 2px 0 0;
+  color: #7488a0;
+  white-space: nowrap;
+  font-size: var(--px-sm, 11px) !important;
+}
+
+#tbtak-pasture .tbtak-line {
+  margin: 6px 0 0;
+  color: #222222;
+  word-break: break-word;
+  min-height: 1.6em;
+}
+
+#tbtak-pasture .tbtak-credit {
+  margin: 5px 0 0;
+  text-align: right;
+  color: #8a9aad;
+  font-size: var(--px-sm, 11px) !important;
+}

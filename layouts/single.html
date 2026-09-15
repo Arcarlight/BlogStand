@@ -48,6 +48,10 @@
   </div>
 </article>
 
+{{/* ============ 始祖小鸟页面底部的放养区（在留言板上面）
+     只在开了 tbtakPasture 的页面出现，见 content/tobitaiaaken.md ============ */}}
+{{ if .Params.tbtakPasture }}{{ partial "tbtak-pasture.html" . }}{{ end }}
+
 {{ partial "comments.html" . }}
 
 {{ end }}
