@@ -522,7 +522,140 @@ function writeSidebarOrder(order) {
   return SIDEBAR_HEADER + '\norder = [' + keys.map((k) => `"${k}"`).join(', ') + ']\n';
 }
 
-/* data/*.toml 里那几张 [[items]] 列表：接口 /api/list/<key> 用这张表 */
+/* ============================================================
+   宝可梦放养区的台词（data/pkmn-talk/<图鉴号>.toml）
+   ------------------------------------------------------------
+   文件形状很固定：一行注释 + name = "..." + 若干「字符串数组」段，
+   最后是 [page] / [weather] 两张表。编辑器只认这一种形状，保存时按同样的
+   形状重写（首行注释保留，其余规范化）。数组里的空串会被丢掉。
+
+   ⚠️ 改完这些 TOML 还不会生效 —— 页面读的是 tools/build-pkmn.py 生成的
+   static/pkmn/talk/<图鉴号>.json，所以保存时会顺手跑一次
+   `python tools/build-pkmn.py --talk`（不联网，一秒左右）。
+   ============================================================ */
+const PKMN_DIR = 'data/pkmn-talk';
+// [键, 面板上显示的名字, 至少留几句（0 = 可以空着）]
+const PKMN_POOLS = [
+  ['pet', '被摸时说的', 6],
+  ['pet_more', '连着摸太多次', 0],
+  ['idle', '平常自己嘟囔', 9],
+  ['night', '深夜（22:00–06:00）醒着时', 0],
+  ['sleepy', '打瞌睡前说的', 2],
+  ['sleep', '睡着时的梦话', 2],
+  ['wake', '被戳醒时说的', 2],
+];
+const PKMN_PAGE = [
+  ['home', '首页', 3], ['about', '关于站长', 3], ['blog', '博客文章', 3],
+  ['diary', '日记本', 3], ['nav', '导航页', 3], ['gallery', '画廊', 0],
+  ['tbtak', '始祖小鸟页', 0], ['other', '其它页面', 0],
+];
+const PKMN_WEATHER = [
+  ['clear', '晴', 2], ['cloudy', '阴', 2], ['drizzle', '小雨', 0], ['rain', '雨', 2],
+  ['snow', '雪', 2], ['thunder', '雷雨', 2], ['fog', '雾', 0],
+];
+const PKMN_POOL_KEYS = ['pools', 'page', 'weather'];
+
+/** data/pkmn-pool.toml：[[items]] + dex/name/en/sleep */
+function parsePkmnPoolList(text) {
+  const out = [];
+  let cur = null;
+  for (const line of text.split(/\r?\n/)) {
+    const t = line.trim();
+    if (t === '[[items]]') { cur = {}; out.push(cur); continue; }
+    if (!cur) continue;
+    const m = t.match(/^([A-Za-z0-9_]+)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|(\d+))/);
+    if (!m) continue;
+    cur[m[1]] = m[2] !== undefined ? m[2].replace(/\\"/g, '"') : Number(m[3]);
+  }
+  return out;
+}
+
+/** 抠出一行里所有的 "..." 字符串 */
+function quotedStrings(s) {
+  const out = [];
+  const re = /"((?:[^"\\]|\\.)*)"/g;
+  let m;
+  while ((m = re.exec(s))) out.push(m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
+  return out;
+}
+
+function parsePkmnTalk(text) {
+  const res = { header: '', name: '', pools: {}, page: {}, weather: {} };
+  let section = res.pools;
+  let curKey = null;
+  let buf = null;
+  for (const raw of text.split(/\r?\n/)) {
+    const t = raw.trim();
+    if (buf) {                                   // 正在读一个多行数组
+      if (t.startsWith(']')) { section[curKey] = buf; buf = null; curKey = null; continue; }
+      buf = buf.concat(quotedStrings(t));
+      continue;
+    }
+    if (!t) continue;
+    if (t.startsWith('#')) {                     // 只留开头那段注释
+      if (!res.name && !Object.keys(res.pools).length) res.header += raw + '\n';
+      continue;
+    }
+    const sec = t.match(/^\[(\w+)\]$/);
+    if (sec) {
+      section = sec[1] === 'page' ? res.page : (sec[1] === 'weather' ? res.weather : res.pools);
+      continue;
+    }
+    const kv = t.match(/^([A-Za-z0-9_]+)\s*=\s*(.*)$/);
+    if (!kv) continue;
+    const key = kv[1];
+    const rest = kv[2].trim();
+    if (key === 'name' && rest.startsWith('"')) { res.name = quotedStrings(rest)[0] || ''; continue; }
+    if (!rest.startsWith('[')) continue;
+    const oneLine = quotedStrings(rest);
+    if (rest.includes(']') && rest.indexOf(']') > rest.indexOf('[')) { section[key] = oneLine; continue; }
+    curKey = key;
+    buf = oneLine;
+  }
+  return res;
+}
+
+function writePkmnTalk(dex, name, data) {
+  const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const L = [];
+  L.push(String(data.header || '').trim() || `# ${dex} ${name}`);
+  L.push(`name = "${esc(name)}"`);
+  const arr = (key, list) => {
+    const v = (list || []).map((s) => String(s).trim()).filter(Boolean);
+    if (!v.length) { L.push(`${key} = []`); return; }
+    L.push(`${key} = [`);
+    for (const s of v) L.push(`  "${esc(s)}",`);
+    L.push(']');
+  };
+  for (const [k] of PKMN_POOLS) { L.push(''); arr(k, data.pools[k]); }
+  L.push('');
+  L.push('[page]');
+  for (const [k] of PKMN_PAGE) arr(k, data.page[k]);
+  L.push('');
+  L.push('[weather]');
+  for (const [k] of PKMN_WEATHER) arr(k, data.weather[k]);
+  return L.join('\n') + '\n';
+}
+
+/* python 在哪（Windows 上可能是 python，macOS 上通常是 python3） */
+function findPython() {
+  const guesses = IS_WIN ? ['python', 'py', 'python3'] : ['python3', 'python'];
+  for (const g of guesses) {
+    try {
+      execFileSync(g, ['--version'], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+      return g;
+    } catch { /* 试下一个 */ }
+  }
+  return guesses[0];
+}
+const PYTHON = findPython();
+let pythonOk = false;
+try {
+  execFileSync(PYTHON, ['--version'], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+  pythonOk = true;
+} catch { /* 没装 python 也能编辑，只是生成不了 JSON */ }
+
+// data/*.toml 里那几张 [[items]] 列表：接口 /api/list/<key> 用这张表
 const DATA_LISTS = {
   links:   { file: 'data/links.toml',   keys: ['name', 'url', 'desc'],               header: LINKS_HEADER },
   buttons: { file: 'data/buttons.toml', keys: ['line1', 'line2', 'url', 'bg', 'fg'], header: BUTTONS_HEADER },
@@ -1098,8 +1231,85 @@ async function handle(req, res, url) {
     return json(res, 200, { ok: true, order: order.map(String) });
   }
 
-  if (p === '/api/scripts' && req.method === 'GET') return json(res, 200, await getScripts());
+  /* ---------- 宝可梦放养区的台词 ---------- */
+  if (p === '/api/pkmn' && req.method === 'GET') {
+    const list = parsePkmnPoolList(await readText('data/pkmn-pool.toml'));
+    const items = [];
+    for (const it of list) {
+      const dex = Number(it.dex);
+      let exists = false;
+      let total = 0;
+      try {
+        const d = parsePkmnTalk(await readText(`${PKMN_DIR}/${dex}.toml`));
+        exists = !!d.name;
+        if (exists) {
+          const count = (o, keys) => keys.reduce((n, [k]) => n + ((o[k] || []).length), 0);
+          total = count(d.pools, PKMN_POOLS) + count(d.page, PKMN_PAGE) + count(d.weather, PKMN_WEATHER);
+        }
+      } catch { /* 文件还没写出来 */ }
+      items.push({
+        dex, name: String(it.name || dex), en: String(it.en || ''),
+        sleep: it.sleep === 'day' ? 'day' : 'night', exists, total,
+      });
+    }
+    return json(res, 200, {
+      items,
+      groups: { pools: PKMN_POOLS, page: PKMN_PAGE, weather: PKMN_WEATHER },
+      pythonOk,
+      python: PYTHON,
+    });
+  }
 
+  if (p.startsWith('/api/pkmn/')) {
+    const dex = String(p.split('/')[3] || '').replace(/\D/g, '');
+    if (!dex) return json(res, 400, { error: '图鉴号不对：' + p });
+
+    if (req.method === 'GET') {
+      const d = parsePkmnTalk(await readText(`${PKMN_DIR}/${dex}.toml`));
+      return json(res, 200, Object.assign({ dex: Number(dex), exists: !!d.name }, d));
+    }
+
+    if (req.method === 'POST') {
+      const body = await readBody(req);
+      const name = String(body.name || '').trim();
+      if (!name) throw new Error('缺少 name，没法写回文件');
+      const norm = (o, keys) => {
+        const out = {};
+        for (const [k] of keys) {
+          const v = (o && Array.isArray(o[k])) ? o[k] : [];
+          out[k] = v.map((s) => String(s).replace(/[\r\n]+/g, ' ').trim());
+        }
+        return out;
+      };
+      const data = {
+        header: String(body.header || ''),
+        pools: norm(body.pools, PKMN_POOLS),
+        page: norm(body.page, PKMN_PAGE),
+        weather: norm(body.weather, PKMN_WEATHER),
+      };
+      await writeText(`${PKMN_DIR}/${dex}.toml`, writePkmnTalk(dex, name, data));
+
+      // 页面读的是生成出来的 JSON，所以这里顺手重新生成一次（不联网，一秒左右）
+      let log = '';
+      let code = 0;
+      if (pythonOk) {
+        // Windows 上 python 默认按本地代码页（cp936）输出中文，Node 按 utf8 收就会变乱码，
+        // 所以强制它用 UTF-8 —— 面板上要显示生成脚本的报错，乱码就没法看了。
+        const r = await run(PYTHON, ['tools/build-pkmn.py', '--talk'], {
+          env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+        });
+        code = r.code;
+        log = (r.stdout + r.stderr).trim();
+      } else {
+        code = 1;
+        log = `没找到 python（试过 ${PYTHON}），台词文件已经存好，但 static/pkmn/talk/*.json 没有更新。\n` +
+              '装上 python 之后重启编辑器，再点一次保存即可。';
+      }
+      return json(res, 200, { ok: code === 0, code, log: tail(log, 2000) });
+    }
+  }
+
+  if (p === '/api/scripts' && req.method === 'GET') return json(res, 200, await getScripts());
   if (p === '/api/scripts/save' && req.method === 'POST') {
     const { name, text } = await readBody(req);
     const clean = String(name).replace(/[\\/:*?"<>|]/g, '');

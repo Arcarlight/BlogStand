@@ -142,6 +142,18 @@
   #mBody select{flex:1;font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:3px;background:#fff}
   .note{padding:8px 11px;background:#f5f9ff;border:1px dashed #b9d0e8;border-radius:4px;font-size:12px;color:#44586e;margin-bottom:12px;line-height:1.7}
 
+  /* ---------- 宝可梦台词面板 ---------- */
+  .pk-h{margin:18px 0 6px;font-size:13px;color:#123f70;border-bottom:1px solid var(--line);padding-bottom:4px}
+  .pk-sub{color:#9db0c4;font-size:11px;font-weight:normal;margin-left:6px}
+  .pk-in{width:100%;font:inherit;font-size:12.5px;padding:4px 7px;border:1px solid var(--line);border-radius:3px;background:#fff}
+  .pk-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px #dcebfa}
+  .pk-n{text-align:center;color:#9db0c4;font-family:Consolas,monospace;font-size:11px}
+  .pk-n.bad{color:#c5221f;font-weight:bold}
+  .pk-add{background:#fafcff}
+  .pk-add button{padding:2px 8px;font-size:12px}
+  .pk-log{margin-top:12px;padding:10px;background:#f7f9fc;border:1px solid var(--line);border-radius:4px;
+    font-family:Consolas,monospace;font-size:11.5px;line-height:1.6;white-space:pre-wrap;max-height:240px;overflow:auto}
+
   /* ---------- 拖拽上传 ---------- */
   #editor.dragover{background:#eef7ff;box-shadow:inset 0 0 0 3px #7fb8f0}
   .row.create{color:var(--accent);font-weight:bold}
@@ -231,6 +243,7 @@
   <symbol id="ico-save" viewBox="0 0 24 24"><polygon points="15 14 15 18 14 18 14 19 10 19 10 18 9 18 9 14 10 14 10 13 14 13 14 14 15 14"/><path d="m22,7v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1H2v1h-1v20h1v1h20v-1h1V7h-1Zm-7,3V3h1v1h1v1h1v1h1v1h1v1h1v13H3V3h1v7h11ZM6,3h7v5h-7V3Z"/></symbol>
   <symbol id="ico-trash" viewBox="0 0 24 24"><path d="m4,6v8h1v8h1v1h12v-1h1v-8h1V6H4Zm14,7h-1v8H7v-8h-1v-5h12v5Z"/><polygon points="21 3 21 5 3 5 3 3 4 3 4 2 9 2 9 1 15 1 15 2 20 2 20 3 21 3"/></symbol>
   <symbol id="ico-refresh" viewBox="0 0 24 24"><polygon points="23 14 23 15 22 15 22 17 21 17 21 19 20 19 20 20 19 20 19 21 17 21 17 22 15 22 15 23 9 23 9 22 7 22 7 21 5 21 5 20 3 20 3 21 2 21 2 22 1 22 1 15 8 15 8 16 7 16 7 17 6 17 6 19 7 19 7 20 9 20 9 21 15 21 15 20 17 20 17 19 19 19 19 17 20 17 20 14 23 14"/><polygon points="23 2 23 9 16 9 16 8 17 8 17 7 18 7 18 5 17 5 17 4 15 4 15 3 9 3 9 4 7 4 7 5 5 5 5 7 4 7 4 10 1 10 1 9 2 9 2 7 3 7 3 5 4 5 4 4 5 4 5 3 7 3 7 2 9 2 9 1 15 1 15 2 17 2 17 3 19 3 19 4 21 4 21 3 22 3 22 2 23 2"/></symbol>
+  <symbol id="ico-message-dots" viewBox="0 0 24 24"><polygon points="19 9 19 11 18 11 18 12 16 12 16 11 15 11 15 9 16 9 16 8 18 8 18 9 19 9"/><polygon points="14 9 14 11 13 11 13 12 11 12 11 11 10 11 10 9 11 9 11 8 13 8 13 9 14 9"/><polygon points="9 9 9 11 8 11 8 12 6 12 6 11 5 11 5 9 6 9 6 8 8 8 8 9 9 9"/><path d="m22,2v-1H2v1h-1v16h1v1h6v4h1v-1h1v-1h1v-1h2v-1h9v-1h1V2h-1Zm-1,15H3V3h18v14Z"/></symbol>
 </svg>
 
 <header>
@@ -361,6 +374,7 @@ function renderTree() {
   h += '<div class="row tool" data-panel="buttons">' + ico('grid') + '小按钮</div>';
   h += '<div class="row tool" data-panel="updates">' + ico('refresh') + '更新日志</div>';
   h += '<div class="row tool" data-panel="notices">' + ico('comment-quote') + '公告栏</div>';
+  h += '<div class="row tool" data-panel="pkmn">' + ico('message-dots') + '宝可梦台词</div>';
   h += '<div class="row tool" data-panel="sidebar">' + ico('pencil-ruler') + '侧栏排序</div>';
   h += '<div class="row tool" data-panel="scripts">' + ico('code') + '脚本管理</div>';
   h += '<div class="row tool" data-panel="nav">' + ico('calendar-alt') + '日记日历</div>';
@@ -614,6 +628,7 @@ async function openPanel(which) {
   if (which === 'notices')  return renderNotices();
   if (which === 'sidebar')  return renderSidebar();
   if (which === 'scripts')  return renderScripts();
+  if (which === 'pkmn')     return renderPkmn();
   if (which === 'nav')      return renderNav();
 }
 
@@ -887,6 +902,147 @@ async function renderNotices() {
     });
   };
   draw(d.items.map((x) => Object.assign({}, x)));
+}
+
+/* --- 宝可梦放养区：台词（data/pkmn-talk/<图鉴号>.toml） ---
+   一只一个文件，每只二十来个池子（它自己的 7 个 + 页面 8 个 + 天气 7 个）。
+   改完保存时会顺手跑 tools/build-pkmn.py --talk，重新生成页面真正读取的
+   static/pkmn/talk/<图鉴号>.json。40 字上限和「至少留几句」都跟着
+   build-pkmn.py 里的校验走：这里超了会变红，真拦下来的还是脚本那一步。 */
+let PK = null;
+
+async function renderPkmn() {
+  const meta = await apiGet('/api/pkmn');
+  if (!meta.items.length) {
+    return showPanel('<h2 class="sec">宝可梦台词</h2><p class="hint">没读到 <code>data/pkmn-pool.toml</code>，或者名单是空的。</p>');
+  }
+  const dex = (PK && meta.items.some((x) => x.dex === PK.dex)) ? PK.dex : meta.items[0].dex;
+  const d = await apiGet('/api/pkmn/' + dex);
+  PK = {
+    meta, dex, name: d.name, header: d.header,
+    pools: d.pools || {}, page: d.page || {}, weather: d.weather || {},
+    groups: meta.groups,
+  };
+  paintPkmn();
+}
+
+function pkmnTable(groupKey, title, hint, keys) {
+  const arr = PK[groupKey];
+  let h = `<h3 class="pk-h">${esc(title)}`;
+  if (hint) h += ` <span class="pk-sub">${esc(hint)}</span>`;
+  h += '</h3>';
+  h += '<table class="grid"><thead><tr><th>说的话（一句一行，别用引号括号 emoji）</th>'
+     + '<th style="width:56px">字数</th><th style="width:38px"></th></tr></thead><tbody>';
+  (keys || []).forEach(([k, label, min]) => {
+    const list = arr[k] || [];
+    list.forEach((s, i) => {
+      const n = [...String(s)].length;
+      h += `<tr><td><input class="pk-in" data-g="${groupKey}" data-k="${esc(k)}" value="${esc(s)}"></td>`
+         + `<td class="pk-n${n > 40 ? ' bad' : ''}">${n}</td>`
+         + `<td style="text-align:center"><button class="danger" data-del="${groupKey}:${esc(k)}:${i}">×</button></td></tr>`;
+    });
+    h += `<tr><td colspan="3" class="pk-add"><span class="pk-sub">${esc(k)}`
+       + `${min ? '（至少留 ' + min + ' 句）' : ''}</span> `
+       + `<button data-add="${groupKey}:${esc(k)}">＋ 加一条</button></td></tr>`;
+  });
+  h += '</tbody></table>';
+  return h;
+}
+
+function paintPkmn() {
+  const it = PK.meta.items.find((x) => x.dex === PK.dex) || {};
+  let h = '<h2 class="sec">宝可梦台词</h2>';
+  h += `<div class="note">这里是侧栏「宝可梦放养区」里每只宝可梦说的话，一只一个文件
+    （<code>data/pkmn-talk/${PK.dex}.toml</code>）。改完点最下面的<b>保存并生成</b> ——
+    编辑器会顺手重新生成页面真正读取的 JSON，刷新预览页就能看到。<br>
+    规矩：每句<b>不超过 40 个字</b>（对话框只有三行），不要用引号、书名号、括号、emoji，
+    也不用写「${esc(PK.name)}：」这种前缀；同一只里面别出现重复的句子。</div>`;
+
+  h += '<div class="field"><label>改哪一只</label><select id="pkSel">';
+  for (const x of PK.meta.items) {
+    h += `<option value="${x.dex}"${x.dex === PK.dex ? ' selected' : ''}>`
+       + `${esc(x.name)}（${x.dex}·${x.sleep === 'day' ? '白天睡' : '夜里睡'}）</option>`;
+  }
+  h += `</select><span class="cmt">${it.total != null ? '现在共 ' + it.total + ' 句' : ''}</span></div>`;
+
+  h += pkmnTable('pools', '它自己的话', '（按什么时候说分）', PK.groups.pools);
+  h += pkmnTable('page', '看着某一页时说的', '（它正在陪你看这一页）', PK.groups.page);
+  h += pkmnTable('weather', '外面什么天气时说的', '（按访客当地天气）', PK.groups.weather);
+
+  h += '<div style="margin-top:18px"><button class="primary" id="btnSavePkmn">保存并生成</button> '
+     + `<span class="cmt">${PK.meta.pythonOk ? '（保存后会自动重跑生成脚本）' : '⚠ 没找到 python：保存后不会重新生成 JSON'}</span></div>`;
+  h += '<pre id="pkLog" class="pk-log" hidden></pre>';
+  showPanel(h);
+  bindPkmn();
+}
+
+function bindPkmn() {
+  const collect = () => {
+    const out = { pools: {}, page: {}, weather: {} };
+    document.querySelectorAll('#panel input[data-g]').forEach((el) => {
+      const g = el.dataset.g, k = el.dataset.k;
+      if (!out[g][k]) out[g][k] = [];
+      out[g][k].push(el.value);
+    });
+    PK.pools = out.pools; PK.page = out.page; PK.weather = out.weather;
+  };
+  document.querySelectorAll('#panel .pk-in').forEach((el) => el.addEventListener('input', () => {
+    const td = el.closest('tr').querySelector('.pk-n');
+    const n = [...el.value].length;
+    td.textContent = n;
+    td.classList.toggle('bad', n > 40);
+  }));
+  document.querySelectorAll('#panel [data-del]').forEach((b) => b.addEventListener('click', () => {
+    collect();
+    const [g, k, i] = b.dataset.del.split(':');
+    PK[g][k].splice(+i, 1);
+    paintPkmn();
+  }));
+  document.querySelectorAll('#panel [data-add]').forEach((b) => b.addEventListener('click', () => {
+    collect();
+    const [g, k] = b.dataset.add.split(':');
+    (PK[g][k] = PK[g][k] || []).push('');
+    paintPkmn();
+    const rows = document.querySelectorAll(`#panel input[data-k="${CSS.escape(k)}"]`);
+    const last = rows[rows.length - 1];
+    if (last) last.focus();
+  }));
+  $('#pkSel').addEventListener('change', async (e) => {
+    PK.dex = Number(e.target.value);
+    const d = await apiGet('/api/pkmn/' + PK.dex);
+    PK.name = d.name; PK.header = d.header;
+    PK.pools = d.pools || {}; PK.page = d.page || {}; PK.weather = d.weather || {};
+    paintPkmn();
+  });
+  $('#btnSavePkmn').addEventListener('click', async () => {
+    collect();
+    const strip = (o) => {
+      const out = {};
+      for (const k of Object.keys(o)) out[k] = o[k].map((s) => s.trim()).filter(Boolean);
+      return out;
+    };
+    const payload = {
+      name: PK.name, header: PK.header,
+      pools: strip(PK.pools), page: strip(PK.page), weather: strip(PK.weather),
+    };
+    const btn = $('#btnSavePkmn');
+    btn.disabled = true;
+    btn.textContent = '正在生成…';
+    try {
+      const r = await apiPost('/api/pkmn/' + PK.dex, payload);
+      const log = $('#pkLog');
+      log.hidden = false;
+      log.textContent = (r.ok ? '✓ 已保存，并重新生成了页面用的 JSON\n\n'
+                              : '✗ 文件存下了，但生成时报错（页面上的台词还是旧的那份）\n\n') + (r.log || '');
+      log.style.color = r.ok ? '#1e8e3e' : '#c5221f';
+      toast(r.ok ? '台词已保存并生成' : '保存了，但生成失败 —— 看面板下面的报错', r.ok ? 'ok' : 'err');
+      const d = await apiGet('/api/pkmn/' + PK.dex);
+      PK.pools = d.pools || {}; PK.page = d.page || {}; PK.weather = d.weather || {};
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '保存并生成';
+    }
+  });
 }
 
 /* --- 侧栏排序（拖动改挂件顺序，存到 data/sidebar.toml） --- */
@@ -1340,7 +1496,7 @@ async function newPage() {
 
 /* ---------- 启动 ---------- */
 let BOOTED = false;
-const PANELS = ['settings', 'links', 'buttons', 'scripts', 'nav'];
+const PANELS = ['settings', 'links', 'buttons', 'scripts', 'nav', 'pkmn'];
 
 /** 恢复上次用的图片宽度、给顶栏的新建按钮接线 */
 function initToolbar() {

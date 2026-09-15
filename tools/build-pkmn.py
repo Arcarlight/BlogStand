@@ -709,7 +709,8 @@ def load_talk(dex: int, name: str) -> dict:
     return out
 
 
-def write_talk(pool: list[dict], credits_by_dex: dict, strict: bool = True) -> None:
+def write_talk(pool: list[dict], credits_by_dex: dict, strict: bool = True,
+               allow_fetch: bool = True) -> None:
     OUT_TALK.mkdir(parents=True, exist_ok=True)
     total = 0
     all_lines: dict[str, str] = {}
@@ -724,10 +725,12 @@ def write_talk(pool: list[dict], credits_by_dex: dict, strict: bool = True) -> N
             skipped.append(f"{dex} {name}")
             continue
         talk = load_talk(dex, name)
-        try:
-            cred = credits_by_dex.get(dex) or read_credits(dex, load_name_map())
-        except BaseException:
-            cred = None  # 没网也没缓存时就不写署名，不影响台词
+        cred = credits_by_dex.get(dex)
+        if cred is None and allow_fetch:
+            try:
+                cred = read_credits(dex, load_name_map())
+            except BaseException:
+                cred = None  # 没网也没缓存时就不写署名，不影响台词
         if cred:
             talk["credits"] = cred
         n = sum(len(v) for v in (talk["pet"], talk["idle"]))
@@ -767,6 +770,21 @@ def load_name_map() -> dict:
         if len(parts) >= 2:
             m[parts[1].strip()] = parts[0].strip()
     return m
+
+
+def existing_credits(dex: int) -> dict | None:
+    """已经生成好的台词 JSON 里那份署名。
+
+    --talk（只重生成台词）用它，这一步就完全不联网 —— 编辑器里改一句保存时
+    也走这条路，不能因为没开代理就卡在那里重试下载。
+    """
+    p = OUT_TALK / f"{dex}.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8")).get("credits")
+    except Exception:
+        return None
 
 
 # ============================================================
@@ -836,16 +854,23 @@ def main() -> None:
         if args.sprites:
             return
 
-    # 台词：署名信息优先从 index.json / 缓存里取
+    # 台词：署名信息优先从已经生成好的 JSON / 下载缓存里取
     credits_by_dex: dict[int, dict] = {}
-    for item in pool:
-        try:
-            c = read_credits(item["dex"], load_name_map())
-        except BaseException:
-            continue
-        if c["sprite"] or c["portrait"]:
-            credits_by_dex[item["dex"]] = c
-    write_talk(pool, credits_by_dex, strict=args.talk)
+    if args.talk:
+        # 只重生成台词：完全不联网（编辑器里保存台词走的就是这条路）
+        for item in pool:
+            c = existing_credits(item["dex"])
+            if c:
+                credits_by_dex[item["dex"]] = c
+    else:
+        for item in pool:
+            try:
+                c = read_credits(item["dex"], load_name_map())
+            except BaseException:
+                continue
+            if c["sprite"] or c["portrait"]:
+                credits_by_dex[item["dex"]] = c
+    write_talk(pool, credits_by_dex, strict=args.talk, allow_fetch=not args.talk)
 
 
 if __name__ == "__main__":
