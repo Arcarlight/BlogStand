@@ -1441,6 +1441,11 @@ html.pxfont .entry-content { line-height: 1.55; }
 
    草地贴图同理：background-size 必须是整数设备像素，所以不用 em/百分比，
    而是由 JS 按 dpr 写死（CSS 里那个 43px 只是首屏兜底）。
+
+   天空（第 27 节下面那张画布）走的是同一条规矩：整片天画在「美术像素」分辨率
+   的小画布上，再按 2 设备像素 = 1 美术像素整倍贴上来，所以云是一格一格挪的。
+   它把草地也在画布上重画了一遍（位置和下面那条 CSS 兜底背景完全对齐），
+   于是夜里压暗、下雨变暗这些都能在画布里一次做完。
    ============================================================ */
 #pkmn-pasture .pasture-pen {
   position: relative;
@@ -1456,8 +1461,20 @@ html.pxfont .entry-content { line-height: 1.55; }
   image-rendering: pixelated;
 }
 
+/* 天空画布：铺满围栏，压在所有东西底下（宝可梦 z2/z3、图标 z4） */
+#pkmn-pasture .pasture-sky {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  display: block;
+  image-rendering: pixelated;
+}
+
 /* 夜里把天空调暗。用「半透明罩子」而不是 filter ——
-   filter 会先把这个盒子栅格化再处理，里面的点阵画布就被重采样了。 */
+   filter 会先把这个盒子栅格化再处理，里面的点阵画布就被重采样了。
+   天空画布画起来之后这层罩子就撤掉（白天黑夜的调色板在画布里），
+   否则会压两次、糊成一片灰。 */
 #pkmn-pasture .pasture-pen::before {
   content: "";
   position: absolute;
@@ -1468,6 +1485,7 @@ html.pxfont .entry-content { line-height: 1.55; }
 
 html.pkmn-night #pkmn-pasture .pasture-pen { background-color: #24365c; }
 html.pkmn-night #pkmn-pasture .pasture-pen::before { background: rgba(12, 22, 48, .34); }
+#pkmn-pasture .pasture-pen.pkmn-sky::before { background: none; }
 
 #pkmn-pasture .pasture-sprite,
 #pkmn-pasture .pasture-shadow {

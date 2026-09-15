@@ -28,6 +28,9 @@
   <div class="widget-body">
     <div class="pasture">
       <div class="pasture-pen" id="pasture-pen">
+        {{/* 天空画布：晴天的云、雨丝、雪花、雷电都画在这上面（见 js/pkmn-sky.js）。
+             它在最底下，宝可梦和影子都盖在它上面。 */}}
+        <canvas class="pasture-sky" id="pasture-sky" width="1" height="1"></canvas>
         <canvas class="pasture-shadow" id="pasture-shadow" width="1" height="1"></canvas>
         <canvas class="pasture-sprite" id="pasture-sprite" width="1" height="1"></canvas>
         {{/* 右上角那对天气 / 时间图标：只在上面两个角上，站着的宝可梦永远碰不到
@@ -55,6 +58,7 @@
   </div>
 </div>
 <script type="application/json" id="pkmn-index">{{ $idx | safeJS }}</script>
+<script src="{{ "js/pkmn-sky.js" | relURL }}" defer></script>
 <script src="{{ "js/pkmn.js" | relURL }}" defer></script>
 {{ end }}
 {{ end }}

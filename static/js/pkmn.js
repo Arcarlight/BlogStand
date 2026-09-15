@@ -5,6 +5,9 @@
    它会换笑脸说一句；平时过一会儿也会自己嘟囔一句，台词按
    「当前页面类型 + 访客当地天气 + 深夜」挑。
 
+   围栏的背景（蓝天白云 / 阴天 / 雨丝 / 雪 / 雷电，夜里换成星星月亮）
+   在 js/pkmn-sky.js 里画，这里只负责告诉它「现在什么天气、什么时段」。
+
    素材是 PMD 精灵表（PMDCollab SpriteCollab，CC BY-NC 4.0），
    已经由 tools/build-pkmn.py 重新拼成「一只一张」的精灵表，
    每张 5 行：0=Idle下 1=Walk左 2=Walk右 3=脸图 4=影子。
@@ -17,6 +20,8 @@
    调试开关（不写进文档也没关系）：
      ?pkmn=445     强制放某一只（图鉴号，方便一只一只看效果）
      ?pkmn=random  强制重抽
+     ?pkmn-weather=rain   强制背景 / 图标显示成某个天气（看效果用）
+     ?pkmn-time=night     强制显示成某个时段（看效果用）
    ============================================================ */
 (function () {
   'use strict';
@@ -45,9 +50,13 @@
   var timeIconCv = document.getElementById('pkmn-icon-time');
   var zzzA = document.getElementById('pkmn-zzz-a');
   var zzzB = document.getElementById('pkmn-zzz-b');
+  var skyCv = document.getElementById('pasture-sky');
   if (!pen || !spriteCv || !shadowCv || !faceCv || !lineEl) return;
 
   var ASSET = widget.getAttribute('data-base') || 'pkmn/';
+
+  // 背景的天空（天气 + 时间）。pkmn-sky.js 先加载，所以这里一定拿得到。
+  var sky = (skyCv && window.PkmnSky) ? window.PkmnSky.create(skyCv, ASSET) : null;
   var ROW = { i: 0, wl: 1, wr: 2, face: 3, sh: 4, sl: 5 };
   var FACE_S = 2;          // 脸图固定 2 设备像素 = 1 美术像素（40×40 → 80×80 设备像素）
   var ICON_S = 2;          // 天气 / 时间图标同样整倍放大（24 → 48 设备像素 = 32 CSS px）
@@ -81,6 +90,16 @@
   // 关掉标签页重新打开才会重抽）。
   var KEY = 'pkmn.pasture.v1';
   var forced = (location.search.match(/[?&]pkmn=([^&]+)/) || [])[1];
+
+  // 只看背景效果用的强制开关（不影响它睡不睡、说哪池台词）：
+  //   ?pkmn-weather=clear|cloudy|fog|drizzle|rain|snow|thunder
+  //   ?pkmn-time=dawn|day|dusk|night
+  function query(name) {
+    var m = location.search.match(new RegExp('[?&]' + name + '=([^&]+)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  var forcedWeather = query('pkmn-weather');
+  var forcedTime = query('pkmn-time');
   var dex = null;
   if (forced && forced !== 'random' && SHEET[forced]) {
     dex = String(forced);
@@ -196,7 +215,9 @@
   function hourNow() { return (new Date()).getHours(); }
 
   // 早 / 中 / 晚 / 深夜 —— 也是睡觉时段判断用的同一套时间
+  // （?pkmn-time= 只是把「显示」固定住，睡觉那套仍然按真实时间走）
   function timePart(h) {
+    if (h == null && forcedTime) return forcedTime;
     h = (h == null) ? hourNow() : h;
     if (h >= 5 && h < 11) return 'dawn';
     if (h >= 11 && h < 17) return 'day';
@@ -230,10 +251,11 @@
 
   function drawWeatherIcon() {
     if (!weatherIconCv) return;
-    if (!weather) { weatherIconCv.style.display = 'none'; return; }
-    var key = W_ALIAS[weather] || weather;
+    var w = forcedWeather || weather;    // 调试用的强制天气也顺手显示在图标上
+    if (!w) { weatherIconCv.style.display = 'none'; return; }
+    var key = W_ALIAS[w] || w;
     drawIcon(weatherIconCv, key);
-    weatherIconCv.title = '外面：' + (WEATHER_LABEL[weather] || weather);
+    weatherIconCv.title = '外面：' + (WEATHER_LABEL[w] || w);
   }
 
   function drawTimeIcon() {
@@ -246,6 +268,12 @@
   function refreshIcons() {
     drawWeatherIcon();
     drawTimeIcon();
+  }
+
+  // 把「现在什么天气、什么时段」告诉背景。天气可能后到（要等接口），
+  // 时段是整点才换一次，所以两个地方各调一次就够，重复调用不会重画。
+  function syncSky() {
+    if (sky) sky.set(forcedWeather || weather || 'clear', timePart());
   }
 
   // ---------------- 行为 ----------------
@@ -329,6 +357,7 @@
     var cls = document.documentElement.className.replace(/\s*pkmn-night/g, '');
     document.documentElement.className = cls + (isNightNow() ? ' pkmn-night' : '');
     refreshIcons();
+    syncSky();
   }
 
   // 系统里开了「减少动态效果」的话就别让它满地跑了，站着说话就好
@@ -555,7 +584,12 @@
     if (SS) {
       try {
         var c = JSON.parse(SS.getItem('pkmn.weather') || 'null');
-        if (c && Date.now() - c.t < 30 * 60 * 1000) { weather = c.w; drawWeatherIcon(); return; }
+        if (c && Date.now() - c.t < 30 * 60 * 1000) {
+          weather = c.w;
+          drawWeatherIcon();
+          syncSky();
+          return;
+        }
       } catch (e) {}
     }
     geoAt(0)
@@ -569,9 +603,10 @@
         if (!w) throw new Error('no weather');
         weather = w;
         drawWeatherIcon();     // 角上的天气图标是后到的，要补画一次
+        syncSky();             // 天空同理：天是后到的，也要补画一次
         if (SS) { try { SS.setItem('pkmn.weather', JSON.stringify({ t: Date.now(), w: w })); } catch (e) {} }
       })
-      .catch(function () { weather = null; drawWeatherIcon(); });
+      .catch(function () { weather = null; drawWeatherIcon(); syncSky(); });
   }
 
   // ---------------- 摸它 ----------------
@@ -631,6 +666,8 @@
     shH = meta.s.h * 2 / dpr;
     // 草地贴图也必须是整数设备像素：32 美术像素 × 2 = 64 设备像素
     pen.style.backgroundSize = (64 / dpr) + 'px auto';
+    // 天空画布按围栏的新尺寸重建（里面的草地贴图也跟着重画）
+    if (sky) sky.resize();
     var half = spriteW / 2;
     st.x = Math.max(half + 3, Math.min(penW - half - 3, st.x || penW / 2));
   }
@@ -646,6 +683,14 @@
 
     lastPart = timePart();
     if (isNightNow()) document.documentElement.className += ' pkmn-night';
+
+    // 背景的天空：从这一行开始，围栏里的天 / 云 / 雨由画布负责，
+    // CSS 里那层「夜里压暗」的罩子就撤掉（画布里的调色板自己会压）
+    if (sky) {
+      pen.className += ' pkmn-sky';
+      syncSky();
+    }
+
     loadWeather();
 
     // 天气 / 时间图标是另一张小图（1.7 KB），到了就画
@@ -692,7 +737,13 @@
         timePart: timePart,
         goSleep: goSleep,
         wake: wakeUp,
-        icons: function () { refreshIcons(); }
+        icons: function () { refreshIcons(); },
+        // 看背景：__pkmn.sky() 报告现状，__pkmn.sky('rain','night') 直接换一套
+        sky: function (w, p) {
+          if (!sky) return null;
+          if (w) { forcedWeather = w; if (p) forcedTime = p; syncSky(); refreshIcons(); }
+          return sky.state();
+        }
       };
     }
 
@@ -709,6 +760,7 @@
       tickTalk(dt);
       tickClock(dt);
       tickSleep();
+      if (sky) sky.tick(dt);
     }
     requestAnimationFrame(loop);
 
