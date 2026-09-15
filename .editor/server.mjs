@@ -580,14 +580,20 @@ function quotedStrings(s) {
 }
 
 function parsePkmnTalk(text) {
-  const res = { header: '', name: '', pools: {}, page: {}, weather: {} };
+  const res = { header: '', name: '', pools: {}, page: {}, weather: {},
+                order: { pools: [], page: [], weather: [] } };
   let section = res.pools;
+  let sectionName = 'pools';
   let curKey = null;
   let buf = null;
+  const keep = (obj, key, list) => {
+    obj[key] = list;
+    if (!res.order[sectionName].includes(key)) res.order[sectionName].push(key);
+  };
   for (const raw of text.split(/\r?\n/)) {
     const t = raw.trim();
     if (buf) {                                   // 正在读一个多行数组
-      if (t.startsWith(']')) { section[curKey] = buf; buf = null; curKey = null; continue; }
+      if (t.startsWith(']')) { keep(section, curKey, buf); buf = null; curKey = null; continue; }
       buf = buf.concat(quotedStrings(t));
       continue;
     }
@@ -598,7 +604,8 @@ function parsePkmnTalk(text) {
     }
     const sec = t.match(/^\[(\w+)\]$/);
     if (sec) {
-      section = sec[1] === 'page' ? res.page : (sec[1] === 'weather' ? res.weather : res.pools);
+      sectionName = sec[1] === 'page' ? 'page' : (sec[1] === 'weather' ? 'weather' : 'pools');
+      section = res[sectionName];
       continue;
     }
     const kv = t.match(/^([A-Za-z0-9_]+)\s*=\s*(.*)$/);
@@ -608,7 +615,7 @@ function parsePkmnTalk(text) {
     if (key === 'name' && rest.startsWith('"')) { res.name = quotedStrings(rest)[0] || ''; continue; }
     if (!rest.startsWith('[')) continue;
     const oneLine = quotedStrings(rest);
-    if (rest.includes(']') && rest.indexOf(']') > rest.indexOf('[')) { section[key] = oneLine; continue; }
+    if (rest.includes(']') && rest.indexOf(']') > rest.indexOf('[')) { keep(section, key, oneLine); continue; }
     curKey = key;
     buf = oneLine;
   }
@@ -627,13 +634,21 @@ function writePkmnTalk(dex, name, data) {
     for (const s of v) L.push(`  "${esc(s)}",`);
     L.push(']');
   };
-  for (const [k] of PKMN_POOLS) { L.push(''); arr(k, data.pools[k]); }
+  // 键的顺序照文件里原来的来 —— 这样用编辑器改一句，diff 里就只有那一句，
+  // 不会整段搬家。文件里没出现过的键按定义顺序补在后面。
+  const keysOf = (defs, section) => {
+    const want = (data.order && Array.isArray(data.order[section])) ? data.order[section] : [];
+    const out = want.filter((k) => defs.some(([d]) => d === k));
+    for (const [k] of defs) if (!out.includes(k)) out.push(k);
+    return out;
+  };
+  for (const k of keysOf(PKMN_POOLS, 'pools')) { L.push(''); arr(k, data.pools[k]); }
   L.push('');
   L.push('[page]');
-  for (const [k] of PKMN_PAGE) arr(k, data.page[k]);
+  for (const k of keysOf(PKMN_PAGE, 'page')) arr(k, data.page[k]);
   L.push('');
   L.push('[weather]');
-  for (const [k] of PKMN_WEATHER) arr(k, data.weather[k]);
+  for (const k of keysOf(PKMN_WEATHER, 'weather')) arr(k, data.weather[k]);
   return L.join('\n') + '\n';
 }
 
@@ -1286,6 +1301,11 @@ async function handle(req, res, url) {
         pools: norm(body.pools, PKMN_POOLS),
         page: norm(body.page, PKMN_PAGE),
         weather: norm(body.weather, PKMN_WEATHER),
+        order: body.order && typeof body.order === 'object' ? {
+          pools: Array.isArray(body.order.pools) ? body.order.pools.map(String) : [],
+          page: Array.isArray(body.order.page) ? body.order.page.map(String) : [],
+          weather: Array.isArray(body.order.weather) ? body.order.weather.map(String) : [],
+        } : null,
       };
       await writeText(`${PKMN_DIR}/${dex}.toml`, writePkmnTalk(dex, name, data));
 

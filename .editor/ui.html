@@ -919,11 +919,33 @@ async function renderPkmn() {
   const dex = (PK && meta.items.some((x) => x.dex === PK.dex)) ? PK.dex : meta.items[0].dex;
   const d = await apiGet('/api/pkmn/' + dex);
   PK = {
-    meta, dex, name: d.name, header: d.header,
+    meta, dex,
+    // 名单里有、台词文件还没生成的（比如刚往 pkmn-pool.toml 里加了新的一只）也要能打开
+    name: d.name || (meta.items.find((x) => x.dex === dex) || {}).name || String(dex),
+    header: d.header,
     pools: d.pools || {}, page: d.page || {}, weather: d.weather || {},
+    order: d.order || null,
     groups: meta.groups,
   };
+  PK.loaded = JSON.stringify(pkmnPayload());
   paintPkmn();
+}
+
+/** 面板上的当前内容，拼成要发给服务端的形状（顺序按池子定义，空串丢掉） */
+function pkmnPayload() {
+  const strip = (o, keys) => {
+    const out = {};
+    for (const [k] of keys) {
+      out[k] = (o[k] || []).map((s) => String(s).trim()).filter(Boolean);
+    }
+    return out;
+  };
+  return {
+    name: PK.name, header: PK.header, order: PK.order,
+    pools: strip(PK.pools, PK.groups.pools),
+    page: strip(PK.page, PK.groups.page),
+    weather: strip(PK.weather, PK.groups.weather),
+  };
 }
 
 function pkmnTable(groupKey, title, hint, keys) {
@@ -1008,23 +1030,24 @@ function bindPkmn() {
     if (last) last.focus();
   }));
   $('#pkSel').addEventListener('change', async (e) => {
+    collect();
+    if (JSON.stringify(pkmnPayload()) !== PK.loaded &&
+        !confirm('这一只还有没保存的改动，换过去就丢了。要继续吗？')) {
+      e.target.value = String(PK.dex);
+      return;
+    }
     PK.dex = Number(e.target.value);
     const d = await apiGet('/api/pkmn/' + PK.dex);
-    PK.name = d.name; PK.header = d.header;
+    PK.name = d.name || (PK.meta.items.find((x) => x.dex === PK.dex) || {}).name || String(PK.dex);
+    PK.header = d.header;
+    PK.order = d.order || null;
     PK.pools = d.pools || {}; PK.page = d.page || {}; PK.weather = d.weather || {};
+    PK.loaded = JSON.stringify(pkmnPayload());
     paintPkmn();
   });
   $('#btnSavePkmn').addEventListener('click', async () => {
     collect();
-    const strip = (o) => {
-      const out = {};
-      for (const k of Object.keys(o)) out[k] = o[k].map((s) => s.trim()).filter(Boolean);
-      return out;
-    };
-    const payload = {
-      name: PK.name, header: PK.header,
-      pools: strip(PK.pools), page: strip(PK.page), weather: strip(PK.weather),
-    };
+    const payload = pkmnPayload();
     const btn = $('#btnSavePkmn');
     btn.disabled = true;
     btn.textContent = '正在生成…';
@@ -1038,6 +1061,7 @@ function bindPkmn() {
       toast(r.ok ? '台词已保存并生成' : '保存了，但生成失败 —— 看面板下面的报错', r.ok ? 'ok' : 'err');
       const d = await apiGet('/api/pkmn/' + PK.dex);
       PK.pools = d.pools || {}; PK.page = d.page || {}; PK.weather = d.weather || {};
+      PK.loaded = JSON.stringify(pkmnPayload());
     } finally {
       btn.disabled = false;
       btn.textContent = '保存并生成';
