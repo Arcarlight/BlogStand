@@ -79,6 +79,7 @@
   }
   var forcedWeather = query('pkmn-weather');
   var forcedTime = query('pkmn-time');
+  var forcedHour = null;      // 调试时点名的时刻（__tbtak.sky 的第三个参数）
   var weather = null;
   var sky = (skyCv && window.PkmnSky) ? window.PkmnSky.create(skyCv, ASSET) : null;
   var iconImg = null;
@@ -87,7 +88,12 @@
   function isNight() { return WX ? WX.isNight() : false; }
 
   function syncSky() {
-    if (sky) sky.set(forcedWeather || weather || 'clear', timePart());
+    if (!sky) return;
+    // 第三个参数是带分钟的真实时刻：天空按它连续变化（傍晚一点点暗下去）；
+    // 用 ?pkmn-time= 固定时段时用 forcedHour（调试点名的时刻），没有就让天空
+    // 用那一桶的代表时刻。
+    sky.set(forcedWeather || weather || 'clear', timePart(),
+            forcedTime ? forcedHour : (WX ? WX.hourFloat() : null));
   }
 
   function drawIcon(cv, key) {
@@ -552,9 +558,16 @@
         },
         weather: function () { return forcedWeather || weather; },
         timePart: timePart,
-        sky: function (w, p) {
-          if (w) { forcedWeather = w; if (p) forcedTime = p; syncSky(); refreshIcons(); }
-          return sky ? sky.state() : null;
+        sky: function (w, p, h) {
+          if (!sky) return null;
+          if (w) {
+            forcedWeather = w;
+            if (p) forcedTime = p;
+            forcedHour = (typeof h === 'number') ? h : null;
+            syncSky();
+            refreshIcons();
+          }
+          return sky.state();
         },
         say: function (id, text) {
           for (var k = 0; k < chars.length; k++) {
@@ -577,7 +590,10 @@
       for (var i = 0; i < chars.length; i++) step(chars[i], dt);
       tickTalk(dt);
       if (sky) sky.tick(dt);
-      // 整点换了时段（早/中/晚/夜）就换天空、换图标
+      // 天色是连续变的：每 60 秒同步一次真实时刻；
+      // 时段图标（早/中/晚/夜）每 4 秒查一次，换了才重画
+      skyT += dt;
+      if (skyT >= 60) { skyT = 0; syncSky(); }
       clockT += dt;
       if (clockT > 4) {
         clockT = 0;
@@ -589,7 +605,7 @@
         }
       }
     }
-    var clockT = 0, lastPart = timePart();
+    var clockT = 0, skyT = 0, lastPart = timePart();
     if (REDUCED) for (var k = 0; k < chars.length; k++) { place(chars[k]); drawShadow(chars[k]); }
     requestAnimationFrame(loop);
 

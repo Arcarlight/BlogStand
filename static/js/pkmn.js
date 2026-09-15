@@ -96,6 +96,7 @@
   }
   var forcedWeather = query('pkmn-weather');
   var forcedTime = query('pkmn-time');
+  var forcedHour = null;       // 调试时点名的时刻（见 __pkmn.sky 的第三个参数）
   var dex = null;
   if (forced && forced !== 'random' && SHEET[forced]) {
     dex = String(forced);
@@ -266,10 +267,19 @@
     drawTimeIcon();
   }
 
-  // 把「现在什么天气、什么时段」告诉背景。天气可能后到（要等接口），
-  // 时段是整点才换一次，所以两个地方各调一次就够，重复调用不会重画。
+  // 把「现在什么天气、现在几点」告诉背景。第三个参数是**带分钟的真实时刻**：
+  // 天空按真实时刻连续变化（傍晚会一点点暗下去），不再按四个时段一刀切；
+  // 用 ?pkmn-time= 固定住时段时传 null，就让天空用那一桶的代表时刻。
+  // forcedHour 是调试时点名要看的时刻（__pkmn.sky('clear','day',18.5)），要一直粘着，
+  // 不然天气回来 / 每 60 秒同步一次的时候会被冲掉。
+  function skyHour() {
+    if (!forcedTime) return WX ? WX.hourFloat() : null;
+    return forcedHour;
+  }
+
   function syncSky() {
-    if (sky) sky.set(forcedWeather || weather || 'clear', timePart());
+    if (!sky) return;
+    sky.set(forcedWeather || weather || 'clear', timePart(), skyHour());
   }
 
   // ---------------- 行为 ----------------
@@ -341,9 +351,13 @@
     if (now >= sleepyAt) { sleepySaid = false; goSleep(); }
   }
 
-  // 时间过了整点（早/中/晚/夜切换）要换图标、顺便把围栏调暗
-  var clockT = 0, lastPart = null;
+  // 时段图标每 4 秒查一次（早/中/晚/夜切换时换图标、换 CSS 的夜间压暗）；
+  // 天色是连续变的，所以另外每 60 秒把真实时刻同步给天空一次
+  //（每次都算一遍颜色很便宜，只有变化够大时才重新给云上色）。
+  var clockT = 0, skyT = 0, lastPart = null;
   function tickClock(dt) {
+    skyT += dt;
+    if (skyT >= 60) { skyT = 0; syncSky(); }
     clockT += dt;
     if (clockT < 4) return;
     clockT = 0;
@@ -675,9 +689,16 @@
         wake: wakeUp,
         icons: function () { refreshIcons(); },
         // 看背景：__pkmn.sky() 报告现状，__pkmn.sky('rain','night') 直接换一套
-        sky: function (w, p) {
+        // 第三个参数可以给具体时刻（比如 __pkmn.sky('clear','day',18.5)）
+        sky: function (w, p, h) {
           if (!sky) return null;
-          if (w) { forcedWeather = w; if (p) forcedTime = p; syncSky(); refreshIcons(); }
+          if (w) {
+            forcedWeather = w;
+            if (p) forcedTime = p;
+            forcedHour = (typeof h === 'number') ? h : null;
+            syncSky();
+            refreshIcons();
+          }
           return sky.state();
         }
       };

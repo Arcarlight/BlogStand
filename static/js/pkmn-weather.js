@@ -107,6 +107,14 @@
 
   function hour() { return (new Date()).getHours(); }
 
+  // 带分钟的时刻（13.75 = 下午 1:45）—— 天空按它连续变化：
+  // 「早/中/晚/夜」四个桶是给图标和台词用的，17:00–22:00 那五个小时
+  // 不能共用一套「傍晚」配色（不然 21:00 天还跟正午一样亮）。
+  function hourFloat() {
+    var d = new Date();
+    return d.getHours() + d.getMinutes() / 60;
+  }
+
   function timePart(h, forced) {
     if (h == null && forced) return forced;      // 调试开关 ?pkmn-time=
     h = (h == null) ? hour() : h;
@@ -125,6 +133,6 @@
     NIGHT_FROM: NIGHT_FROM, NIGHT_TO: NIGHT_TO,
     WEATHER_LABEL: WEATHER_LABEL, TIME_LABEL: TIME_LABEL, W_ALIAS: W_ALIAS,
     wmo: wmo, load: load, cached: cached,
-    hour: hour, timePart: timePart, isNight: isNight
+    hour: hour, hourFloat: hourFloat, timePart: timePart, isNight: isNight
   };
 })();

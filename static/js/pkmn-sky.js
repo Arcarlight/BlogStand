@@ -73,28 +73,29 @@
   };
 
   // ---------------- 时间（叠在天气上的色调） ----------------
-  // tint / k：往这个颜色混这么多（夜的 k 很大 = 直接压成深蓝）
-  // dark：再往深蓝黑压一点；sh：云底阴影的深浅（夜里要给足，不然云看不见）
-  // sun：太阳的位置（占天空宽 / 高的比例）和两种颜色；moon：挂月亮
-  var TIME = {
-    dawn: {
-      tint: [255, 186, 140], k: 0.30, dark: 0, sh: 0.20, star: 0, gNight: null,
-      sun: { x: 0.17, y: 0.62, c1: [255, 204, 118], c2: [255, 240, 186] }
-    },
-    day: {
-      tint: null, k: 0, dark: 0, sh: 0.16, star: 0, gNight: null,
-      sun: { x: 0.20, y: 0.14, c1: [255, 212, 92], c2: [255, 244, 178] }
-    },
-    dusk: {
-      tint: [255, 146, 102], k: 0.38, dark: 0.05, sh: 0.22, star: 0,
-      gNight: 'rgba(30,40,70,.10)',
-      sun: { x: 0.18, y: 0.58, c1: [255, 162, 88], c2: [255, 214, 150] }
-    },
-    night: {
-      tint: [26, 42, 86], k: 0.82, dark: 0.16, sh: 0.40, star: 1,
-      gNight: 'rgba(22,34,62,.52)', moon: true
-    }
-  };
+  // ---------------- 时间：按真实时刻连续变化 ----------------
+  // 原来这里是一张「早 / 中 / 晚 / 夜」四段表，和右上角的时间图标共用，
+  // 结果 17:00–22:00 这五个小时全被当成「傍晚」，而且那套暖色调是**往亮色混**的 ——
+  // 21:00 打开网页，天和正午一样亮（站长 2026-09-15 报的就是这个）。
+  //
+  // 现在改成两条曲线，按真实时刻（含分钟）插值：
+  //   dayness(h)：天有多亮，0 = 全黑、1 = 大白天
+  //   warmth(h) ：暖色浓度，日出（6 点前后）和日落（18~19 点）最高
+  // 「早/中/晚/夜」四个桶还在（图标和台词要用），但天空不再跟着它一刀切。
+  // 曲线按「中纬度、日落 18 点前后」调：19 点半前后基本暗下来、20 点全黑。
+  var DAYNESS = [[0, 0], [3.5, 0], [4.5, 0.06], [5.5, 0.2], [6.5, 0.42], [7.5, 0.7],
+                 [9, 0.92], [10, 1], [16, 1], [17, 0.85], [17.8, 0.62], [18.5, 0.34],
+                 [19.2, 0.15], [19.8, 0.05], [20.3, 0], [24, 0]];
+  var WARMTH = [[0, 0], [4.5, 0], [5.5, 0.5], [6.5, 1], [7.5, 0.5], [9, 0.12],
+                [11, 0], [15.5, 0], [16.5, 0.25], [17.5, 0.65], [18.3, 1], [19.2, 0.7],
+                [20, 0.35], [21, 0.1], [22, 0], [24, 0]];
+  // 调试开关 ?pkmn-time=xxx 用「那一桶的代表时刻」来预览
+  var REP_HOUR = { dawn: 6.2, day: 13, dusk: 18.8, night: 23 };
+
+  // 夜里往这个颜色压（k 很大 = 直接压成深蓝），再压暗一点；白天就是 SKY 里那套原色
+  var NIGHT_TINT = [26, 42, 86], NIGHT_K = 0.82, NIGHT_DARK = [16, 24, 46], NIGHT_DARK_K = 0.16;
+  // 日出 / 日落那层暖色，最多混这么多
+  var WARM_TINT = [255, 150, 105], WARM_MAX = 0.42;
 
   var SEED = { clear: 11, cloudy: 23, fog: 37, drizzle: 41, rain: 53, snow: 67, thunder: 79,
                dawn: 3, day: 5, dusk: 7, night: 9 };
@@ -108,6 +109,19 @@
   function rgb(c) { return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
   function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
   function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
+
+  // 在折线表上按时刻取值（线性插值）
+  function curve(table, h) {
+    h = ((h % 24) + 24) % 24;
+    for (var i = 1; i < table.length; i++) {
+      if (h <= table[i][0]) {
+        var a = table[i - 1], b = table[i];
+        var k = (h - a[0]) / (b[0] - a[0] || 1);
+        return a[1] + (b[1] - a[1]) * k;
+      }
+    }
+    return table[table.length - 1][1];
+  }
 
   // 固定种子的随机数（mulberry32）：同一种天气每次打开长同一片云，
   // 不会刷一下就变个样 —— 看起来像「画好的背景」，而不是随机噪点。
@@ -195,7 +209,8 @@
     var octx = off.getContext('2d');
 
     var aw = 0, ah = 0, skyH = 0;
-    var weather = 'clear', part = 'day', pal = null;
+    var weather = 'clear', part = 'day', hour = 13, pal = null;
+    var palF = -1, palW = -1;          // 上一次算出来的 dayness / warmth，用来判断「天色变了没有」
     var clouds = [[], []], drops = [], flakes = [], stars = [];
     var bolt = false, flash = 0, nextFlash = 8;
     var t = 0, dirty = true;
@@ -214,32 +229,44 @@
       tile.src = base + 'pen-tile.png';
     }
 
-    // ---------------- 按天气 / 时间算出这一套颜色 ----------------
+    // ---------------- 按天气 + 真实时刻算出这一套颜色 ----------------
+    // hour 是小数（13.75 = 下午 1:45）；不传就按 part 用「那一桶的代表时刻」
     function resolve() {
-      var sk = SKY[weather], tt = TIME[part];
+      var sk = SKY[weather];
+      var f = curve(DAYNESS, hour), w = curve(WARMTH, hour);
       function tone(c) {
-        var x = tt.tint ? mix(c, tt.tint, tt.k) : c.slice();
-        return tt.dark ? mix(x, [16, 24, 46], tt.dark) : x;
+        var night = mix(mix(c, NIGHT_TINT, NIGHT_K), NIGHT_DARK, NIGHT_DARK_K);
+        var base = mix(night, c, f);
+        return w > 0 ? mix(base, WARM_TINT, w * WARM_MAX) : base;
       }
       var bands = [], i;
       for (i = 0; i < sk.sky.length; i++) bands.push(tone(sk.sky[i]));
       var cl = tone(sk.cloud);
       var ch = tone(sk.top || mix(sk.cloud, [255, 255, 255], 0.6));   // 云顶那道亮边
       // 云底阴影：夜里要多压一点，否则云和天一个色、看不出形状
-      var cd = mix(cl, [10, 18, 38], tt.sh);
+      var sh = 0.16 + (0.40 - 0.16) * (1 - f);
+      var cd = mix(cl, [10, 18, 38], sh);
       var clB = mix(cl, bands[1], 0.42);              // 后排云偏天空色一点 = 空气透视
       var chB = mix(ch, bands[1], 0.45);
-      var cdB = mix(clB, [10, 18, 38], tt.sh * 0.85);
+      var cdB = mix(clB, [10, 18, 38], sh * 0.85);
       // 4 条色带的分界（越靠下越厚）
       var wt = [0.30, 0.26, 0.24, 0.20], edges = [], acc = 0;
       for (i = 0; i < bands.length; i++) { acc += wt[i]; edges.push(Math.round(skyH * acc)); }
       var rBase = (sk.rain && sk.rain.col) || [206, 228, 250];
+      // 雨丝 / 雾的亮度也跟着天走：夜里压暗一半，不然暗天上一片白线
+      var dim = 1 - f * 0.5;
       return {
         bands: bands, edges: edges,
         cl: cl, cd: cd, ch: ch, clB: clB, cdB: cdB, chB: chB,
-        rain: tt.tint ? mix(rBase, tt.tint, tt.k * 0.5) : rBase,
-        fog: tt.tint ? mix([224, 231, 240], tt.tint, tt.k * 0.6) : [224, 231, 240],
-        gNight: tt.gNight, gTint: sk.gTint
+        rain: mix(rBase, NIGHT_TINT, (1 - f) * 0.45),
+        fog: mix([224, 231, 240], NIGHT_TINT, (1 - f) * 0.5),
+        gNightA: (1 - f) * 0.52,               // 草地压暗（夜里最暗）
+        gTint: sk.gTint,
+        f: f, w: w, hour: hour,
+        starF: clamp01((0.28 - f) / 0.28),     // 星星只在够黑的时候出来
+        sunY: 0.66 - 0.52 * f,                 // 太阳越高 = 天越亮
+        sunOn: f > 0.06 && !sk.bolt,
+        moonOn: f < 0.5 && !sk.bolt
       };
     }
 
@@ -255,10 +282,11 @@
       var out = [], slot = aw / count;
       for (var i = 0; i < count; i++) {
         var cw = Math.max(8, Math.round(aw * sizeK * (0.75 + r() * 0.5)));
-        var img = makeCloud(r, cw, cols[0], cols[1], cols[2]);
+        var seed = (r() * 0xFFFFFF) | 0;            // 记住自己长什么样，换颜色时形状不变
+        var img = makeCloud(rnd(seed), cw, cols[0], cols[1], cols[2]);
         var room = Math.max(1, skyH2 - img.height);
         out.push({
-          img: img,
+          img: img, w: cw, seed: seed,
           // 均分到宽度上再加点抖动，保证整片天铺得比较匀（循环之后不会留空档）
           x: i * slot + r() * slot * 0.9 - img.width * 0.5,
           y: Math.round((layer ? 0.20 + r() * 0.45 : 0.02 + r() * 0.30) * room),
@@ -315,11 +343,27 @@
       if (sk.front) clouds[1] = buildClouds(r, skyH, sk.front, 0.30, 1, [pal.cl, pal.cd, pal.ch]);
       drops = sk.rain ? buildRain(r, skyH, sk.rain) : [];
       flakes = sk.snow ? buildSnow(r, skyH, sk.snow) : [];
-      stars = (sk.star && TIME[part].star) ? buildStars(r, skyH, sk.star * TIME[part].star) : [];
+      // 星星一直备着（只要这种天气允许），亮不亮由调色板的 starF 决定 ——
+      // 这样天色一点点暗下来的过程中，星星是「渐显」的，不用重建
+      stars = sk.star ? buildStars(r, skyH, sk.star) : [];
       bolt = !!sk.bolt;
       flash = 0;
       nextFlash = 5 + r() * 8;
+      palF = pal.f;
+      palW = pal.w;
       dirty = true;
+    }
+
+    // 天色变了（比如过了十分钟）只重新上色，**不动云的位置** ——
+    // 云的样子由各自的种子决定，所以重建出来形状一样、颜色是新的。
+    function recolor() {
+      for (var layer = 0; layer < 2; layer++) {
+        var list = clouds[layer], cols = layer ? [pal.cl, pal.cd, pal.ch] : [pal.clB, pal.cdB, pal.chB];
+        for (var i = 0; i < list.length; i++) {
+          var c = list[i];
+          c.img = makeCloud(rnd(c.seed), c.w, cols[0], cols[1], cols[2]);
+        }
+      }
     }
 
     // ---------------- 动 ----------------
@@ -377,22 +421,25 @@
     }
 
     function drawCelestial() {
-      var tt = TIME[part], sk = SKY[weather];
-      if (sk.bolt) return;              // 雷雨天整片乌云压着，日月直接不画
+      var sk = SKY[weather];
+      if (!pal.sunOn && !pal.moonOn) return;   // 雷雨天 / 天太黑太亮时干脆不画
       // 阴天 / 下雪 / 起雾 / 下雨时日月被云挡住，只剩个影子：
       // 往云色里混掉一大半，后面那层灰纱再盖一下，就不会出现「乌云密布还挂着大太阳」
       var dim = Math.min(0.72, (sk.wash || 0) * 2.2);
       var r = Math.max(3, Math.round(skyH * 0.062));
-      if (tt.moon) {
+      if (pal.moonOn && !pal.sunOn) {
         var mx = Math.round(aw * 0.17), my = Math.round(skyH * 0.22);
         discFill(octx, mx, my, r, rgb(mix([236, 242, 252], pal.cl, dim)));
         // 缺角：拿这一带的天空色再画一个圆盖上去，剩下的就是月牙
         discFill(octx, mx + Math.max(2, Math.round(r * 0.5)),
                  my - Math.max(1, Math.round(r * 0.35)), r, rgb(skyAt(my)));
-      } else {
-        var x = Math.round(aw * tt.sun.x), y = Math.round(skyH * tt.sun.y);
-        discFill(octx, x, y, r, rgb(mix(tt.sun.c1, pal.cl, dim)));
-        discFill(octx, x, y, Math.max(1, Math.round(r * 0.55)), rgb(mix(tt.sun.c2, pal.cl, dim)));
+      } else if (pal.sunOn) {
+        // 天越暗，太阳越低越红（w = 暖色浓度）
+        var c1 = mix([255, 212, 92], [255, 150, 78], pal.w);
+        var c2 = mix([255, 244, 178], [255, 216, 150], pal.w);
+        var x = Math.round(aw * 0.18), y = Math.round(skyH * pal.sunY);
+        discFill(octx, x, y, r, rgb(mix(c1, pal.cl, dim)));
+        discFill(octx, x, y, Math.max(1, Math.round(r * 0.55)), rgb(mix(c2, pal.cl, dim)));
       }
     }
 
@@ -412,7 +459,10 @@
         octx.fillRect(0, skyH, aw, TILE_H);
       }
       if (pal.gTint) { octx.fillStyle = pal.gTint; octx.fillRect(0, skyH, aw, TILE_H); }
-      if (pal.gNight) { octx.fillStyle = pal.gNight; octx.fillRect(0, skyH, aw, TILE_H); }
+      if (pal.gNightA > 0.01) {
+        octx.fillStyle = 'rgba(22,34,62,' + pal.gNightA.toFixed(3) + ')';
+        octx.fillRect(0, skyH, aw, TILE_H);
+      }
     }
 
     function drawFog() {
@@ -460,12 +510,14 @@
         if (i + 1 < pal.bands.length) dither(y2 - 1, y2, pal.bands[i], pal.bands[i + 1]);
         y = y2;
       }
-      // 2) 星星（只有夜里才有，一闪一闪分三档）
-      for (i = 0; i < stars.length; i++) {
-        var s = stars[i], sv = Math.sin(t * 1.6 + s.ph);
-        var a = 0.35 + 0.65 * (sv > 0.55 ? 1 : (sv > -0.2 ? 0.55 : 0.15));
-        octx.fillStyle = 'rgba(238,244,255,' + a.toFixed(2) + ')';
-        octx.fillRect(s.x, s.y, 1, 1);
+      // 2) 星星（天够黑才渐渐显出来，一闪一闪分三档）
+      if (pal.starF > 0.02) {
+        for (i = 0; i < stars.length; i++) {
+          var s = stars[i], sv = Math.sin(t * 1.6 + s.ph);
+          var a = pal.starF * (0.35 + 0.65 * (sv > 0.55 ? 1 : (sv > -0.2 ? 0.55 : 0.15)));
+          octx.fillStyle = 'rgba(238,244,255,' + a.toFixed(2) + ')';
+          octx.fillRect(s.x, s.y, 1, 1);
+        }
       }
       // 3) 太阳 / 月亮（先画，等下云会盖在它前面）
       drawCelestial();
@@ -512,13 +564,23 @@
       rebuild();
     }
 
-    function set(w, p) {
+    function set(w, p, h) {
       var nw = (w && SKY[w]) ? w : 'clear';
-      var np = (p && TIME[p]) ? p : 'day';
-      if (nw === weather && np === part && pal) return;
-      weather = nw;
-      part = np;
-      rebuild();
+      var np = (p && REP_HOUR[p] != null) ? p : 'day';
+      // hour 传数字就用它（真实时刻，含分钟）；没传就按 part 取「那一桶的代表时刻」
+      var nh = (typeof h === 'number' && isFinite(h)) ? h : REP_HOUR[np];
+      if (nw === weather && np === part && nh === hour && pal) return;
+      var onlyTime = (nw === weather && np === part && !!pal);
+      weather = nw; part = np; hour = nh;
+      if (!onlyTime) { rebuild(); return; }
+      // 只有时刻变了（过了几分钟）：重算颜色，云的位置一格都不动
+      var oldF = palF, oldW = palW;
+      pal = resolve();
+      palF = pal.f; palW = pal.w;
+      if (Math.abs(pal.f - oldF) > 0.025 || Math.abs(pal.w - oldW) > 0.04) {
+        recolor();                 // 天色真的变了才重新给云上色（大约十几分钟一次）
+      }
+      dirty = true;
     }
 
     function tick(dt) {
@@ -537,10 +599,14 @@
 
     function state() {
       return {
-        weather: weather, part: part, art: ART, aw: aw, ah: ah, skyH: skyH,
+        weather: weather, part: part, hour: hour, art: ART, aw: aw, ah: ah, skyH: skyH,
         clouds: clouds[0].length + clouds[1].length,
         drops: drops.length, flakes: flakes.length, stars: stars.length,
         bolt: bolt, reduced: reduced,
+        dayness: pal ? +pal.f.toFixed(3) : null,
+        warmth: pal ? +pal.w.toFixed(3) : null,
+        starF: pal ? +pal.starF.toFixed(3) : null,
+        sunOn: pal ? pal.sunOn : null, moonOn: pal ? pal.moonOn : null,
         // 这一套实际算出来的颜色（调色板叠完时间色调之后），方便核对
         pal: pal ? { bands: pal.bands, cl: pal.cl, cd: pal.cd, clB: pal.clB,
                      cdB: pal.cdB, rain: pal.rain, fog: pal.fog } : null
@@ -553,6 +619,8 @@
   window.PkmnSky = {
     create: create,
     WEATHERS: Object.keys(SKY),
-    TIMES: Object.keys(TIME)
+    TIMES: Object.keys(REP_HOUR),
+    DAYNESS: DAYNESS,
+    WARMTH: WARMTH
   };
 })();
