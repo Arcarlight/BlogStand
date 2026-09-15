@@ -35,39 +35,39 @@
   var SKY = {
     clear: {
       sky: [[72, 146, 222], [108, 178, 238], [150, 210, 248], [196, 232, 252]],
-      cloud: [255, 255, 255], front: 2, back: 3, wash: 0, star: 1, gTint: null
+      cloud: [238, 244, 252], top: [255, 255, 255], front: 3, back: 3, wash: 0, star: 1, gTint: null
     },
     cloudy: {
       sky: [[124, 142, 164], [150, 166, 186], [178, 192, 208], [202, 212, 224]],
-      cloud: [226, 232, 240], front: 5, back: 4, wash: 0.30, star: 0,
+      cloud: [212, 220, 230], top: [244, 248, 252], front: 6, back: 4, wash: 0.30, star: 0,
       gTint: 'rgba(40,54,74,.10)'
     },
     fog: {
       sky: [[150, 158, 170], [172, 180, 192], [192, 198, 208], [210, 215, 222]],
-      cloud: [210, 216, 224], front: 2, back: 2, wash: 0.22, fog: 1, star: 0,
+      cloud: [200, 207, 216], top: [230, 234, 240], front: 2, back: 2, wash: 0.22, fog: 1, star: 0,
       gTint: 'rgba(200,208,216,.16)'
     },
     drizzle: {
       sky: [[112, 130, 154], [138, 154, 176], [166, 180, 198], [192, 202, 216]],
-      cloud: [208, 216, 226], front: 4, back: 4, wash: 0.26, star: 0,
-      rain: { n: 24, a: 0.40, len: [2, 3], sp: [0.9, 1.4], col: [206, 228, 250] },
+      cloud: [196, 206, 220], top: [228, 236, 246], front: 5, back: 4, wash: 0.26, star: 0,
+      rain: { n: 24, a: 0.46, len: [3, 4], sp: [0.9, 1.4], col: [206, 228, 250] },
       gTint: 'rgba(30,44,66,.14)'
     },
     rain: {
       sky: [[86, 102, 124], [112, 128, 150], [142, 156, 176], [170, 182, 198]],
-      cloud: [192, 202, 216], front: 5, back: 4, wash: 0.30, star: 0,
-      rain: { n: 66, a: 0.60, len: [3, 5], sp: [1.1, 1.7], col: [206, 228, 250] },
+      cloud: [180, 191, 207], top: [212, 222, 236], front: 6, back: 4, wash: 0.30, star: 0,
+      rain: { n: 66, a: 0.74, len: [4, 6], sp: [1.1, 1.7], col: [210, 232, 252] },
       gTint: 'rgba(20,34,54,.18)'
     },
     snow: {
       sky: [[152, 166, 188], [178, 190, 208], [200, 210, 224], [220, 228, 238]],
-      cloud: [236, 242, 250], front: 4, back: 3, wash: 0.24, star: 0,
-      snow: { n: 44 }, gTint: 'rgba(206,216,230,.14)'
+      cloud: [226, 234, 244], top: [250, 253, 255], front: 4, back: 3, wash: 0.24, star: 0,
+      snow: { n: 58 }, gTint: 'rgba(230,238,250,.50)'
     },
     thunder: {
       sky: [[56, 66, 86], [80, 92, 114], [104, 118, 140], [130, 142, 164]],
-      cloud: [156, 168, 188], front: 6, back: 4, wash: 0.34, star: 0, bolt: true,
-      rain: { n: 88, a: 0.66, len: [3, 6], sp: [1.3, 2.0], col: [214, 232, 252] },
+      cloud: [130, 142, 164], top: [162, 174, 196], front: 7, back: 4, wash: 0.34, star: 0, bolt: true,
+      rain: { n: 88, a: 0.80, len: [4, 7], sp: [1.3, 2.0], col: [214, 232, 252] },
       gTint: 'rgba(14,24,44,.26)'
     }
   };
@@ -83,7 +83,7 @@
     },
     day: {
       tint: null, k: 0, dark: 0, sh: 0.16, star: 0, gNight: null,
-      sun: { x: 0.16, y: 0.20, c1: [255, 212, 92], c2: [255, 244, 178] }
+      sun: { x: 0.20, y: 0.14, c1: [255, 212, 92], c2: [255, 244, 178] }
     },
     dusk: {
       tint: [255, 146, 102], k: 0.38, dark: 0.05, sh: 0.22, star: 0,
@@ -92,7 +92,7 @@
     },
     night: {
       tint: [26, 42, 86], k: 0.82, dark: 0.16, sh: 0.40, star: 1,
-      gNight: 'rgba(22,34,62,.42)', moon: true
+      gNight: 'rgba(22,34,62,.52)', moon: true
     }
   };
 
@@ -129,41 +129,61 @@
   }
 
   // ---------------- 云 ----------------
-  // 云 = 几个圆鼓包 + 一条平底，画在 1:1 的美术像素小画布上（一次生成，之后每帧只贴图）。
-  // 每个像素列的最下面那一格压深色 = 云底的阴影。
-  function makeCloud(rand, w, light, dark) {
-    var h = Math.max(8, Math.round(w * 0.46));
-    var m = new Uint8Array(w * h);
-    var base = h - 2;                       // 最后一列留给云底阴影
-    var n = 3 + Math.floor(rand() * 3);
-    var i;
-    for (i = 0; i < n; i++) {
-      var r = Math.max(2, Math.round(1.2 + rand() * (w * 0.15)));
-      var cx = r + Math.round(((i + 0.5) / n) * (w - 1 - 2 * r));
-      var cy = base - r + 1;
-      for (var dy = -r; dy <= r; dy++) {
-        var yy = cy + dy;
-        if (yy < 0 || yy > base) continue;  // 底边削平
-        var hw = Math.floor(Math.sqrt(Math.max(0, r * r - dy * dy)));
-        for (var dx = -hw; dx <= hw; dx++) {
-          var xx = cx + dx;
-          if (xx >= 0 && xx < w) m[yy * w + xx] = 1;
-        }
+  // 云 = 一条平底 + 上面几个**扁的**鼓包（椭圆，不是正圆），画在 1:1 的美术像素
+  // 小画布上（一次生成，之后每帧只贴图）。每个像素列的最下面那一格压深色 = 云底阴影。
+  //
+  // 用扁椭圆是有讲究的：正圆的鼓包排一排会像「一串泡泡」，压得再深也能看出圆边；
+  // 把横向拉长 1.4~1.8 倍就变成一个个矮胖的圆顶，接缝浅、轮廓连成一片，才像云。
+  function ellipseMask(m, w, h, base, cx, cy, rx, ry) {
+    for (var dy = -ry; dy <= ry; dy++) {
+      var yy = cy + dy;
+      if (yy < 0 || yy > base) continue;          // 底边削平
+      var k = 1 - (dy * dy) / (ry * ry);
+      if (k <= 0) continue;
+      var hw = Math.floor(rx * Math.sqrt(k));
+      for (var dx = -hw; dx <= hw; dx++) {
+        var xx = cx + dx;
+        if (xx >= 0 && xx < w) m[yy * w + xx] = 1;
       }
+    }
+  }
+
+  function makeCloud(rand, w, light, dark, hi) {
+    var h = Math.max(9, Math.round(w * 0.44));
+    var m = new Uint8Array(w * h);
+    var base = h - 2;                       // 最后一行留给云底阴影
+    var x0 = Math.round(w * 0.10), x1 = Math.round(w * 0.90);
+    // 1) 云底那条平板（两端内缩，让两头的鼓包自己收圆）
+    for (var y = base - 1; y <= base; y++) {
+      for (var x = x0; x <= x1; x++) m[y * w + x] = 1;
+    }
+    // 2) 上面几个圆顶：横向只拉长一点点（拉太扁会变成「面包」），
+    //    互相压掉一大半、两头矮中间高
+    var n = Math.max(3, Math.round(w / 26));
+    var ryMax = Math.max(2, Math.floor((base - 3) / 2));
+    for (var i = 0; i < n; i++) {
+      var t = (i + 0.5) / n;
+      var arch = 0.50 + 0.50 * Math.sin(Math.PI * t);
+      var ry = Math.max(2, Math.round(ryMax * arch * (0.82 + rand() * 0.3)));
+      var rx = Math.round(ry * (1.05 + rand() * 0.30));
+      ellipseMask(m, w, h, base, Math.round(x0 + t * (x1 - x0)), base - ry, rx, ry);
     }
     var cv = document.createElement('canvas');
     cv.width = w; cv.height = h;
     var c = cv.getContext('2d');
-    for (var x = 0; x < w; x++) {
+    // 三档颜色：顶上 1 像素是亮边、中间是云身、最下面 1 像素是云底阴影
+    for (var x2 = 0; x2 < w; x2++) {
       var top = -1, bot = -1;
-      for (var y = 0; y < h; y++) {
-        if (m[y * w + x]) { if (top < 0) top = y; bot = y; }
+      for (var y2 = 0; y2 < h; y2++) {
+        if (m[y2 * w + x2]) { if (top < 0) top = y2; bot = y2; }
       }
       if (top < 0) continue;
       c.fillStyle = rgb(light);
-      c.fillRect(x, top, 1, bot - top + 1);
+      c.fillRect(x2, top, 1, bot - top + 1);
+      c.fillStyle = rgb(hi);
+      c.fillRect(x2, top, 1, 1);
       c.fillStyle = rgb(dark);
-      c.fillRect(x, bot, 1, 1);
+      c.fillRect(x2, bot, 1, 1);
     }
     return cv;
   }
@@ -204,9 +224,11 @@
       var bands = [], i;
       for (i = 0; i < sk.sky.length; i++) bands.push(tone(sk.sky[i]));
       var cl = tone(sk.cloud);
+      var ch = tone(sk.top || mix(sk.cloud, [255, 255, 255], 0.6));   // 云顶那道亮边
       // 云底阴影：夜里要多压一点，否则云和天一个色、看不出形状
       var cd = mix(cl, [10, 18, 38], tt.sh);
       var clB = mix(cl, bands[1], 0.42);              // 后排云偏天空色一点 = 空气透视
+      var chB = mix(ch, bands[1], 0.45);
       var cdB = mix(clB, [10, 18, 38], tt.sh * 0.85);
       // 4 条色带的分界（越靠下越厚）
       var wt = [0.30, 0.26, 0.24, 0.20], edges = [], acc = 0;
@@ -214,7 +236,7 @@
       var rBase = (sk.rain && sk.rain.col) || [206, 228, 250];
       return {
         bands: bands, edges: edges,
-        cl: cl, cd: cd, clB: clB, cdB: cdB,
+        cl: cl, cd: cd, ch: ch, clB: clB, cdB: cdB, chB: chB,
         rain: tt.tint ? mix(rBase, tt.tint, tt.k * 0.5) : rBase,
         fog: tt.tint ? mix([224, 231, 240], tt.tint, tt.k * 0.6) : [224, 231, 240],
         gNight: tt.gNight, gTint: sk.gTint
@@ -229,11 +251,11 @@
     }
 
     // ---------------- 生成云 / 雨 / 雪 / 星星 ----------------
-    function buildClouds(r, skyH2, count, sizeK, layer, light, dark) {
+    function buildClouds(r, skyH2, count, sizeK, layer, cols) {
       var out = [], slot = aw / count;
       for (var i = 0; i < count; i++) {
         var cw = Math.max(8, Math.round(aw * sizeK * (0.75 + r() * 0.5)));
-        var img = makeCloud(r, cw, light, dark);
+        var img = makeCloud(r, cw, cols[0], cols[1], cols[2]);
         var room = Math.max(1, skyH2 - img.height);
         out.push({
           img: img,
@@ -265,9 +287,9 @@
         out.push({
           x: Math.floor(r() * aw),
           y: r() * skyH2,
-          sp: (0.10 + r() * 0.10) * skyH2,
+          sp: (0.08 + r() * 0.09) * skyH2,
           ph: r() * 6.283,
-          big: r() < 0.22
+          big: r() < 0.30
         });
       }
       return out;
@@ -289,8 +311,8 @@
       var sk = SKY[weather];
       var r = rnd(SEED[weather] * 131 + SEED[part] * 17 + aw);
       clouds = [[], []];
-      if (sk.back) clouds[0] = buildClouds(r, skyH, sk.back, 0.20, 0, pal.clB, pal.cdB);
-      if (sk.front) clouds[1] = buildClouds(r, skyH, sk.front, 0.38, 1, pal.cl, pal.cd);
+      if (sk.back) clouds[0] = buildClouds(r, skyH, sk.back, 0.17, 0, [pal.clB, pal.cdB, pal.chB]);
+      if (sk.front) clouds[1] = buildClouds(r, skyH, sk.front, 0.30, 1, [pal.cl, pal.cd, pal.ch]);
       drops = sk.rain ? buildRain(r, skyH, sk.rain) : [];
       flakes = sk.snow ? buildSnow(r, skyH, sk.snow) : [];
       stars = (sk.star && TIME[part].star) ? buildStars(r, skyH, sk.star * TIME[part].star) : [];
@@ -356,10 +378,11 @@
 
     function drawCelestial() {
       var tt = TIME[part], sk = SKY[weather];
+      if (sk.bolt) return;              // 雷雨天整片乌云压着，日月直接不画
       // 阴天 / 下雪 / 起雾 / 下雨时日月被云挡住，只剩个影子：
       // 往云色里混掉一大半，后面那层灰纱再盖一下，就不会出现「乌云密布还挂着大太阳」
       var dim = Math.min(0.72, (sk.wash || 0) * 2.2);
-      var r = Math.max(3, Math.round(skyH * 0.052));
+      var r = Math.max(3, Math.round(skyH * 0.062));
       if (tt.moon) {
         var mx = Math.round(aw * 0.17), my = Math.round(skyH * 0.22);
         discFill(octx, mx, my, r, rgb(mix([236, 242, 252], pal.cl, dim)));
@@ -388,16 +411,16 @@
         octx.fillStyle = 'rgb(124,192,92)';
         octx.fillRect(0, skyH, aw, TILE_H);
       }
-      if (pal.gNight) { octx.fillStyle = pal.gNight; octx.fillRect(0, skyH, aw, TILE_H); }
       if (pal.gTint) { octx.fillStyle = pal.gTint; octx.fillRect(0, skyH, aw, TILE_H); }
+      if (pal.gNight) { octx.fillStyle = pal.gNight; octx.fillRect(0, skyH, aw, TILE_H); }
     }
 
     function drawFog() {
-      // 三条横着的雾带，慢慢左右晃（位置吸到整美术像素）
+      // 三条横着的雾带，越靠近地面越厚，慢慢左右晃（位置吸到整美术像素）
       for (var i = 0; i < 3; i++) {
-        var y = Math.round((0.16 + i * 0.30) * ah + Math.sin(t * 0.25 + i * 2.1) * 2);
-        octx.fillStyle = rgba(pal.fog, 0.22 - i * 0.04);
-        octx.fillRect(0, y, aw, Math.max(3, Math.round(ah * 0.10)));
+        var y = Math.round((0.22 + i * 0.26) * ah + Math.sin(t * 0.25 + i * 2.1) * 2);
+        octx.fillStyle = rgba(pal.fog, 0.30 - i * 0.05);
+        octx.fillRect(0, y, aw, Math.max(4, Math.round(ah * 0.12)));
       }
     }
 
@@ -411,12 +434,17 @@
     }
 
     function drawSnow() {
-      octx.fillStyle = 'rgba(242,248,255,.92)';
+      octx.fillStyle = 'rgba(244,250,255,.95)';
       for (var i = 0; i < flakes.length; i++) {
         var f = flakes[i];
         var x = Math.round(f.x + Math.sin(t * 0.9 + f.ph) * 2);
         var y = Math.round(f.y);
-        octx.fillRect(x, y, f.big ? 2 : 1, f.big ? 2 : 1);
+        if (f.big) {                       // 大雪花画成一个小十字（5 个像素），一眼认得出是雪
+          octx.fillRect(x, y, 3, 1);
+          octx.fillRect(x + 1, y - 1, 1, 3);
+        } else {
+          octx.fillRect(x, y, 1, 1);
+        }
       }
     }
 
@@ -429,7 +457,7 @@
         var y2 = pal.edges[i];
         octx.fillStyle = rgb(pal.bands[i]);
         octx.fillRect(0, y, aw, y2 - y);
-        if (i + 1 < pal.bands.length) dither(y2 - 2, y2, pal.bands[i], pal.bands[i + 1]);
+        if (i + 1 < pal.bands.length) dither(y2 - 1, y2, pal.bands[i], pal.bands[i + 1]);
         y = y2;
       }
       // 2) 星星（只有夜里才有，一闪一闪分三档）
