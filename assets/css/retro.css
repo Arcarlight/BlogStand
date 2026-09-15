@@ -1274,9 +1274,18 @@ img { border: 0; }
 @font-face {
   font-family: 'MSGothic12JPPixel';
   src: url(../fonts/msgothic12-jp-pixel.woff2) format('woff2');
-  /* U+FF61-FF64 是半角标点（｡｢｣､），宋体那份点阵里没有、MS Gothic 有，
-     所以也归到这边，免得它们掉到系统字体上变糊。 */
-  unicode-range: U+301C, U+3040-30FF, U+FF61-FF9F;
+  /* 这里列的是这份字体**真正有的**字（由 tools/build-pixel-font.py --ja 打印出来）：
+     假名 / 半角片假名 / 〜，外加 2026-09-14 补进来的一批符号。
+     为什么补符号：站长想在台词里写 ♪，而 ♪（以及 ■ ★ ♥ ← 这一整片）宋体那份
+     12px 点阵里没有、MS Gothic 的 12ppem 点阵里全有，所以塞进这份日文字体、
+     由 unicode-range 把那些码位路由过来。
+     ♡ ♢ ♤ ♧ ♨ ♩ ♬ ♮ 和 ゔゕゖ 这些**连 MS Gothic 也没有**，会退到宋体或系统字体上，
+     所以「宝可梦台词」的校验脚本会把这些字直接拦下来（见 tools/build-pkmn.py
+     里的 unsupported_char()：它读的就是这三份字体的 cmap）。 */
+  unicode-range:
+    U+2190-2193, U+25A0, U+25A1, U+25B2, U+25B3, U+25CB, U+25CE, U+25CF,
+    U+2605, U+2606, U+2660, U+2663, U+2665, U+2666, U+266A, U+266B, U+266D, U+266F,
+    U+301C, U+3041-3093, U+309B-309E, U+30A1-30F6, U+30FB-30FE, U+FF61-FF9F;
   ascent-override: 83.3333%;
   descent-override: 16.6667%;
   line-gap-override: 0%;

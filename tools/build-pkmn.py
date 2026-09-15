@@ -54,6 +54,7 @@ import argparse
 import io
 import json
 import random
+import re
 import sys
 import time
 import tomllib
@@ -136,8 +137,112 @@ TALK_MIN_WEATHER = {"clear": 2, "cloudy": 2, "rain": 2, "snow": 2, "thunder": 2}
 
 MAX_LINE = 40  # 一句台词最多多少字（对话框只有 3 行，一行 ~16 字）
 
-# 台词里不该出现的字符：引号/括号/emoji —— 对话框只显示这句话本身
+# 台词里不该出现的字符：引号 / 书名号 / 括号 —— 对话框只显示这句话本身，
+# 这些符号会和站点自己的排版打架。
 BAD_CHARS = set("\"'“”‘’「」『』（）()《》〈〉【】[]{}【】")
+
+# 变体选择符 U+FE0F 会把前一个字符变成「彩色 emoji 呈现」（Windows 上就是
+# Segoe UI Emoji），那样就不在点阵字体里了，所以单独禁掉。
+BAD_CODEPOINTS = {0xFE0F}
+
+# ============================================================
+#  「这个字能不能用」= 站里那三份点阵字体有没有它的字形
+#  ------------------------------------------------------------
+#  比一刀切禁掉某个 Unicode 段靠谱得多：★ ☆ ♥ ← ■ 这些字体里本来就有，
+#  当然该让写；♪ 这种字体里没有的，写上去会掉到系统字体上、边缘发糊 ——
+#  那才是真要拦的东西。（2026-09-14 之前是按 U+2600–U+27BF 一刀切的，
+#  结果把站长想写的 ♪ 也拦了，所以才改成现在这样。）
+#  unicode-range 直接从 retro.css 里读，免得两处各写一份、改了一处忘了另一处。
+# ============================================================
+PIXEL_FONTS = ["simsun12-pixel.woff2", "msgothic12-jp-pixel.woff2", "mona12emoji.woff2"]
+CSS_FILE = ROOT / "assets" / "css" / "retro.css"
+_CHARSET: set | None = None
+
+
+def _font_unicode_ranges(css_text: str) -> dict:
+    """从 retro.css 里读每个 @font-face 的 unicode-range（没有这条 = 全部码位）"""
+    out: dict[str, set | None] = {}
+    for m in re.finditer(r"@font-face\s*\{(.*?)\}", css_text, re.S):
+        block = m.group(1)
+        fm = re.search(r"url\([^)]*?([\w\-.]+\.woff2)\)", block)
+        if not fm:
+            continue
+        name = fm.group(1)
+        rm = re.search(r"unicode-range:\s*([^;]+);", block, re.S)
+        if not rm:
+            out[name] = None          # 没有范围限制
+            continue
+        cps: set[int] = set()
+        for part in rm.group(1).split(","):
+            mm = re.match(r"U\+([0-9A-Fa-f]+)(?:-([0-9A-Fa-f]+))?$", part.strip())
+            if not mm:
+                continue
+            a = int(mm.group(1), 16)
+            b = int(mm.group(2), 16) if mm.group(2) else a
+            cps.update(range(a, b + 1))
+        out[name] = cps
+    return out
+
+
+def pixel_charset() -> set | None:
+    """三份点阵字体合起来能渲染的字符集合；判断不了就返回 None（那就不检查）"""
+    global _CHARSET
+    if _CHARSET is not None:
+        return _CHARSET
+    try:
+        from fontTools.ttLib import TTFont
+    except ImportError:
+        print("  ⚠ 没装 fontTools，跳过「这个字有没有点阵字形」的检查"
+              "（pip install fonttools 之后就会检查）")
+        return None
+    try:
+        ranges = _font_unicode_ranges(CSS_FILE.read_text(encoding="utf-8"))
+    except OSError:
+        ranges = {}
+    safe: set[int] = set()
+    for fn in PIXEL_FONTS:
+        p = ROOT / "static" / "fonts" / fn
+        if not p.exists():
+            continue
+        f = TTFont(p, lazy=True)
+        cps = set(f.getBestCmap().keys())
+        f.close()
+        rng = ranges.get(fn, None)
+        # 没写 unicode-range 的（宋体那份）就是全部码位都能命中它
+        safe |= cps if rng is None else (cps & rng)
+    if not safe:
+        print("  ⚠ 一份点阵字体都没读到，跳过字符检查")
+        return None
+    _CHARSET = safe
+    return safe
+
+
+def unsupported_char(line: str) -> tuple[str, str] | None:
+    """返回第一个用不了的字符 + 原因（None = 这句没问题）"""
+    chars = pixel_charset()
+    for ch in line:
+        cp = ord(ch)
+        if ch in BAD_CHARS:
+            return ch, "标点"
+        if cp < 0x20 or cp == 0x7F or cp in BAD_CODEPOINTS:
+            return ch, "控制符"
+        if chars is not None and cp not in chars:
+            return ch, "字体"
+    return None
+
+
+def why_text(ch: str, why: str) -> str:
+    if why == "标点":
+        return f"不要用引号、书名号、括号（「{ch}」）"
+    if why == "控制符":
+        return f"这里有个看不见的控制符（U+{ord(ch):04X}）"
+    try:
+        names = __import__("unicodedata").name(ch)
+    except Exception:
+        names = "?"
+    return (f"站里三份点阵字体都没有「{ch}」（U+{ord(ch):04X} {names}），"
+            f"写上去会掉到系统字体上、边缘发糊")
+
 
 
 # ============================================================
@@ -604,14 +709,9 @@ def read_credits(dex: int, name_map: dict) -> dict:
 
 
 def bad_char(line: str) -> str | None:
-    for ch in line:
-        if ch in BAD_CHARS:
-            return ch
-        if ord(ch) > 0xFFFF or ord(ch) == 0xFE0F:
-            return ch
-        if 0x2600 <= ord(ch) <= 0x27BF:
-            return ch
-    return None
+    """（旧接口，保留给外部脚本调用；新代码用 unsupported_char）"""
+    hit = unsupported_char(line)
+    return hit[0] if hit else None
 
 
 def load_talk(dex: int, name: str) -> dict:
@@ -684,9 +784,9 @@ def load_talk(dex: int, name: str) -> dict:
                 errs.append(f"{key}：台词里不能换行 → {ln[:20]}")
             if len(ln) > MAX_LINE:
                 errs.append(f"{key}：{len(ln)} 字超过 {MAX_LINE} 字 → {ln}")
-            b = bad_char(ln)
+            b = unsupported_char(ln)
             if b:
-                errs.append(f"{key}：出现了不该有的字符「{b}」→ {ln}")
+                errs.append(f"{key}：{why_text(*b)} → {ln}")
             if ln in seen:
                 errs.append(f"重复句子（{seen[ln]} 和 {key}）→ {ln}")
             else:
@@ -696,9 +796,9 @@ def load_talk(dex: int, name: str) -> dict:
             for ln in arr:
                 if len(ln) > MAX_LINE:
                     errs.append(f"{sec}.{k}：{len(ln)} 字超过 {MAX_LINE} 字 → {ln}")
-                b = bad_char(ln)
+                b = unsupported_char(ln)
                 if b:
-                    errs.append(f"{sec}.{k}：出现了不该有的字符「{b}」→ {ln}")
+                    errs.append(f"{sec}.{k}：{why_text(*b)} → {ln}")
                 if ln in seen:
                     errs.append(f"重复句子（{seen[ln]} 和 {sec}.{k}）→ {ln}")
                 else:

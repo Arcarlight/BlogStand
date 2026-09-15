@@ -56,10 +56,29 @@ FONT_DIR = os.path.join(ROOT, "static", "fonts")
 MAIN_WOFF = os.path.join(FONT_DIR, "simsun12-pixel.woff2")
 DATA_TOML = os.path.join(ROOT, "data", "pixel-font.toml")
 TTC = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", "simsun.ttc")
+JA_TTC = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", "msgothic.ttc")
+JA_WOFF = os.path.join(FONT_DIR, "msgothic12-jp-pixel.woff2")
 PPEM = 12
 UPEM = 1536          # 12 格
 PX = UPEM // PPEM    # 每格 128 单位
 ASCII = set(range(0x20, 0x7F))
+
+# 日文那份字体覆盖哪些字：假名 + 半角片假名 + 一批符号。
+# 符号是 2026-09-14 补的 —— 站长想在台词里写 ♪，而它（以及整片符号区）
+# 宋体的点阵里没有、MS Gothic 的 12ppem 点阵里全有，所以就放到这份日文字体里，
+# 靠 retro.css 的 unicode-range 路由过去。改了这个表要记得同步 CSS 里那行。
+JA_RANGES = [
+    (0x301C, 0x301C),   # 〜（这份文件里本来就有；MS Gothic 12ppem 反而没有，所以只是列着）
+    (0x3040, 0x30FF),   # 平假名 / 片假名
+    (0xFF61, 0xFF9F),   # 半角片假名
+    (0x2190, 0x2193),   # ← ↑ → ↓
+    (0x25A0, 0x25A1),   # ■ □
+    (0x25B2, 0x25B3),   # ▲ △
+    (0x25CB, 0x25CB),   # ○
+    (0x25CE, 0x25CF),   # ◎ ●
+    (0x2605, 0x2606),   # ★ ☆
+    (0x2660, 0x266F),   # ♠ ♡ ♢ ♣ ♤ ♥ ♦ ♧ ♨ ♩ ♪ ♫ ♬ ♭ ♮ ♯
+]
 
 
 # ---------------------------------------------------------------- 读宋体点阵
@@ -81,6 +100,154 @@ def load_simsun_strike(ppem=PPEM):
         for name, loc in zip(sub.names, sub.locations):
             locs[name] = loc
     return sim.getBestCmap(), locs, raw
+
+
+# ---------------------------------------------------------------- 读 MS Gothic 点阵
+def load_msgothic_strike(ppem=PPEM):
+    """MS Gothic 的 12ppem 点阵。
+
+    宋体那份是 imageFormat 1（每行按字节对齐、含 5 字节头），MS Gothic 这份是
+    imageFormat 5：**没有头**，18 字节就是 12×12 的位图，而且是「位对齐」的
+    （每行 12 位 = 1.5 字节，行与行之间不补齐），尺寸/基线/字宽都在 EBLC 的子表里。
+    所以这里单独解一份，返回 {字形名: (位图字节, metrics, imageFormat)}。
+    """
+    if not os.path.exists(JA_TTC):
+        sys.exit("找不到系统 MS Gothic：%s" % JA_TTC)
+    ttc = TTCollection(JA_TTC, lazy=True)
+    goth = ttc.fonts[0]
+    strikes = [(s.bitmapSizeTable.ppemX, s) for s in goth["EBLC"].strikes]
+    strike = next((s for p, s in strikes if p == ppem), None)
+    if strike is None:
+        sys.exit("MS Gothic 里没有 %dppem 点阵（有的档：%s）" % (ppem, [p for p, _ in strikes]))
+    raw = bytes(goth.reader["EBDT"])
+    out = {}
+    for sub in strike.indexSubTables:
+        fmt = sub.imageFormat
+        metrics = getattr(sub, "metrics", None)
+        for i, name in enumerate(getattr(sub, "names", [])):
+            off, end = sub.locations[i]
+            if fmt == 5:
+                m = metrics                       # format 5：一份 metrics 共用
+            elif fmt == 7:
+                ms = getattr(sub, "metrics", None)
+                m = ms[i] if isinstance(ms, list) else ms
+            else:
+                continue
+            if m is not None:
+                out[name] = (raw[off:end], m, fmt)
+    return goth.getBestCmap(), out
+
+
+def rows_from_format5(data, m):
+    """位对齐位图 → [[0/1,…], …]"""
+    w, h = m.width, m.height
+    rows = []
+    for y in range(h):
+        row = []
+        for x in range(w):
+            i = y * w + x
+            row.append((data[i >> 3] >> (7 - (i & 7))) & 1)
+        rows.append(row)
+    return rows
+
+
+def add_bitmap_glyphs(font, items):
+    """items = [(码位, [[0/1…]…], adv_px, bx_px, by_px)] → 直角轮廓字形"""
+    order = font.getGlyphOrder()
+    used = set(order)
+    added = []
+    for cp, rows, adv, bx, by in items:
+        h, w = len(rows), len(rows[0])
+        name = "uni%04X" % cp if cp > 0x7F else chr(cp)
+        if name in used:
+            name = "uni%04X.1" % cp
+        font["glyf"].glyphs[name] = build_glyph(h, w, bx, by, rows)
+        font["hmtx"][name] = (adv * PX, bx * PX)
+        order.append(name)
+        used.add(name)
+        for table in font["cmap"].tables:
+            if table.isUnicode():
+                table.cmap[cp] = name
+        added.append(cp)
+    font.setGlyphOrder(order)
+    font["maxp"].numGlyphs = len(order)
+    return added
+
+
+def to_unicode_range_compact(cps):
+    """码位列表 → 紧凑的 unicode-range（连续段合并）"""
+    cps = sorted(set(cps))
+    out = []
+    i = 0
+    while i < len(cps):
+        j = i
+        while j + 1 < len(cps) and cps[j + 1] == cps[j] + 1:
+            j += 1
+        if j > i + 1:
+            out.append("U+%04X-%04X" % (cps[i], cps[j]))
+        else:
+            out.extend("U+%04X" % c for c in cps[i:j + 1])
+        i = j + 1
+    return ", ".join(out)
+
+
+def build_ja(dry_run=False):
+    """重建 static/fonts/msgothic12-jp-pixel.woff2（假名 + 一批符号）
+
+    做法是「在现有文件上补字形」：现有那 241 个字（假名 / 半角片假名 / 〜）原样留着，
+    只把缺的符号从 MS Gothic 的 12ppem 点阵补进去。这样不会因为换脚本而丢字。
+    """
+    base = TTFont(JA_WOFF)
+    if base["head"].unitsPerEm != UPEM:
+        sys.exit("现有日文点阵 upem=%d，和脚本假设的 %d 不一致" % (base["head"].unitsPerEm, UPEM))
+    before = set(base.getBestCmap().keys())
+    print("现有日文点阵：字形 %d，覆盖 %d 字" % (base["maxp"].numGlyphs, len(before)))
+
+    cmap, strike = load_msgothic_strike()
+    print("MS Gothic %dppem 点阵：%d 个字形（格式 %s）"
+          % (PPEM, len(strike), sorted({v[2] for v in strike.values()})))
+
+    want = []
+    for a, b in JA_RANGES:
+        for cp in range(a, b + 1):
+            want.append(cp)
+    items, skip = [], []
+    for cp in want:
+        gn = cmap.get(cp)
+        if not gn or gn not in strike:
+            skip.append(cp)
+            continue
+        data, m, fmt = strike[gn]
+        if fmt != 5:
+            skip.append(cp)
+            continue
+        rows = rows_from_format5(data, m)
+        items.append((cp, rows, m.horiAdvance, m.horiBearingX, m.horiBearingY))
+
+    todo = [it for it in items if it[0] not in before]
+    print("本次要补的：%d 个（点上没有点阵或不是 format 5 的：%d 个 %s）"
+          % (len(todo), len(skip), "".join(chr(c) for c in skip)))
+    if todo:
+        print("  补进去的字符：" + "".join(chr(cp) for cp, *_ in todo))
+    if dry_run:
+        print("（dry-run，不写文件）")
+        return
+    if not todo:
+        print("没有要补的，文件不动")
+        return
+
+    added = add_bitmap_glyphs(base, todo)
+    base.flavor = "woff2"
+    base.save(JA_WOFF)
+    after = sorted(base.getBestCmap().keys())
+    print("已写入 %s：新增 %d 字形，共 %d 个，%.1f KB"
+          % (JA_WOFF, len(added), base["maxp"].numGlyphs, os.path.getsize(JA_WOFF) / 1024.0))
+    print()
+    print("retro.css 里 @font-face 'MSGothic12JPPixel' 的 unicode-range 请用这一行：")
+    print("  unicode-range: %s;" % to_unicode_range_compact(after))
+
+
+# ---------------------------------------------------------------- 字符集
 
 
 def parse_bitmap(raw, off, end):
@@ -241,7 +408,13 @@ def main():
                     choices=["all", "site", "gb2312", "gb2312-1", "site+gb2312"],
                     help="覆盖哪些字，默认 all（宋体 12ppem 点阵里的全部）")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--ja", action="store_true",
+                    help="只重建日文那份（假名 + 符号），不动宋体那份")
     args = ap.parse_args()
+
+    if args.ja:
+        build_ja(dry_run=args.dry_run)
+        return
 
     base = TTFont(MAIN_WOFF)
     if base["head"].unitsPerEm != UPEM:
