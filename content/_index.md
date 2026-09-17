@@ -6,7 +6,7 @@ description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一�
 
 <center><img src="/images/Hoshinijisou-Banner2.png" alt="Hoshinijisou-Banner2" width="700" loading="lazy" /></center>
 <p>欢迎来到虹星用来堆放日常的博客！
-<br>这里会存一些常见的东西或者自己的日记之类的杂项。</p>
+<br>这里会存一些常见的东西或者自己的日记之类的东西。</p>
 <p><br>ほしのほしにじそうへようこそ！
 <br>ここは、にじぼしの日記や、作品集であります。
 <br>中国語わからない方は、まずはここ-><a href='/self_intros/'>自己紹介</a></p>
@@ -111,6 +111,10 @@ description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一�
 <ul>
 <li>更改了友情链接的写法，新增此站的2个Banner。</li>
 <li>连接了毒毒糖果铺。</li>
+</ul>
+<li><p>2026年9月17日</p>
+<ul>
+<li>更新了网站的头图。</li>
 </ul>
 </li>
 </ul>
