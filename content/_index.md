@@ -4,7 +4,7 @@ draft: false
 description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一些常见的东西或者自己的日记之类的杂项。 ほしのほしにじそうへようこそ！ ここは、にじぼしの日記や、作品集であります。 中国語わからない方"
 ---
 
-<center><img loading="lazy" src="/images/migrated/Hoshinijisou-Banner1.png" alt="Hoshinijisou Banner1" border="0" width="300px"></center>
+<center><img src="/images/Hoshinijisou-Banner2.png" alt="Hoshinijisou-Banner2" width="700" loading="lazy" /></center>
 <p>欢迎来到虹星用来堆放日常的博客！
 <br>这里会存一些常见的东西或者自己的日记之类的杂项。</p>
 <p><br>ほしのほしにじそうへようこそ！
