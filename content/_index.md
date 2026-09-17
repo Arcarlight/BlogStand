@@ -115,6 +115,7 @@ description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一�
 <li><p>2026年9月17日</p>
 <ul>
 <li>更新了网站的头图。这是头图第二代！</li>
+<li>连接了断续之梦。</li>
 </ul>
 </li>
 </ul>
@@ -123,7 +124,10 @@ description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一�
 <hr>
 <b style="font-size:20px;">友情链接：</b>
 <br>
-<br><a href="https://shema-sunf.github.io/about/"><img loading="lazy" src="/images/migrated/friendlink_doku.png" alt="毒毒糖果铺跳转" border="0"></a><b>【毒毒糖果铺】</b>朋友的首页。
+<br><a href="https://shema-sunf.github.io/about/"><img loading="lazy" src="/images/migrated/friendlink_doku.png" alt="毒毒糖果铺跳转" border="0"></a><b>【毒毒糖果铺】</b>
+<br>
+<a href="https://maths-s-website1.pages.dev/"><img loading="lazy" src="/images/Mathsicon.png" alt="断续之梦跳转" border="0"></a><b>【断续之梦】</b>
+
 <br>
 <a href="https://wiki.52poke.com/wiki/%E6%B2%99%E6%BC%A0%E8%9C%BB%E8%9C%93"><img loading="lazy" src="/images/migrated/banner3.gif" alt="沙漠蜻蜓粉丝俱乐部" border="0"></a><b>【最喜欢沙漠蜻蜓了！】</b>来自古早的沙漠蜻蜓粉丝俱乐部的Banner。
 <br><br>
