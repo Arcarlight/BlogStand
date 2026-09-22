@@ -254,6 +254,7 @@
   <button class="ghost" id="btnPreview" title="打开 / 收起右侧预览"><svg class="ico"><use href="#ico-eye"/></svg><span id="btnPreviewText">预览 ▸</span></button>
   <button class="ghost" id="btnLive" title="在浏览器里打开线上站"><svg class="ico"><use href="#ico-external-link"/></svg>打开线上站</button>
   <button class="ghost" id="btnBuild" title="本地构建一遍，检查有没有报错"><svg class="ico"><use href="#ico-check"/></svg>构建检查</button>
+  <button class="ghost" id="btnSync" title="从线上（GitHub）拉取改动 —— 换一台电脑编辑时先点这个"><svg class="ico"><use href="#ico-refresh"/></svg>拉取线上</button>
   <button class="primary" id="btnPublish" title="git add + commit + push"><svg class="ico"><use href="#ico-upload"/></svg>发布</button>
 </header>
 
@@ -599,21 +600,80 @@ $('#btnBuild').addEventListener('click', async () => {
   toast(r.ok ? '构建通过，没有报错' : ('构建有问题：\n' + r.out).slice(0, 300), r.ok ? 'ok' : 'err');
 });
 
-/* ---------- 发布 ---------- */
+/* ---------- 发布 / 同步 ----------
+   「发布」= 把本地的改动提交并推上去；「拉取线上」= 把另一台电脑推上来的改动拉下来。
+   ⚠️ 推送失败（断网、或者另一台电脑推过了）之后，改动其实**已经提交在本地**了，
+   工作区是干净的 —— 所以这里绝不能因为「没有未提交的改动」就早退，
+   要看 ahead（比线上多几个提交）决定还能不能推。 */
+function gitBad(r) {
+  const bad = r.steps.find((s) => s.code !== 0);
+  return bad ? (bad.out || '（没有输出）') : '';
+}
+
+async function syncPull(auto) {
+  let g;
+  try { g = await apiGet('/api/git'); } catch (e) { return false; }
+  if (g.behind === null || g.behind === undefined) {
+    if (!auto) toast('拿不到线上状态：可能没联网，或者没配好 git 远端', 'err');
+    return false;
+  }
+  if (!g.behind) {
+    if (!auto) toast('已经和线上一致了');
+    return false;
+  }
+  if (g.status.length) {
+    if (!auto) toast(`本地还有 ${g.status.length} 处没提交的改动，先发布（或者撤销）再拉取`, 'err');
+    return false;
+  }
+  if (g.ahead) {
+    if (!auto) toast(`本地有 ${g.ahead} 个提交还没推上去，先点「发布」再拉取`, 'err');
+    return false;
+  }
+  toast(`正在从线上拉取 ${g.behind} 个提交…`);
+  const r = await apiPost('/api/git', { action: 'pull' });
+  if (r.ok) {
+    toast(`已从线上同步 ${g.behind} 个提交`, 'ok');
+    await bootstrap();
+    if (CUR) loadFile(CUR).catch(() => {});
+    return true;
+  }
+  toast('拉取失败：\n' + gitBad(r), 'err');
+  return false;
+}
+
+$('#btnSync').addEventListener('click', () => syncPull(false));
+
 $('#btnPublish').addEventListener('click', async () => {
   if (DIRTY) { toast('先保存当前文件再发布', 'err'); return; }
   const g = await apiGet('/api/git');
-  if (!g.status.length) { toast('没有需要发布的改动'); return; }
-  const listing = g.status.map((s) => '  ' + s).join('\n');
-  const msg = prompt(`将要提交以下改动：\n\n${listing}\n\n写一句这次的更新说明：`, '更新');
-  if (msg === null) return;
-  toast('正在提交并推送…');
-  const r = await apiPost('/api/git', { action: 'commitpush', message: msg || '更新' });
-  if (r.quiet) { toast(r.note); return; }
-  if (r.ok) { toast('推送成功，GitHub 大约 1 分钟后更新线上', 'ok'); await bootstrap(); }
-  else {
-    const bad = r.steps.find((s) => s.code !== 0);
-    toast('出错了：\n' + (bad ? bad.out : ''), 'err');
+  const changed = g.status.length > 0;
+  const ahead = g.ahead || 0;
+  if (!changed && !ahead) {
+    toast(g.behind
+      ? `本地没有改动，但线上有 ${g.behind} 个提交（点「拉取线上」同步）`
+      : '没有需要发布的改动');
+    return;
+  }
+  let msg = '更新';
+  if (changed) {
+    const listing = g.status.map((s) => '  ' + s).join('\n');
+    const m = prompt(`将要提交以下改动：\n\n${listing}\n\n写一句这次的更新说明：`, '更新');
+    if (m === null) return;
+    msg = m || '更新';
+  } else {
+    // 上次推送失败的常见情况：改动早就提交了，只是没推上去
+    if (!confirm(`本地有 ${ahead} 个提交还没推上去（上次推送应该失败了），现在重推一次？`)) return;
+    msg = '重试推送';
+  }
+  toast(changed ? '正在提交并推送…' : '正在推送…');
+  const r = await apiPost('/api/git', { action: 'commitpush', message: msg });
+  if (r.ok) {
+    const n = r.state && r.state.ahead === 0 ? '' : '（本地还有提交没推上去，再看看日志）';
+    toast('推送成功，GitHub 大约 1 分钟后更新线上' + n, 'ok');
+    await bootstrap();
+  } else {
+    toast('发布失败：\n' + gitBad(r) +
+      '\n\n改动已经在本地提交好了，修好网络 / 代理之后**再点一次发布**就会重推。', 'err');
   }
 });
 
@@ -1581,6 +1641,23 @@ async function bootstrap() {
 }
 initToolbar();
 bootstrap().catch((e) => toast('初始化失败: ' + e.message, 'err'));
+
+/* 开机先跟线上对一次账：
+   · 本机干净、也没欠着没推的提交 → 自动把线上的改动拉下来（换电脑编辑就不用管了）
+   · 有本地提交没推上去 → 提示一句（多半是上次推送失败）
+   · 有没提交的改动 → 不动，交给「发布」 */
+async function checkRemote() {
+  let g;
+  try { g = await apiGet('/api/git'); } catch { return; }
+  if (g.behind === null || g.behind === undefined) return;
+  if (g.behind > 0 && !g.status.length && !g.ahead) { await syncPull(true); return; }
+  if (g.ahead > 0) {
+    toast(`本地有 ${g.ahead} 个提交还没推上去（上次推送大概失败了）—— 点「发布」重推`, 'err');
+  } else if (g.behind > 0) {
+    toast(`线上有 ${g.behind} 个新提交 —— 点「拉取线上」同步`, 'err');
+  }
+}
+setTimeout(checkRemote, 1200);
 </script>
 </body>
 </html>

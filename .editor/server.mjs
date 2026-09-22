@@ -104,16 +104,55 @@ function run(cmd, args, opts = {}) {
       cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
       windowsHide: true, ...opts,
     }, (err, stdout, stderr) => {
+      let errOut = stderr || '';
+      if (err && err.killed) {
+        const sec = opts.timeout ? Math.round(opts.timeout / 1000) : 0;
+        errOut += (errOut ? '\n' : '') +
+          `（命令超过 ${sec} 秒没反应，已经中断 —— 多半是网络不通或者要走代理）`;
+      }
       resolve({
         code: err ? (typeof err.code === 'number' ? err.code : 1) : 0,
         stdout: stdout || '',
-        stderr: stderr || '',
+        stderr: errOut,
       });
     });
   });
 }
 
 const git = (args) => run('git', args);
+
+/* ---------- git 状态：本地改了什么、比线上多几个 / 少几个提交 ----------
+   两台电脑轮流用编辑器时，最常见的情况是「另一台推过了、这一台还没拉」：
+   这种时候推送会被 GitHub 拒掉（non-fast-forward），而工作区可能又是干净的 ——
+   只看 `git status` 会误判成「没有需要发布的改动」。
+   所以这里每次都 fetch 一下，把 ahead / behind 一起算出来，页面据此提示。 */
+let fetchAt = 0, fetchOk = null;
+async function gitFetch(force = false) {
+  if (!force && Date.now() - fetchAt < 20000) return fetchOk;
+  const r = await run('git', ['fetch', '--quiet', 'origin', 'main'], { timeout: 20000 });
+  fetchAt = Date.now();
+  fetchOk = r.code === 0;
+  return fetchOk;
+}
+
+async function gitState(fetchFirst = true) {
+  if (fetchFirst) await gitFetch();
+  const [s, l, br, cnt] = await Promise.all([
+    git(['status', '--porcelain']),
+    git(['log', '-8', '--pretty=format:%h\t%ad\t%s', '--date=format:%m-%d']),
+    git(['rev-parse', '--abbrev-ref', 'HEAD']),
+    git(['rev-list', '--left-right', '--count', 'origin/main...HEAD']),
+  ]);
+  let behind = null, ahead = null;
+  const m = /^(\d+)\s+(\d+)$/.exec(cnt.stdout.trim());
+  if (m) { behind = parseInt(m[1], 10); ahead = parseInt(m[2], 10); }
+  return {
+    status: s.stdout.split('\n').map((x) => x.trimEnd()).filter(Boolean),
+    log: l.stdout.split('\n').filter(Boolean),
+    branch: br.stdout.trim(),
+    ahead, behind, remoteOk: fetchOk,
+  };
+}
 
 /* ---------- 访问日志（排查问题用）---------- */
 const ACCESS_LOG = path.join(__dirname, 'access.log');
@@ -1374,29 +1413,54 @@ async function handle(req, res, url) {
   }
 
   if (p === '/api/git' && req.method === 'GET') {
-    const s = await git(['status', '--porcelain']);
-    const l = await git(['log', '-8', '--pretty=format:%h\t%ad\t%s', '--date=format:%m-%d']);
-    return json(res, 200, {
-      status: s.stdout.split('\n').map((x) => x.trimEnd()).filter(Boolean),
-      log: l.stdout.split('\n').filter(Boolean),
-    });
+    return json(res, 200, await gitState(true));
   }
 
   if (p === '/api/git' && req.method === 'POST') {
     const { action, message } = await readBody(req);
     const steps = [];
+    const note = (text) => steps.push({ code: 0, stdout: text, stderr: '', note: text });
+
     if (action === 'commit' || action === 'commitpush') {
       steps.push(await git(['add', '-A']));
       const st = await git(['status', '--porcelain']);
-      if (!st.stdout.trim()) return json(res, 200, { ok: true, quiet: true, steps, note: '没有需要提交的改动' });
-      steps.push(await git(['commit', '-m', message || '更新']));
+      if (st.stdout.trim()) {
+        steps.push(await git(['commit', '-m', message || '更新']));
+      } else {
+        // 注意：这里**不能直接 return**。上一次推送失败的话，改动早就提交在本地了，
+        // 工作区是干净的 —— 早退就永远推不上去了（站长报的就是这个）。
+        note(action === 'commit'
+          ? '没有新的改动要提交'
+          : '没有新的改动要提交，直接推送本地已有的提交');
+      }
     }
+
+    if (action === 'pull') {
+      steps.push(await run('git', ['pull', '--rebase', '--autostash', 'origin', 'main'],
+        { timeout: 60000 }));
+    }
+
     if (action === 'push' || action === 'commitpush') {
-      steps.push(await git(['push', 'origin', 'main']));
+      const push = await run('git', ['push', 'origin', 'main'], { timeout: 60000 });
+      steps.push(push);
+      if (push.code !== 0) {
+        // 多半是另一台电脑推过了：先把自己的提交 rebase 到线上，再推一次
+        note('推送被拒，先拉取线上改动再试一次');
+        const pull = await run('git', ['pull', '--rebase', '--autostash', 'origin', 'main'],
+          { timeout: 60000 });
+        steps.push(pull);
+        if (pull.code === 0) {
+          steps.push(await run('git', ['push', 'origin', 'main'], { timeout: 60000 }));
+        }
+      }
     }
+
     const bad = steps.find((s) => s.code !== 0);
+    fetchAt = 0;                                  // 状态变了，下次重新 fetch
+    const state = await gitState(true);
     return json(res, 200, {
       ok: !bad,
+      state,
       steps: steps.map((s) => ({ code: s.code, out: (s.stdout + s.stderr).trim() })),
     });
   }
