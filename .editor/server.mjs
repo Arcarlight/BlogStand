@@ -1420,6 +1420,7 @@ async function handle(req, res, url) {
     const { action, message } = await readBody(req);
     const steps = [];
     const note = (text) => steps.push({ code: 0, stdout: text, stderr: '', note: text });
+    let retried = false, conflict = false;
 
     if (action === 'commit' || action === 'commitpush') {
       steps.push(await git(['add', '-A']));
@@ -1436,30 +1437,38 @@ async function handle(req, res, url) {
     }
 
     if (action === 'pull') {
-      steps.push(await run('git', ['pull', '--rebase', '--autostash', 'origin', 'main'],
-        { timeout: 60000 }));
+      const pull = await run('git', ['pull', '--rebase', '--autostash', 'origin', 'main'],
+        { timeout: 60000 });
+      steps.push(pull);
+      if (pull.code !== 0) conflict = true;
     }
 
     if (action === 'push' || action === 'commitpush') {
       const push = await run('git', ['push', 'origin', 'main'], { timeout: 60000 });
       steps.push(push);
       if (push.code !== 0) {
-        // 多半是另一台电脑推过了：先把自己的提交 rebase 到线上，再推一次
+        // 多半是另一台电脑推过了（non-fast-forward）：先把自己的提交 rebase 到线上，再推一次
+        retried = true;
         note('推送被拒，先拉取线上改动再试一次');
         const pull = await run('git', ['pull', '--rebase', '--autostash', 'origin', 'main'],
           { timeout: 60000 });
         steps.push(pull);
         if (pull.code === 0) {
           steps.push(await run('git', ['push', 'origin', 'main'], { timeout: 60000 }));
+        } else {
+          conflict = true;      // rebase 撞车了：留给人工解决，别把历史搞乱
+          note('拉取时冲突了：本地和线上改了同一处，按提示手工解决之后再发布一次。');
         }
       }
     }
 
-    const bad = steps.find((s) => s.code !== 0);
     fetchAt = 0;                                  // 状态变了，下次重新 fetch
     const state = await gitState(true);
+    // 「成功」看的是**结果**：本地提交都推上去了就算成功 ——
+    // 第一次被拒、自动重试之后推上去的也算（不然页面上会红着脸说失败，其实已经发出去了）。
     return json(res, 200, {
-      ok: !bad,
+      ok: state.ahead === 0,
+      retried, conflict,
       state,
       steps: steps.map((s) => ({ code: s.code, out: (s.stdout + s.stderr).trim() })),
     });

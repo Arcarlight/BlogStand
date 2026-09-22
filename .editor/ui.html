@@ -668,9 +668,13 @@ $('#btnPublish').addEventListener('click', async () => {
   toast(changed ? '正在提交并推送…' : '正在推送…');
   const r = await apiPost('/api/git', { action: 'commitpush', message: msg });
   if (r.ok) {
-    const n = r.state && r.state.ahead === 0 ? '' : '（本地还有提交没推上去，再看看日志）';
-    toast('推送成功，GitHub 大约 1 分钟后更新线上' + n, 'ok');
+    toast(r.retried
+      ? '线上有新提交，已自动合并后推送成功（GitHub 大约 1 分钟后更新线上）'
+      : '推送成功，GitHub 大约 1 分钟后更新线上', 'ok');
     await bootstrap();
+  } else if (r.conflict) {
+    toast('本地和线上改了同一处，要手工解决冲突：\n' + gitBad(r) +
+      '\n\n（改动都已经提交在本地了，解决完再点一次发布）', 'err');
   } else {
     toast('发布失败：\n' + gitBad(r) +
       '\n\n改动已经在本地提交好了，修好网络 / 代理之后**再点一次发布**就会重推。', 'err');
