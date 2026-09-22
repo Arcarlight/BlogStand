@@ -125,6 +125,7 @@ description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一�
 <b style="font-size:20px;">友情链接：</b>
 <br>
 <br><a href="https://shema-sunf.github.io/about/"><img loading="lazy" src="/images/migrated/friendlink_doku.png" alt="毒毒糖果铺跳转" border="0"></a><b>【毒毒糖果铺】</b>
+<br><a href="https://chenxu-marsheco.github.io/"><img loading="lazy" src="/images/Huahua_Blogbanner.png" alt="花涧堂跳转" border="0"></a><b>【花涧堂】</b>
 <br>
 <a href="https://maths-s-website1.pages.dev/"><img loading="lazy" src="/images/Mathsicon.png" alt="断续之梦跳转" border="0"></a><b>【断续之梦】</b>
 
