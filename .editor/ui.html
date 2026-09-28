@@ -103,7 +103,9 @@
   #panel{flex:1;overflow:auto;padding:16px;background:var(--panel);display:none}
   body.panel #panel{display:block}
   body.panel #editor{display:none}
-  body.panel #previewPane{display:none}
+  /* 工具面板和预览可以同时开：左边面板、右边预览，各占一半。
+     以前这里有 body.panel #previewPane{display:none}，而且点「预览」还会把
+     panel 类摘掉 —— 于是「在画廊里加画」和「盯着一页看效果」不能同时做。 */
   /* 打开工具面板时，跟正文有关的那几个控件收起来（不然点了会改到别的文件） */
   body.panel #toolbar button.fmt,
   body.panel #toolbar .grp-label,
@@ -516,7 +518,8 @@ async function openFile(p) {
     $('#curPath').textContent = p;
     $('#btnDelete').disabled = false;
     const u = urlForFile(p);
-    if (u) CUR_URL = u;
+    if (u) CUR_URL = u;          // 没有独立页面的文件保持原来那一页
+    updatePreviewPath();
     $('#btnInsertDay').hidden = !/^content\/niki\/niki_\d{6}\.md$/.test(p);
     const showDraft = /\.md$/.test(p);
     $('#btnToggleDraft').hidden = !showDraft;
@@ -564,29 +567,70 @@ let PREVIEW_URL = 'http://127.0.0.1:1313/';  // 预览站根地址
 let LIVE_URL = '';                           // 线上站地址
 let CUR_URL = '/';                           // 正在预览的页面路径
 
-/* 当前编辑的文件 -> 对应的页面地址 */
+/* 当前编辑的文件 -> 对应的页面地址。
+   注意「返回 null」和「返回空串」不一样：
+     · 返回地址  -> 预览跳到这一页
+     · 返回 ''    -> 这个文件没有独立页面（比如 partial、样式、JS），
+                     预览保持原来那一页，不再偷偷跳到首页
+   layouts/ 下的模板也尽量对应到真实页面（以前这些点了预览完全不动，
+   而它们其实是有页面的：404 模板 -> /404.html、baseof/home -> 首页）。 */
 function urlForFile(p) {
-  if (!p || !p.startsWith('content/') || !p.endsWith('.md')) return null;
-  let rel = p.slice('content/'.length).replace(/\.md$/, '');
-  if (rel === '_index') return '/';
-  if (rel.endsWith('/_index')) rel = rel.slice(0, -'/_index'.length);
-  return '/' + rel + '/';
+  if (!p) return '';
+  if (p.startsWith('content/') && p.endsWith('.md')) {
+    let rel = p.slice('content/'.length).replace(/\.md$/, '');
+    if (rel === '_index') return '/';
+    if (rel.endsWith('/_index')) rel = rel.slice(0, -'/_index'.length);
+    return '/' + rel + '/';
+  }
+  if (p === 'assets/css/retro.css') return '';      // 没有单独一页，靠当前页看效果
+  if (p.startsWith('static/js/')) return '';
+  // 模板 -> 它渲染出来的那个页面
+  const LAYOUT_PAGE = {
+    'layouts/404.html': '/__editor-404-check/',
+    'layouts/home.html': '/',
+    'layouts/baseof.html': '/',
+    'layouts/list.html': '/blog/',
+    'layouts/single.html': '/navigator/',
+    'layouts/_partials/header.html': '/',
+    'layouts/_partials/footer.html': '/',
+    'layouts/_partials/head.html': '/',
+    'layouts/_partials/post-meta.html': '/navigator/',
+    'layouts/_partials/comments.html': '/navigator/',
+  };
+  return LAYOUT_PAGE[p] || '';
+}
+
+/** 这个文件有没有自己的一页（没有的话预览面板会说明一句，而不是默默不动） */
+function hasOwnPage(p) {
+  return !!urlForFile(p);
 }
 function previewTarget() {
   return PREVIEW_URL.replace(/\/+$/, '') + (CUR_URL || '/');
 }
+/* 预览栏上那行说明：当前文件有没有自己的一页。
+   以前编辑模板/样式时点了预览完全没反应，看着像坏了。 */
+function updatePreviewPath() {
+  const el = $('#previewPath');
+  if (!el) return;
+  const own = hasOwnPage(CUR);
+  el.textContent = own ? (CUR_URL || '/') : ((CUR || '这个文件') + '　—　没有独立页面，看的是上一页');
+  el.title = previewTarget();
+}
 function refreshPreview() {
-  const path = CUR_URL || '/';
   $('#preview').src = previewTarget() + '?t=' + Date.now();
-  $('#previewPath').textContent = path;
-  $('#previewPath').title = previewTarget();
+  updatePreviewPath();
 }
 $('#btnPreview').addEventListener('click', async () => {
+  // 注意：这里不再摘掉 panel 类 —— 面板和预览可以同时开着。
   const on = document.body.classList.toggle('preview');
   $('#btnPreviewText').textContent = on ? '预览 ▾' : '预览 ▸';
   if (!on) { $('#preview').src = 'about:blank'; return; }
+  if ($('#preview').src && $('#preview').src !== 'about:blank') {
+    // 已经开着预览窗口（比如刚点是开着面板的）-> 只是重新显示，顺手刷一下
+    refreshPreview();
+    return;
+  }
 
-  document.body.classList.remove('panel');
   $('#preview').src = 'about:blank';
 
   const s = await apiPost('/api/hugo', { action: 'status' });
