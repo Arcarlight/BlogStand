@@ -285,3 +285,51 @@
   cat = "pkmnflya"
   date = "2026-08-31"
   desc = "neta节奏天国飞盘的图。好好画了背景。"
+
+[[items]]
+  title = "拒绝"
+  file = "gallery/Kyouhi.PNG"
+  cat = "pkmnflya"
+  date = "2026-08-22"
+  desc = "战败的沙漠蜻蜓。现在画风的起始点，用了和以前完全不一样的起稿方式。"
+
+[[items]]
+  title = "初次尝试"
+  file = "gallery/Maid_flygon.PNG"
+  cat = "pkmnflya"
+  date = "2026-08-26"
+  desc = "不管是对于沙漠蜻蜓还是对于我都是第一次尝试。"
+
+[[items]]
+  title = "火岩鼠之日贺图"
+  file = "gallery/MagumarashiMachinegun.PNG"
+  cat = "pkmnflya"
+  date = "2026-09-04"
+  desc = "正巧绘画练习遇上了火焰鼠之日的贺图。"
+
+[[items]]
+  title = "2025·沙漠蜻蜓之日贺图"
+  file = "gallery/2025Flygonnohi.jpeg"
+  cat = "pkmnflya"
+  date = "2025-03-30"
+  desc = "早期的沙漠蜻蜓日贺图。"
+
+[[items]]
+  title = "虹星18周岁纪念图"
+  file = "gallery/Jyuhhasai_BTD.png"
+  cat = "hoshihum"
+  date = "2024-06-11"
+  desc = "踏入成年之门了。"
+
+[[items]]
+  title = "钓鱼"
+  file = "gallery/Nekohoshi_0506.png"
+  cat = "hoshicat"
+  date = "2024-06-30"
+
+[[items]]
+  title = "2026·阿勃梭鲁之日贺图"
+  file = "gallery/Absol_2026.jpeg"
+  cat = "pkmn"
+  date = "2026-02-11"
+  desc = "然而并没有赶上。"
