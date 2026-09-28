@@ -460,9 +460,16 @@ function setParams(text, updates) {
 function parseItems(text) {
   const items = [];
   let cur = null;
+  let inSection = false;
   for (const line of text.split(/\r?\n/)) {
     const t = line.trim();
-    if (t === '[[items]]') { cur = {}; items.push(cur); continue; }
+    // 大多数列表用 [[items]]；音乐那份用语义更清楚的 [[tracks]]，两者都认
+    if (t === '[[items]]' || t === '[[tracks]]') { cur = {}; items.push(cur); inSection = true; continue; }
+    if (!inSection) continue;
+    // 空行结束当前段落：后面的顶层设置（比如音乐那份结尾的 assetDir / title）
+    // 不能再算进最后一条，否则会把曲目的 title 覆盖掉。
+    if (!t) { cur = null; continue; }
+    if (t.startsWith('#')) continue;
     if (!cur) continue;
     const m = t.match(/^([A-Za-z0-9_]+)\s*=\s*"(.*)"\s*$/);
     if (m) cur[m[1]] = m[2].replace(/\\"/g, '"');
@@ -557,6 +564,23 @@ function parseSidebarOrder(text) {
   if (!m) return [];
   return m[1].split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean);
 }
+
+/* 音乐播放器那份 data/music.toml 的抬头注释。
+   注意段落名是 [[tracks]]（不是 [[items]]），编辑器按这个认曲目。 */
+const MUSIC_HEADER = `# ============================================================
+#  音乐播放器 —— 侧栏最上面那条窄条挂件
+#
+#  这份文件由编辑器左侧的「音乐」面板管理（音频也能直接上传进去），
+#  手改也行。曲目段落名必须是 [[tracks]]，编辑器认这个。
+#
+#  字段：
+#    file   = "iforest.mp3"   必填 —— static/music/ 里的文件名（不带目录），
+#                              或者完整的 https:// 外链
+#    title  = "iforest"       选填 —— 显示的名字；不写就用文件名
+#    artist = "来源未知"       选填 —— 作者 / 出处
+#
+#  一首都没填时，侧栏那条播放器整个不显示。
+# ============================================================`;
 
 function writeSidebarOrder(order) {
   const keys = order.filter((k) => SIDEBAR_WIDGETS.some((w) => w[0] === k));
@@ -717,7 +741,77 @@ const DATA_LISTS = {
   buttons: { file: 'data/buttons.toml', keys: ['line1', 'line2', 'url', 'bg', 'fg'], header: BUTTONS_HEADER },
   updates: { file: 'data/updates.toml', keys: ['date', 'title', 'url'],              header: UPDATES_HEADER },
   notices: { file: 'data/notices.toml', keys: ['date', 'text', 'url'],               header: NOTICES_HEADER },
+  // 音乐这份的段落名是 [[tracks]] 而不是 [[items]]，所以要单独写盘（见下面的分支）
+  music:   { file: 'data/music.toml',   keys: ['file', 'title', 'artist'],           header: MUSIC_HEADER, section: 'tracks', music: true },
 };
+
+/* ============================================================
+   音乐播放器：音频上传 + 「文件在不在」检查
+   ============================================================ */
+
+const AUDIO_EXT = new Set(['.mp3', '.ogg', '.m4a', '.wav', '.flac', '.aac', '.opus', '.oga', '.weba']);
+
+/** 曲目地址是不是外链（外链不做本地存在性检查） */
+function isExternalFile(f) {
+  return /^(https?:)?\/\//i.test(String(f || '').trim());
+}
+
+/** 曲目 file 字段 -> static/music/ 里的真实路径；不安全的名字返回 null */
+function musicPathFor(file) {
+  const clean = String(file || '').trim().replace(/\\/g, '/');
+  if (!clean || clean.startsWith('/') || clean.includes('..')) return null;
+  return path.join(ROOT, 'static', 'music', ...clean.split('/'));
+}
+
+/**
+ * 逐首看音频在不在。
+ * 返回 [{ file, exists, external }]，外加整份都没问题时 missing=[]。
+ * 只是提醒，不拦保存 —— 先写曲名后拷文件也是正常顺序。
+ */
+async function musicFileStatus(items) {
+  const out = [];
+  for (const it of items) {
+    const f = String(it.file || '').trim();
+    if (!f) continue;
+    if (isExternalFile(f)) { out.push({ file: f, exists: true, external: true }); continue; }
+    const full = musicPathFor(f);
+    let exists = false;
+    if (full) { try { exists = (await fsp.stat(full)).isFile(); } catch { exists = false; } }
+    out.push({ file: f, exists, external: false });
+  }
+  return out;
+}
+
+/** 音乐这份 toml 的写盘：assetDir / title 这类顶层设置写最前面，然后是曲目。
+    设置必须排在第一个 [[tracks]] 之前 —— 排在后面的话，解析时会被并进
+    最后一条曲目里（试过，会把那首的 title 覆盖成顶层的 title）。 */
+function writeMusicFile(header, items, settings) {
+  const out = [header.trimEnd(), ''];
+  out.push(`assetDir = ${JSON.stringify(settings.assetDir || 'music/')}`);
+  out.push(`title = ${JSON.stringify(settings.title || '音乐')}`);
+  out.push('');
+  for (const it of items) {
+    out.push('[[tracks]]');
+    for (const k of ['file', 'title', 'artist']) {
+      const v = String(it[k] ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      out.push(`  ${k} = "${v}"`);
+    }
+    out.push('');
+  }
+  return out.join('\n');
+}
+
+async function readMusicFile() {
+  const text = await readText(DATA_LISTS.music.file);
+  // 只认「第一个 [[tracks]] 之前」的顶层设置。
+  // 不能直接全文正则：曲目里也有 title 字段，会把它当成顶层 title 抓过来。
+  const head = text.split(/^\s*\[\[tracks\]\]/m)[0];
+  return {
+    text,
+    assetDir: (head.match(/^\s*assetDir\s*=\s*"([^"]*)"/m) || [])[1] ?? 'music/',
+    title: (head.match(/^\s*title\s*=\s*"([^"]*)"/m) || [])[1] ?? '音乐',
+  };
+}
 
 /* ============================================================
    脚本管理
@@ -1160,6 +1254,35 @@ async function handle(req, res, url) {
     return json(res, 200, { ok: true, url: '/images/' + final, rel: `${dir}/${final}`, bytes: buf.length });
   }
 
+  /* ---------- 音频上传（音乐播放器用） ----------
+     和图片上传同一个套路：前端读成 dataURL 发过来，这里落到 static/music/。
+     重名不覆盖，自动加 -1 -2，免得手滑把已经排好的曲子顶掉。
+     只认音频扩展名：这个目录是站点公开目录，别让它变成万能文件柜。 */
+  if (p === '/api/upload-audio' && req.method === 'POST') {
+    const { name, data } = await readBody(req);
+    if (!data) throw new Error('没有收到音频数据');
+    const buf = Buffer.from(String(data).replace(/^data:[^;]+;base64,/, ''), 'base64');
+    if (!buf.length) throw new Error('文件是空的');
+
+    const raw = String(name || 'audio').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '-').replace(/\.{2,}/g, '.');
+    const dot = raw.lastIndexOf('.');
+    const ext = (dot > 0 ? raw.slice(dot) : '').toLowerCase();
+    if (!AUDIO_EXT.has(ext)) {
+      throw new Error('只收音频文件（' + [...AUDIO_EXT].join(' / ') + '）');
+    }
+    const stem = dot > 0 ? raw.slice(0, dot) : raw;
+
+    const dir = 'static/music';
+    await fsp.mkdir(safePath(dir), { recursive: true });
+    let final = raw, n = 1;
+    while (await fsp.stat(safePath(`${dir}/${final}`)).catch(() => null)) {
+      final = `${stem}-${n++}${ext}`;
+    }
+    await fsp.writeFile(safePath(`${dir}/${final}`), buf);
+    return json(res, 200, { ok: true, file: final, dir, bytes: buf.length,
+      url: '/' + dir.replace(/^static\//, '') + '/' + final });
+  }
+
   /* ---------- 草稿开关 ---------- */
   if (p === '/api/draft' && req.method === 'POST') {
     const { p: rel, draft } = await readBody(req);
@@ -1239,10 +1362,41 @@ async function handle(req, res, url) {
     const which = p.split('/')[3];
     const spec = DATA_LISTS[which];
     if (!spec) return json(res, 404, { error: '没有这个列表：' + which });
-    if (req.method === 'GET') return json(res, 200, { items: parseItems(await readText(spec.file)), keys: spec.keys });
+
+    if (req.method === 'GET') {
+      const items = parseItems(await readText(spec.file));
+      // 音乐这份顺带告诉自己（和编辑器）哪些音频其实不在
+      if (spec.music) {
+        const status = await musicFileStatus(items);
+        return json(res, 200, { items, keys: spec.keys, status,
+          missing: status.filter((s) => !s.exists && !s.external).map((s) => s.file) });
+      }
+      return json(res, 200, { items, keys: spec.keys });
+    }
 
     let { items } = await readBody(req);
     if (!Array.isArray(items)) throw new Error('参数不对：需要 items 数组');
+
+    if (which === 'music') {
+      // 空行（点了「加一条」还没填文件名的）丢掉；顺手把结果里的「文件不在」报回去
+      const clean = items
+        .map((it) => ({
+          file: String(it.file || '').trim(),
+          title: String(it.title || '').trim(),
+          artist: String(it.artist || '').trim(),
+        }))
+        .filter((it) => it.file);
+      const bad = clean.filter((it) => !isExternalFile(it.file)
+        && (it.file.includes('/') || !musicPathFor(it.file)));
+      if (bad.length) throw new Error('文件名只写 static/music/ 里的那个名字，不带目录或 ..：「' + bad.map((x) => x.file).join('、') + '」');
+
+      const cur = await readMusicFile();
+      await writeText(spec.file, writeMusicFile(MUSIC_HEADER, clean, cur));
+
+      const status = await musicFileStatus(clean);
+      return json(res, 200, { ok: true, count: clean.length, status,
+        missing: status.filter((s) => !s.exists && !s.external).map((s) => s.file) });
+    }
 
     if (which === 'updates' || which === 'notices') {
       // 这两个列表都是「日期 + 一句话 + 可选链接」，规则一样，只是正文的字段名不同

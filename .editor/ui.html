@@ -244,6 +244,8 @@
   <symbol id="ico-trash" viewBox="0 0 24 24"><path d="m4,6v8h1v8h1v1h12v-1h1v-8h1V6H4Zm14,7h-1v8H7v-8h-1v-5h12v5Z"/><polygon points="21 3 21 5 3 5 3 3 4 3 4 2 9 2 9 1 15 1 15 2 20 2 20 3 21 3"/></symbol>
   <symbol id="ico-refresh" viewBox="0 0 24 24"><polygon points="23 14 23 15 22 15 22 17 21 17 21 19 20 19 20 20 19 20 19 21 17 21 17 22 15 22 15 23 9 23 9 22 7 22 7 21 5 21 5 20 3 20 3 21 2 21 2 22 1 22 1 15 8 15 8 16 7 16 7 17 6 17 6 19 7 19 7 20 9 20 9 21 15 21 15 20 17 20 17 19 19 19 19 17 20 17 20 14 23 14"/><polygon points="23 2 23 9 16 9 16 8 17 8 17 7 18 7 18 5 17 5 17 4 15 4 15 3 9 3 9 4 7 4 7 5 5 5 5 7 4 7 4 10 1 10 1 9 2 9 2 7 3 7 3 5 4 5 4 4 5 4 5 3 7 3 7 2 9 2 9 1 15 1 15 2 17 2 17 3 19 3 19 4 21 4 21 3 22 3 22 2 23 2"/></symbol>
   <symbol id="ico-message-dots" viewBox="0 0 24 24"><polygon points="19 9 19 11 18 11 18 12 16 12 16 11 15 11 15 9 16 9 16 8 18 8 18 9 19 9"/><polygon points="14 9 14 11 13 11 13 12 11 12 11 11 10 11 10 9 11 9 11 8 13 8 13 9 14 9"/><polygon points="9 9 9 11 8 11 8 12 6 12 6 11 5 11 5 9 6 9 6 8 8 8 8 9 9 9"/><path d="m22,2v-1H2v1h-1v16h1v1h6v4h1v-1h1v-1h1v-1h2v-1h9v-1h1V2h-1Zm-1,15H3V3h18v14Z"/></symbol>
+  <!-- 音符：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/music.svg -->
+  <symbol id="ico-music" viewBox="0 0 24 24"><path d="m21,1v1h-3v1h-3v1h-4v1h-3v1h-2v10h-3v1h-1v1h-1v3h1v1h1v1h4v-1h1v-1h1v-10h2v-1h4v-1h3v-1h2v5h-3v1h-1v1h-1v3h1v1h1v1h4v-1h1v-1h1V1h-2ZM3,21v-3h4v3H3Zm15-15v1h-3v1h-4v1h-3v-2h3v-1h4v-1h3v-1h3v2h-3Zm-1,12v-3h4v3h-4Z"/></symbol>
 </svg>
 
 <header>
@@ -370,6 +372,7 @@ function renderTree() {
   let h = '';
   h += '<div class="row create" data-act="new">' + ico('plus') + '新建页面</div>';
   h += '<div class="grp">工具</div>';
+  h += '<div class="row tool" data-panel="music">' + ico('music') + '音乐</div>';
   h += '<div class="row tool" data-panel="settings">' + ico('cog') + '站点设置</div>';
   h += '<div class="row tool" data-panel="links">' + ico('link') + '友情链接</div>';
   h += '<div class="row tool" data-panel="buttons">' + ico('grid') + '小按钮</div>';
@@ -686,6 +689,7 @@ function showPanel(html) { $('#panel').innerHTML = html; }
 
 async function openPanel(which) {
   if (which === 'settings') return renderSettings();
+  if (which === 'music')    return renderMusic();
   if (which === 'links')    return renderLinks();
   if (which === 'buttons')  return renderButtons();
   if (which === 'updates')  return renderUpdates();
@@ -968,6 +972,162 @@ async function renderNotices() {
     });
   };
   draw(d.items.map((x) => Object.assign({}, x)));
+}
+
+/* --- 音乐播放器（侧栏最上面那条窄条） ---
+   音频丢进 static/music/，曲目写在 data/music.toml 的 [[tracks]] 里。
+   这个面板就是给那件事用的：拖拽排序、直接上传音频、还能一眼看出
+   哪首的音频文件其实不在——那是最容易踩的坑（写了曲名忘了拷文件）。 */
+async function renderMusic() {
+  const d = await apiGet('/api/list/music');
+  const items = (d.items || []).map((x) => Object.assign({}, x));
+  const status = {};                       // 文件名 -> 在不在
+  (d.status || []).forEach((s) => { status[s.file] = s; });
+  const isExt = (f) => /^(https?:)?\/\//i.test(String(f || '').trim());
+
+  const draw = () => {
+    let h = '<h2 class="sec">音乐</h2>';
+    h += '<p class="hint">侧栏最上面那条播放器。曲目对应 <code>data/music.toml</code>，' +
+         '音频放在 <code>static/music/</code>。</p>';
+    h += '<div class="note"><b>按住左侧 ≡ 拖动</b>就是播放顺序，松手即保存，不用另点保存按钮。<br>' +
+         '「上传音频」会把文件直接存进 <code>static/music/</code> 并自动加一条曲目 —— ' +
+         '这是最省事的做法；已经手动拷进去的，把<b>文件名</b>（不带目录）填进第一列也行。<br>' +
+         '也可以用外链：第一列直接写完整的 <code>https://</code> 地址。<br>' +
+         '一首都没有时，侧栏那条播放器整个不显示。</div>';
+    h += '<table class="grid"><thead><tr>' +
+         '<th style="width:28px"></th>' +
+         '<th style="width:30%">音频文件</th>' +
+         '<th style="width:26%">曲名（可空）</th>' +
+         '<th style="width:22%">作者 / 出处（可空）</th>' +
+         '<th style="width:30px"></th></tr></thead><tbody id="tbMusic"></tbody></table>';
+    h += '<div id="musicRows"></div>';
+    h += '<p id="musicEmpty" class="hint">' + (items.length ? '' : '还没有曲目。点下面的「上传音频」或「＋ 手动加一条」开始。') + '</p>';
+    h += '<button id="btnMusicUpload">' + ico('upload') + ' 上传音频</button> ';
+    h += '<button id="btnMusicAdd">＋ 手动加一条</button> ';
+    h += '<button class="primary" id="btnMusicSave">' + ico('save') + ' 保存</button>';
+    h += '<input type="file" id="musicFile" accept="audio/*,.mp3,.ogg,.m4a,.wav,.flac" multiple hidden>';
+    showPanel(h);
+
+    const tb = $('#tbMusic');
+    items.forEach((it, i) => {
+      const f = String(it.file || '').trim();
+      const st = status[f];
+      let badge = '';
+      if (f) {
+        if (isExt(f)) badge = '<span style="color:var(--dim)">外链</span>';
+        else if (st && st.exists) badge = '<span style="color:#2e7d32">✓ 在位</span>';
+        else badge = '<span style="color:var(--danger)">⚑ 找不到</span>';
+      }
+      const tr = document.createElement('tr');
+      tr.draggable = true;
+      tr.dataset.i = String(i);
+      tr.innerHTML =
+        `<td style="text-align:center"><span class="handle" style="cursor:grab">≡</span></td>` +
+        `<td><input data-f="file" data-i="${i}" value="${esc(it.file || '')}" placeholder="iforest.mp3"></td>` +
+        `<td><input data-f="title" data-i="${i}" value="${esc(it.title || '')}" placeholder="不填就显示文件名"></td>` +
+        `<td><input data-f="artist" data-i="${i}" value="${esc(it.artist || '')}" placeholder="来源未知"></td>` +
+        `<td style="text-align:center;white-space:nowrap">${badge}<br><button class="danger" data-del="${i}" title="删掉这条">×</button></td>`;
+      tb.appendChild(tr);
+    });
+
+    const collect = () => {
+      document.querySelectorAll('#tbMusic input[data-f]').forEach((el) => {
+        if (items[+el.dataset.i]) items[+el.dataset.i][el.dataset.f] = el.value;
+      });
+    };
+    document.querySelectorAll('#tbMusic [data-del]').forEach((b) => {
+      b.addEventListener('click', () => { collect(); items.splice(+b.dataset.del, 1); draw(); });
+    });
+    $('#btnMusicAdd').addEventListener('click', () => {
+      collect(); items.push({ file: '', title: '', artist: '' }); draw();
+    });
+
+    // 拖拽排序（和「侧栏排序」同一套做法）
+    let drag = null;
+    tb.addEventListener('dragstart', (e) => {
+      const tr = e.target.closest('tr[data-i]');
+      if (!tr) { e.preventDefault(); return; }
+      drag = tr;
+      tr.style.opacity = '.45';
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', tr.dataset.i); } catch (err) { /* 忽略 */ }
+    });
+    tb.addEventListener('dragover', (e) => {
+      if (!drag) return;
+      const tr = e.target.closest('tr[data-i]');
+      if (!tr || tr === drag) return;
+      e.preventDefault();
+      const r = tr.getBoundingClientRect();
+      tb.insertBefore(drag, e.clientY > r.top + r.height / 2 ? tr.nextSibling : tr);
+    });
+    tb.addEventListener('drop', (e) => { if (drag) e.preventDefault(); });
+    tb.addEventListener('dragend', async () => {
+      if (!drag) return;
+      drag.style.opacity = '';
+      drag = null;
+      const order = [...tb.querySelectorAll('tr[data-i]')].map((tr) => +tr.dataset.i);
+      const next = order.map((i) => items[i]);
+      const changed = order.some((v, k) => v !== k);
+      if (!changed) return;
+      items.length = 0;
+      items.push(...next);
+      const saved = await saveMusic(items);
+      if (saved) draw();
+    });
+
+    // 上传音频：读成 base64 -> /api/upload-audio -> 落进 static/music/ 并加一条
+    $('#btnMusicUpload').addEventListener('click', () => $('#musicFile').click());
+    $('#musicFile').addEventListener('change', async (e) => {
+      const files = [...(e.target.files || [])];
+      if (!files.length) return;
+      collect();
+      toast('正在上传 ' + files.length + ' 个音频…');
+      for (const f of files) {
+        try {
+          const data = await new Promise((res, rej) => {
+            const rd = new FileReader();
+            rd.onload = () => res(rd.result);
+            rd.onerror = () => rej(new Error('读文件失败'));
+            rd.readAsDataURL(f);
+          });
+          const r = await apiPost('/api/upload-audio', { name: f.name, data });
+          items.push({ file: r.file, title: '', artist: '' });
+        } catch (err) {
+          toast('「' + f.name + '」上传失败：' + err.message, 'err');
+        }
+      }
+      e.target.value = '';
+      await saveMusic(items);
+      toast('已上传并加入曲单（刷新预览就能听到）', 'ok');
+      openPanel('music');
+    });
+
+    $('#btnMusicSave').addEventListener('click', async () => {
+      collect();
+      const ok = await saveMusic(items);
+      if (ok) toast('曲单已保存（预览里刷新一下就能听到）', 'ok');
+    });
+  };
+
+  const saveMusic = async (list) => {
+    try {
+      const r = await apiPost('/api/list/music', {
+        items: list.map((x) => ({
+          file: String(x.file || '').trim(),
+          title: String(x.title || '').trim(),
+          artist: String(x.artist || '').trim(),
+        })).filter((x) => x.file),
+      });
+      // 报「文件不在」的那些，现在就反映到状态角标上
+      (r.status || []).forEach((s) => { status[s.file] = s; });
+      return true;
+    } catch (err) {
+      toast('保存失败：' + err.message, 'err');
+      return false;
+    }
+  };
+
+  draw();
 }
 
 /* --- 宝可梦放养区：台词（data/pkmn-talk/<图鉴号>.toml） ---
