@@ -1253,6 +1253,30 @@ async function handle(req, res, url) {
     return res.end(html);
   }
 
+  /* ---------- 自己把 static/ 下的图供出来 ----------
+     面板里的缩略图、挑图器、画廊预览都直接用 /images/xxx 这种站点路径。
+     以前这些 <img> 是相对地址，会打到编辑器自己的端口（4321），而编辑器
+     只服务 ui.html 和 /api/* —— 于是选图面板里 109 张图全是裂的
+     （实测 4321 上 /images/… 404、1313 上 200）。
+     这里兜住 /images/*，面板就不必依赖「预览服务器开着」这件事。
+     只读、只认图片扩展名、限制在 static/ 目录内。 */
+  if (req.method === 'GET' && p.startsWith('/images/')) {
+    const rel = decodeURIComponent(p.slice('/images/'.length)).replace(/\\/g, '/');
+    const IMG_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.bmp', '.svg', '.ico']);
+    const ext = path.extname(rel).toLowerCase();
+    if (rel.includes('..') || !IMG_EXT.has(ext)) { json(res, 404, { error: 'not found' }); return; }
+    const full = safePath('static/images/' + rel);
+    let buf = null;
+    try { buf = await fsp.readFile(full); } catch { buf = null; }
+    if (!buf) { json(res, 404, { error: 'not found' }); return; }
+    const MIME = {
+      '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+      '.gif': 'image/gif', '.avif': 'image/avif', '.bmp': 'image/bmp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+    };
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+    return res.end(buf);
+  }
+
   if (!p.startsWith('/api/')) { json(res, 404, { error: 'not found' }); return; }
 
   /* ---------- ping：不需要令牌，用来识别「这个端口是不是我自己」---------- */
@@ -1363,9 +1387,13 @@ async function handle(req, res, url) {
         if (!st) continue;
         const thumbRel = thumbRelFor(r);
         const hasThumb = await fsp.stat(safePath(thumbRel)).catch(() => null);
-        // 面板里要拿它当预览图：有缩略图就用缩略图，否则用原图（小的也够用）
-        const preview = hasThumb ? thumbRel.replace(/^static\//, '') : `images/${r}`;
-        list.push({ file: r, bytes: st.size, thumb: !!hasThumb, preview: '/' + preview });
+        // 面板要拿它当预览图：有缩略图用缩略图，否则用原图。
+        // 前缀必须是 /images/ —— 编辑器自己也供这条路径（见上面那个分支），
+        // 所以不依赖预览服务器开着。
+        const preview = hasThumb
+          ? '/' + thumbRel.replace(/^static\//, '')
+          : '/images/' + r;
+        list.push({ file: r, bytes: st.size, thumb: !!hasThumb, preview: preview });
       }
     }
     await walk(root, '');

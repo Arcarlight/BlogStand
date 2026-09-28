@@ -58,6 +58,22 @@ def main():
             pass
 
     w, h = im.size
+
+    # 太小的图不做缩略图：色板、1px 分隔线这类（实测有 8x8 和 1x15 的），
+    # 缩了也没有意义，只会在 thumbs/ 里堆一堆几十字节的垃圾。
+    MIN_EDGE = 48
+    if w < MIN_EDGE and h < MIN_EDGE:
+        out = {
+            "ok": True,
+            "skipped": "原图只有 %dx%d，用原图就行" % (w, h),
+            "src": os.path.basename(src),
+            "srcBytes": os.path.getsize(src),
+            "resized": False,
+        }
+        sys.stdout.write(json.dumps(out, ensure_ascii=False))
+        sys.stdout.flush()
+        return 0
+
     resized = False
     if w > width:
         new_h = max(1, round(h * width / w))
