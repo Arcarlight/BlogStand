@@ -520,6 +520,7 @@ const NOTICES_HEADER = `# ======================================================
 /* 侧栏挂件：key 是 partial 文件名，label 是给编辑器显示的名字。
    这份表要和 layouts/_partials/sidebar.html 里的 $default 保持一致。 */
 const SIDEBAR_WIDGETS = [
+  ['music',    '音乐播放器'],
   ['notices',  '公告栏'],
   ['about',    '关于站长'],
   ['search',   '站内搜索'],
@@ -546,6 +547,7 @@ const SIDEBAR_HEADER = `# ======================================================
 #    links      友情链接      visitors   访客统计
 #    clock      现在时间      hitokoto   一言
 #    pasture    宝可梦放养区  buttons    小按钮
+#    music      音乐播放器（曲目在 data/music.toml，音频放 static/music/）
 #
 #  没列到的挂件会自动补在最后，所以新加的挂件不会凭空消失。
 # ============================================================`;

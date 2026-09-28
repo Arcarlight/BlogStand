@@ -60,6 +60,12 @@ timeZone = "Asia/Shanghai"
   showHitokoto  = true
   cursorSparkle = true
 
+  # ---- 音乐播放器（侧栏最上面那条窄条挂件）----
+  # 曲目写在 data/music.toml，音频文件放 static/music/（也能填外链）。
+  # 一首都没填时播放器不渲染，不会在侧栏留空壳。
+  # 站点内跳转不会打断播放（位置存在浏览器本地）。
+  showMusic     = true
+
   # 2010 年中文站最典型的写法就是 Tahoma 打头（当年的 Windows 界面字体），
   # 中文回落到微软雅黑。
   # 宋体没有提到前面：正文用它只会走轮廓渲染、发灰发虚（宋体的点阵只在

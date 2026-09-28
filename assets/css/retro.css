@@ -817,6 +817,143 @@ img { border: 0; }
 .notice-list .nt-text { color: #333333; }
 .notice-list a { color: #0033cc; }
 
+/* ---------- 音乐播放器（侧栏挂件，默认排最上面） ----------
+   一窄条：播放键 + 曲名 + 进度 + 音量，共三行，高度按「小挂件」压着。
+   曲名会省略号截断，不换行 —— 所以再长的标题也不会把这条撑高。 */
+#music-player .widget-body { padding: 6px 8px; }
+
+.mp { line-height: 1.3; }
+
+.mp-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mp-row + .mp-row { margin-top: 4px; }
+
+/* 按钮：老式立体小方钮，按下时凹陷 */
+.mp-btn {
+  flex: 0 0 auto;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 3px;
+  font-family: inherit;
+  font-size: var(--px-sm, 11px) !important;
+  line-height: 1;
+  color: #123f70;
+  text-align: center;
+  cursor: pointer;
+  background: #e8f1fb;
+  border: 1px solid #7f9db9;
+  border-radius: 2px;
+}
+
+.mp-btn:hover { background: #d6e7f8; }
+.mp-btn:active {
+  padding: 1px 2px 0 4px;
+  background: #c3d9ef;
+  border-style: inset;
+}
+
+.mp-btn-play {
+  min-width: 28px;
+  color: #ffffff;
+  background: #3b6ea5;
+  border-color: #1e4272;
+}
+
+.mp-btn-play:hover { background: #4b81bd; }
+.mp-btn-play.is-playing { background: #c94800; border-color: #8f3400; }
+
+.mp-btn-small {
+  min-width: 20px;
+  color: #555555;
+  background: #f4f8fd;
+}
+
+.mp-btn.is-on {
+  color: #ffffff;
+  background: #3b6ea5;
+  border-color: #1e4272;
+}
+
+/* 正在放的那首：曲名走深蓝，和普通链接区分开 */
+.mp-now {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+}
+
+.mp-title {
+  display: block;
+  overflow: hidden;
+  font-size: var(--px-sm, 11px) !important;
+  color: #0033cc;
+  text-decoration: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mp-title:hover { text-decoration: underline; }
+
+.mp-artist {
+  display: block;
+  overflow: hidden;
+  font-size: var(--px-sm, 11px) !important;
+  color: #7488a0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 进度条 / 音量条：凹陷轨道 + 蓝色填充，拖起来要有点击感 */
+.mp-bar {
+  position: relative;
+  flex: 1 1 auto;
+  height: 10px;
+  min-width: 40px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #eef4fb;
+  border: 1px solid #7f9db9;
+  border-radius: 2px;
+}
+
+.mp-bar:focus { outline: 1px dotted #c94800; outline-offset: 1px; }
+
+.mp-bar-fill {
+  width: 0;
+  height: 100%;
+  background: #3b6ea5;
+}
+
+.mp-bar.is-drag .mp-bar-fill { background: #c94800; }
+
+.mp-bar-vol { flex: 0 1 60px; min-width: 44px; }
+
+.mp-row-seek .mp-time {
+  flex: 0 0 auto;
+  width: 32px;
+  font-size: var(--px-sm, 11px) !important;
+  color: #7488a0;
+}
+
+.mp-row-seek .mp-time:last-child { text-align: right; }
+
+.mp-count {
+  flex: 0 0 auto;
+  font-size: var(--px-sm, 11px) !important;
+  color: #7488a0;
+}
+
+/* 出问题时那行小字（文件没找到之类），平时不占位 */
+.mp-hint {
+  margin-top: 4px;
+  font-size: var(--px-sm, 11px) !important;
+  line-height: 1.5;
+  color: #a03000;
+}
+
 /* 搜索框 */
 .search-form { overflow: hidden; }
 

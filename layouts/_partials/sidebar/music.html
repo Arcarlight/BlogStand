@@ -1,0 +1,86 @@
+{{/* ============================================================
+     音乐播放器（侧栏挂件，默认排在侧栏第一位）
+
+     站长自己把音频丢进 static/music/，曲目写在 data/music.toml 里。
+     播放逻辑在 static/js/music.js，样式在 assets/css/retro.css 的
+     「音乐播放器」那一节。
+
+     两条这个站特有的坑，这里都绕开了：
+       1) canonifyURLs 只认识 src/href 这类属性，脚本里的路径不会被补上
+          baseURL 的子目录 —— 所以曲目地址在这里就用 absURL 算成绝对的，
+          再交给 JS。写相对路径的话子目录部署下会找不到文件。
+       2) 给 JS 的 JSON 必须 safeJS，否则会被 Go 模板的 JS 上下文转义成字符串。
+
+     一首曲目都没有时整个挂件不渲染。
+     ============================================================ */}}
+{{ if site.Params.showMusic }}
+{{ $lib := hugo.Data.music }}
+{{ $dir := "" }}
+{{ with $lib.assetDir }}{{ $dir = strings.Trim . "/" }}{{ end }}
+
+{{ $entries := slice }}
+{{ with $lib.tracks }}
+  {{ range . }}
+    {{ $f := strings.Trim (.file | default "") " " }}
+    {{ if $f }}
+      {{ $url := $f }}
+      {{ if not (or (hasPrefix $f "http://") (hasPrefix $f "https://") (hasPrefix $f "//")) }}
+        {{/* 路径要在模板里就补成绝对的：站点的 canonifyURLs 只认得 src/href 这类
+             属性，脚本里的相对路径不会被补 baseURL 的子目录（子目录部署时会
+             变成 /music/...，丢了 /BlogStand/）。 */}}
+        {{ $rel := $f }}
+        {{ if ne $dir "" }}{{ $rel = printf "%s/%s" $dir $f }}{{ end }}
+        {{ $url = $rel | absURL }}
+      {{ end }}
+      {{ $entries = $entries | append (dict
+            "file"   $f
+            "url"    $url
+            "title"  (.title | default $f)
+            "artist" (.artist | default "")) }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+
+{{ if $entries }}
+<div class="widget" id="music-player">
+  <div class="widget-title">{{ $lib.title | default "音乐" }}</div>
+  <div class="widget-body">
+    <div class="mp" id="mp-root">
+      <div class="mp-row mp-row-main">
+        <button type="button" class="mp-btn" id="mp-prev" title="上一首" aria-label="上一首">&#9664;&#9664;</button>
+        <button type="button" class="mp-btn mp-btn-play" id="mp-play" title="播放" aria-label="播放">&#9654;</button>
+        <button type="button" class="mp-btn" id="mp-next" title="下一首" aria-label="下一首">&#9654;&#9654;</button>
+        <div class="mp-now">
+          <a class="mp-title" id="mp-title" href="#" title="点一下可以单独打开这首">——</a>
+          <span class="mp-artist" id="mp-artist"></span>
+        </div>
+      </div>
+
+      <div class="mp-row mp-row-seek">
+        <span class="mp-time" id="mp-cur">0:00</span>
+        <div class="mp-bar" id="mp-seek" role="slider" tabindex="0"
+             aria-label="播放进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+          <div class="mp-bar-fill" id="mp-seek-fill"></div>
+        </div>
+        <span class="mp-time" id="mp-dur">0:00</span>
+      </div>
+
+      <div class="mp-row mp-row-foot">
+        <button type="button" class="mp-btn mp-btn-small" id="mp-shuffle" title="随机播放" aria-label="随机播放" aria-pressed="false">&#8646;</button>
+        <button type="button" class="mp-btn mp-btn-small" id="mp-repeat" title="单曲循环" aria-label="单曲循环" aria-pressed="false">&#8635;</button>
+        <button type="button" class="mp-btn mp-btn-small" id="mp-mute" title="静音" aria-label="静音" aria-pressed="false">&#128266;</button>
+        <div class="mp-bar mp-bar-vol" id="mp-vol" role="slider" tabindex="0"
+             aria-label="音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80">
+          <div class="mp-bar-fill" id="mp-vol-fill"></div>
+        </div>
+        <span class="mp-count" id="mp-count">0/0</span>
+      </div>
+
+      <p class="mp-hint" id="mp-hint" hidden></p>
+    </div>
+  </div>
+</div>
+<script>window.SITE_MUSIC = {{ $entries | jsonify | safeJS }};</script>
+<script src="{{ "js/music.js" | relURL }}" defer></script>
+{{ end }}
+{{ end }}

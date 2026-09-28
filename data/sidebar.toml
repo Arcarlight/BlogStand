@@ -10,7 +10,8 @@
 #    links      友情链接      visitors   访客统计
 #    clock      现在时间      hitokoto   一言
 #    pasture    宝可梦放养区  buttons    小按钮
+#    music      音乐播放器（曲目在 data/music.toml，音频放 static/music/）
 #
 #  没列到的挂件会自动补在最后，所以新加的挂件不会凭空消失。
 # ============================================================
-order = ["notices", "about", "search", "pasture", "recent", "updates", "links", "visitors", "clock", "hitokoto", "tags", "buttons"]
+order = ["music", "notices", "about", "search", "pasture", "recent", "updates", "links", "visitors", "clock", "hitokoto", "tags", "buttons"]
