@@ -1,0 +1,64 @@
+# ============================================================
+#  画廊（Infinite Gallery）—— 画作清单
+#
+#  由编辑器左侧「画廊」面板维护，手改也行。
+#  页面 content/gallery.md 正文里只写一行 {{< gallery >}}，
+#  分类小节和缩略图网格都由这个文件生成。
+#
+#  一张画：
+#    title = "画的名字"         必填
+#    file  = "xxx.png"          必填 —— 相对 /images/ 的路径。
+#                               编辑器上传的会落在 gallery/ 下，写 "gallery/xxx.png"
+#    cat   = "hoshihum"         必填 —— 属于哪个分类（用分类的 id）
+#    date  = "2026-08-07"       选填 —— 创作日期，没有就留空
+#    cover = true               选填 —— 这张当分类封面（排最前）
+#
+#  分类：id 是页面锚点，改了旧链接会失效；desc 是标题下面那行灰色说明。
+#
+#  ⚠️ 只写 [[items]] 不写 [[sections]] 的话，画廊页会显示「还没有分类」，
+#     所以分类这几段别删（面板里的「加一个分类 / 删掉」会同步这里）。
+#
+#  缩略图在 static/images/gallery/thumbs/，由编辑器上传时生成；
+#  没有缩略图就用原图，不影响显示。
+# ============================================================
+[[sections]]
+  id = "hoshihum"
+  name = "虹星（人）"
+  desc = "次于虹星（猫）之后诞生的虹星的形态，出场在一些其他形态不太适合出场的地方"
+
+[[sections]]
+  id = "hoshicat"
+  name = "虹星（猫）"
+  desc = "最开始是虹星喵形，但到后来因为混圈范围的扩大变成了“猫形”..."
+
+[[sections]]
+  id = "hoshiflya"
+  name = "虹星（沙漠蜻蜓）"
+  desc = "2026年初混日文宝可梦圈的时候方才诞生的设定，作为日区活动的设定而存在着"
+
+[[sections]]
+  id = "pkmn"
+  name = "宝可梦"
+  desc = "版权IP的其他角色，一般都是未指定特定角色..."
+
+[[sections]]
+  id = "theothers"
+  name = "其他IP"
+  desc = "除却宝可梦外其他IP的图。包括但不限于节奏天国、ROM只读记忆等游戏"
+
+[[sections]]
+  id = "websiteuse"
+  name = "网站用"
+  desc = "网站上使用的特殊艺术性装饰插图，日记里面出现的图不保存在这里"
+
+[[items]]
+  title = "在2026年6月之前暂时使用的星虹箱头图"
+  file = "migrated/me-Sprite.png"
+  cat = "websiteuse"
+  date = ""
+
+[[items]]
+  title = "tbtak页面的背景图片"
+  file = "migrated/TBTAKPage-BG.png"
+  cat = "websiteuse"
+  date = ""

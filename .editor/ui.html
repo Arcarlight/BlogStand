@@ -67,6 +67,15 @@
   .row.drop-before{box-shadow:inset 0 2px 0 0 var(--accent)}
   .row.drop-after{box-shadow:inset 0 -2px 0 0 var(--accent)}
 
+  /* ---------- 图片选择器（选站上已有的图） ---------- */
+  .galpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;max-height:60vh;overflow:auto;padding:2px}
+  .galpick-cell{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;cursor:pointer;background:#fff;border:1px solid var(--line);border-radius:4px;font:inherit}
+  .galpick-cell img{width:100%;height:74px;object-fit:cover;background:#f6f9fd}
+  .galpick-cell span{width:100%;overflow:hidden;font-size:11px;color:var(--dim);white-space:nowrap;text-overflow:ellipsis;text-align:center}
+  .galpick-cell:hover{border-color:var(--accent)}
+  .galpick-cell.on{border-color:var(--accent);box-shadow:0 0 0 2px #cfe4fb;background:#f2f8ff}
+  .galpick-cell.on::after{content:"✓";position:absolute;margin:-4px 0 0 84px;color:#1a7f37;font-weight:bold}
+
   /* ---------- 侧栏排序面板里的拖动列表 ---------- */
   #sideOrder{list-style:none;max-width:440px;margin:10px 0}
   #sideOrder li{
@@ -246,6 +255,12 @@
   <symbol id="ico-message-dots" viewBox="0 0 24 24"><polygon points="19 9 19 11 18 11 18 12 16 12 16 11 15 11 15 9 16 9 16 8 18 8 18 9 19 9"/><polygon points="14 9 14 11 13 11 13 12 11 12 11 11 10 11 10 9 11 9 11 8 13 8 13 9 14 9"/><polygon points="9 9 9 11 8 11 8 12 6 12 6 11 5 11 5 9 6 9 6 8 8 8 8 9 9 9"/><path d="m22,2v-1H2v1h-1v16h1v1h6v4h1v-1h1v-1h1v-1h2v-1h9v-1h1V2h-1Zm-1,15H3V3h18v14Z"/></symbol>
   <!-- 音符：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/music.svg -->
   <symbol id="ico-music" viewBox="0 0 24 24"><path d="m21,1v1h-3v1h-3v1h-4v1h-3v1h-2v10h-3v1h-1v1h-1v3h1v1h1v1h4v-1h1v-1h1v-10h2v-1h4v-1h3v-1h2v5h-3v1h-1v1h-1v3h1v1h1v1h4v-1h1v-1h1V1h-2ZM3,21v-3h4v3H3Zm15-15v1h-3v1h-4v1h-3v-2h3v-1h4v-1h3v-1h3v2h-3Zm-1,12v-3h4v3h-4Z"/></symbol>
+  <!-- 画笔：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/paint-brush.svg -->
+  <symbol id="ico-paint-brush" viewBox="0 0 24 24"><path d="M19,2V1H4V2H3V16H4v1H9v4h1v1h1v1h2V22h1V21h1V17h4V16h1V2ZM13,21H11V19h2Zm5-7H5V3H7V5H9V3h2V7h2V3h5Z"/></symbol>
+  <!-- 放大镜：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/search.svg -->
+  <symbol id="ico-search" viewBox="0 0 24 24"><path d="m22,20v-1h-1v-1h-1v-1h-1v-1h-2v-1h1v-2h1v-6h-1v-2h-1v-1h-1v-1h-1v-1h-2v-1h-6v1h-2v1h-1v1h-1v1h-1v2h-1v6h1v2h1v1h1v1h1v1h2v1h6v-1h2v-1h1v2h1v1h1v1h1v1h1v1h2v-1h1v-2h-1Zm-10-5v1h-4v-1h-2v-1h-1v-2h-1v-4h1v-2h1v-1h2v-1h4v1h2v1h1v2h1v4h-1v2h-1v1h-2Z"/></symbol>
+  <!-- 目录：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/folder.svg -->
+  <symbol id="ico-folder" viewBox="0 0 24 24"><path d="m22,6v-1h-9v-1h-1v-1h-1v-1H2v1h-1v18h1v1h20v-1h1V6h-1Zm-1,14H3V4h7v1h1v1h1v1h9v13Z"/></symbol>
 </svg>
 
 <header>
@@ -276,6 +291,7 @@
       <button id="btnBold" class="fmt" title="加粗（Ctrl+B）"><svg class="ico"><use href="#ico-bold"/></svg></button>
       <button id="btnItalic" class="fmt" title="倾斜（Ctrl+I）"><svg class="ico"><use href="#ico-italics"/></svg></button>
       <button id="btnVoice" class="fmt" title="心声：淡灰色的内心独白"><svg class="ico"><use href="#ico-comment-quote"/></svg>心声</button>
+<button id="btnLink" class="fmt" title="超链接（Ctrl+K）：选中文字后点这里"><svg class="ico"><use href="#ico-link"/></svg>链接</button>
       <span class="sep"></span>
       <span class="grp-label" title="插图时会带上这个宽度；选中已有的 &lt;img&gt; 再点「应用」可以改它的宽度"><svg class="ico"><use href="#ico-pencil-ruler"/></svg>宽</span>
       <select id="imgWidthSel" title="插图 / 改宽度用">
@@ -373,6 +389,7 @@ function renderTree() {
   h += '<div class="row create" data-act="new">' + ico('plus') + '新建页面</div>';
   h += '<div class="grp">工具</div>';
   h += '<div class="row tool" data-panel="music">' + ico('music') + '音乐</div>';
+  h += '<div class="row tool" data-panel="gallery">' + ico('paint-brush') + '画廊</div>';
   h += '<div class="row tool" data-panel="settings">' + ico('cog') + '站点设置</div>';
   h += '<div class="row tool" data-panel="links">' + ico('link') + '友情链接</div>';
   h += '<div class="row tool" data-panel="buttons">' + ico('grid') + '小按钮</div>';
@@ -690,6 +707,7 @@ function showPanel(html) { $('#panel').innerHTML = html; }
 async function openPanel(which) {
   if (which === 'settings') return renderSettings();
   if (which === 'music')    return renderMusic();
+  if (which === 'gallery')  return renderGallery();
   if (which === 'links')    return renderLinks();
   if (which === 'buttons')  return renderButtons();
   if (which === 'updates')  return renderUpdates();
@@ -972,6 +990,401 @@ async function renderNotices() {
     });
   };
   draw(d.items.map((x) => Object.assign({}, x)));
+}
+
+/* --- 画廊（content/gallery.md 的 {{< gallery >}} + data/gallery.toml） ---
+   页面正文只有一行短代码，分类小节和缩略图网格都由 data/gallery.toml 生成。
+   面板里能：上传新图（自动压缩略图）、引用站上已有的图、拖动排序、
+   填标题/创作日期、选分类、指定封面。 */
+let GAL_CACHE = null;      // { items, sections }，给「选已有图」复用
+
+async function renderGallery() {
+  const d = await apiGet('/api/list/gallery');
+  const items = (d.items || []).map((x) => Object.assign({}, x));
+  let sections = (d.sections || []).map((x) => Object.assign({}, x));
+  const missing = new Set(d.missing || []);
+
+  let html = '';
+  html += '<h2 class="sec">画廊</h2>';
+  html += '<p class="hint">画廊页（<code>/gallery/</code>）里的画。页面正文只有一行 <code>{{&lt; gallery &gt;}}</code>，' +
+          '分类小节和缩略图都由 <code>data/gallery.toml</code> 生成，这里加一张页面就多一张。</p>';
+  html += '<div class="note">' +
+          '<b>上传新图</b>：选文件即可，自动存进 <code>static/images/gallery/</code> 并压一张缩略图（首屏只背几十 KB，点开才加载原图）。<br>' +
+          '<b>引用已有的图</b>：站上 <code>static/images/</code> 里已经有的图不用再传一份，点「选已有图」挑就行。<br>' +
+          '<b>按住左侧 ≡ 拖动</b>就是站内展示顺序（同一分类内：封面最前，其余按创作日期从新到旧）。<br>' +
+          '标题和创作日期是页面上显示的那两行；日期留空也行。</div>';
+
+  html += '<table class="grid" id="galTable"><thead><tr>' +
+          '<th style="width:26px"></th><th style="width:44px">预览</th>' +
+          '<th style="width:22%">图片文件</th><th style="width:22%">标题</th>' +
+          '<th style="width:118px">创作日期</th><th style="width:120px">分类</th>' +
+          '<th style="width:34px">封面</th><th style="width:34px"></th>' +
+          '</tr></thead><tbody id="tbGal"></tbody></table>';
+  html += '<div id="galEmpty" class="hint"></div>';
+  html += '<div style="margin-top:6px">' +
+          '<button id="btnGalUpload">' + ico('upload') + ' 上传新图</button> ' +
+          '<button id="btnGalPick">' + ico('grid') + ' 选已有图</button> ' +
+          '<button id="btnGalAdd">＋ 手动加一条</button> ' +
+          '<button class="primary" id="btnGalSave">' + ico('save') + ' 保存</button>' +
+          '</div>';
+  html += '<input type="file" id="galFile" accept="image/*" multiple hidden>';
+
+  html += '<h2 class="sec" style="margin-top:18px">分类</h2>';
+  html += '<p class="hint">分类就是页面上的小节标题。<b>id 是页内锚点</b>（首字母不能乱改，改了旧链接会失效），' +
+          'name 是显示名，desc 是标题下面那行灰字。</p>';
+  html += '<div id="galSections"></div>';
+  html += '<div style="margin-top:6px"><button id="btnGalAddSec">＋ 加一个分类</button></div>';
+
+  showPanel(html);
+
+  // ---------- 分类 ----------
+  const drawSections = () => {
+    const box = $('#galSections');
+    box.innerHTML = '';
+    sections.forEach((s, i) => {
+      const row = document.createElement('div');
+      row.className = 'gal-secrow';
+      row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px;align-items:center';
+      const mk = (field, ph, w) => {
+        const el = document.createElement('input');
+        el.value = s[field] || '';
+        el.placeholder = ph;
+        el.dataset.sec = String(i);
+        el.dataset.field = field;
+        el.style.cssText = 'font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:3px;' + (w || '');
+        return el;
+      };
+      row.appendChild(mk('id', 'id（锚点）', 'width:130px'));
+      row.appendChild(mk('name', '显示名', 'width:170px'));
+      row.appendChild(mk('desc', '说明（可空）', 'flex:1'));
+      const del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = '×';
+      del.title = '删掉这个分类（下面有画的话会拒绝保存）';
+      del.addEventListener('click', () => {
+        collectSections();
+        const used = items.filter((it) => it.cat === sections[i].id).length;
+        if (used) { toast(`「${sections[i].name}」里还有 ${used} 张画，先把它们换到别的分类`, 'err'); return; }
+        sections.splice(i, 1);
+        drawSections();
+      });
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+  };
+  const collectSections = () => {
+    document.querySelectorAll('#galSections input[data-sec]').forEach((el) => {
+      sections[+el.dataset.sec][el.dataset.field] = el.value;
+    });
+  };
+
+  // ---------- 画作表格 ----------
+  const draw = () => {
+    const tb = $('#tbGal');
+    tb.innerHTML = '';
+    const nameOf = (id) => (sections.find((s) => s.id === id) || {}).name || '（未选）';
+
+    items.forEach((it, i) => {
+      const tr = document.createElement('tr');
+      tr.draggable = true;
+      tr.dataset.i = String(i);
+
+      const td0 = document.createElement('td');
+      td0.style.textAlign = 'center';
+      td0.innerHTML = '<span class="handle" style="cursor:grab">≡</span>';
+
+      const td1 = document.createElement('td');
+      const img = document.createElement('img');
+      img.style.cssText = 'width:36px;height:36px;object-fit:cover;border:1px solid var(--line);background:#fff';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.src = it.file ? '/images/' + it.file : '';
+      td1.appendChild(img);
+
+      const tdFile = document.createElement('td');
+      const inp = document.createElement('input');
+      inp.value = it.file || '';
+      inp.placeholder = 'gallery/xxx.png';
+      inp.dataset.f = 'file';
+      inp.dataset.i = String(i);
+      tdFile.appendChild(inp);
+
+      const tdTitle = document.createElement('td');
+      const tIn = document.createElement('input');
+      tIn.value = it.title || '';
+      tIn.placeholder = '画的名字';
+      tIn.dataset.f = 'title';
+      tIn.dataset.i = String(i);
+      tdTitle.appendChild(tIn);
+
+      const tdDate = document.createElement('td');
+      const dIn = document.createElement('input');
+      dIn.type = 'date';
+      dIn.value = it.date || '';
+      dIn.dataset.f = 'date';
+      dIn.dataset.i = String(i);
+      tdDate.appendChild(dIn);
+
+      const tdCat = document.createElement('td');
+      const sel = document.createElement('select');
+      sel.dataset.f = 'cat';
+      sel.dataset.i = String(i);
+      sel.style.cssText = 'width:100%;font:inherit;font-size:12px;padding:3px';
+      const opt0 = document.createElement('option');
+      opt0.value = '';
+      opt0.textContent = '（选分类）';
+      sel.appendChild(opt0);
+      sections.forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s.id;
+        o.textContent = s.name;
+        if (it.cat === s.id) o.selected = true;
+        sel.appendChild(o);
+      });
+      tdCat.appendChild(sel);
+
+      const tdCover = document.createElement('td');
+      tdCover.style.textAlign = 'center';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!it.cover;
+      cb.dataset.f = 'cover';
+      cb.dataset.i = String(i);
+      tdCover.appendChild(cb);
+
+      const tdDel = document.createElement('td');
+      tdDel.style.textAlign = 'center';
+      const del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = '×';
+      del.addEventListener('click', () => { collect(); items.splice(i, 1); draw(); });
+      tdDel.appendChild(del);
+
+      tr.append(td0, td1, tdFile, tdTitle, tdDate, tdCat, tdCover, tdDel);
+      if (it.file && missing.has(it.file)) {
+        tr.style.background = '#fff5f5';
+        tr.title = '找不到这个图片文件：static/images/' + it.file;
+      }
+      tb.appendChild(tr);
+    });
+
+    $('#galEmpty').innerHTML = items.length ? '' :
+      '还没有画。点上面的「上传新图」或「选已有图」开始。';
+  };
+
+  const collect = () => {
+    document.querySelectorAll('#tbGal [data-f]').forEach((el) => {
+      const i = +el.dataset.i;
+      if (!items[i]) return;
+      items[i][el.dataset.f] = el.dataset.f === 'cover' ? el.checked : el.value;
+    });
+  };
+
+  const save = async () => {
+    collect();
+    collectSections();
+    const payload = {
+      sections: sections.map((s) => ({ id: s.id.trim(), name: s.name.trim(), desc: s.desc.trim() })),
+      items: items.map((it) => ({
+        title: String(it.title || '').trim(),
+        file: String(it.file || '').trim(),
+        cat: String(it.cat || '').trim(),
+        date: String(it.date || '').trim(),
+        cover: !!it.cover,
+      })).filter((it) => it.title || it.file),
+    };
+    try {
+      const r = await apiPost('/api/list/gallery', payload);
+      (r.missing || []).forEach((f) => missing.add(f));
+      toast('画廊已保存' + (r.missing && r.missing.length ? `（有 ${r.missing.length} 张图文件没找到，已标红）` : ''), 'ok');
+      return true;
+    } catch (e) { toast('保存失败：' + e.message, 'err'); return false; }
+  };
+
+  // ---------- 事件 ----------
+  drawSections();
+  draw();
+
+  $('#btnGalAddSec').addEventListener('click', () => {
+    collectSections();
+    sections.push({ id: '', name: '', desc: '' });
+    drawSections();
+    const first = document.querySelector('#galSections input[data-sec]:last-of-type');
+    if (first) first.focus();
+  });
+
+  $('#btnGalAdd').addEventListener('click', () => {
+    collect();
+    items.push({ title: '', file: '', cat: sections.length ? sections[0].id : '', date: '', cover: false });
+    draw();
+  });
+
+  $('#btnGalSave').addEventListener('click', save);
+
+  // 上传：落进 static/images/gallery/，服务端顺手压缩略图
+  $('#btnGalUpload').addEventListener('click', () => $('#galFile').click());
+  $('#galFile').addEventListener('change', async (e) => {
+    const files = [...(e.target.files || [])];
+    if (!files.length) return;
+    collect();
+    toast('正在上传 ' + files.length + ' 张…');
+    for (const f of files) {
+      try {
+        const data = await new Promise((res, rej) => {
+          const rd = new FileReader();
+          rd.onload = () => res(rd.result);
+          rd.onerror = () => rej(new Error('读文件失败'));
+          rd.readAsDataURL(f);
+        });
+        const r = await apiPost('/api/upload', { name: f.name, data, dir: 'images/gallery' });
+        items.push({
+          title: f.name.replace(/\.[^.]+$/, ''),
+          file: 'gallery/' + (r.rel || '').split('/').pop(),
+          cat: sections.length ? sections[0].id : '',
+          date: '',
+          cover: false,
+        });
+        if (r.thumb && r.thumb.ok === false) toast('缩略图没生成：' + r.thumb.error, 'err');
+      } catch (err) {
+        toast('「' + f.name + '」上传失败：' + err.message, 'err');
+      }
+    }
+    e.target.value = '';
+    await save();
+    openPanel('gallery');
+  });
+
+  // 选已有图
+  $('#btnGalPick').addEventListener('click', async () => {
+    collect();
+    collectSections();
+    await pickExistingImages({
+      sections,
+      back: () => openPanel('gallery'),
+      onPick: (files) => {
+        files.forEach((f) => {
+          items.push({
+            title: f.replace(/^.*\//, '').replace(/\.[^.]+$/, ''),
+            file: f,
+            cat: sections.length ? sections[0].id : '',
+            date: '',
+            cover: false,
+          });
+        });
+        save().then(() => openPanel('gallery'));
+      },
+    });
+  });
+
+  // 拖拽排序
+  const tb = $('#tbGal');
+  let drag = null;
+  tb.addEventListener('dragstart', (e) => {
+    const tr = e.target.closest('tr[data-i]');
+    if (!tr) { e.preventDefault(); return; }
+    drag = tr; tr.style.opacity = '.45';
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', tr.dataset.i); } catch (err) {}
+  });
+  tb.addEventListener('dragover', (e) => {
+    if (!drag) return;
+    const tr = e.target.closest('tr[data-i]');
+    if (!tr || tr === drag) return;
+    e.preventDefault();
+    const r = tr.getBoundingClientRect();
+    tb.insertBefore(drag, e.clientY > r.top + r.height / 2 ? tr.nextSibling : tr);
+  });
+  tb.addEventListener('drop', (e) => { if (drag) e.preventDefault(); });
+  tb.addEventListener('dragend', async () => {
+    if (!drag) return;
+    drag.style.opacity = ''; drag = null;
+    const order = [...tb.querySelectorAll('tr[data-i]')].map((tr) => +tr.dataset.i);
+    if (!order.some((v, k) => v !== k)) return;
+    const next = order.map((i) => items[i]);
+    items.length = 0; items.push(...next);
+    if (await save()) openPanel('gallery');
+  });
+}
+
+/* ---------- 选一张站上已有的图 ----------
+   站上 static/images/ 里已经有 100 多张图了（日记、首页、迁移过来的），
+   正文里想用它们的时候，以前只能手打路径。这里给个带缩略图的挑选器。 */
+async function pickExistingImages(opts) {
+  const d = await apiGet('/api/gallery/images');
+  const all = d.items || [];
+
+  let h = '<h2 class="sec">选站上已有的图片</h2>';
+  h += '<p class="hint">来自 <code>static/images/</code>，共 ' + all.length + ' 张。' +
+       '点一张选中，点「插入」就把它加进去 —— 不会复制文件，只是引用。</p>';
+  h += '<p><input id="galPickSearch" placeholder="按文件名筛…" style="font:inherit;padding:4px 7px;border:1px solid var(--line);border-radius:4px;width:260px"> ' +
+       '<button id="galPickInsert" class="primary">插入选中的</button> ' +
+       '<button id="galPickBack">返回</button> ' +
+       '<span class="cmt" id="galPickInfo"></span></p>';
+  h += '<div id="galPickGrid" class="galpick"></div>';
+  showPanel(h);
+
+  if (opts && opts.back) {
+    $('#galPickBack').hidden = false;
+    $('#galPickBack').addEventListener('click', opts.back);
+  } else {
+    $('#galPickBack').hidden = true;
+  }
+
+  const chosen = new Set();
+  const grid = $('#galPickGrid');
+  const info = $('#galPickInfo');
+
+  const paint = (filter) => {
+    const list = all.filter((it) => !filter || it.file.toLowerCase().includes(filter.toLowerCase()));
+    grid.innerHTML = '';
+    list.slice(0, 300).forEach((it) => {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'galpick-cell' + (chosen.has(it.file) ? ' on' : '');
+      cell.title = it.file + '（' + Math.round(it.bytes / 1024) + ' KB' + (it.thumb ? '，有缩略图' : '') + '）';
+      const im = document.createElement('img');
+      im.src = it.preview;
+      im.loading = 'lazy';
+      im.alt = '';
+      const cap = document.createElement('span');
+      cap.textContent = it.file.split('/').pop();
+      cell.append(im, cap);
+      cell.addEventListener('click', () => {
+        if (chosen.has(it.file)) chosen.delete(it.file); else chosen.add(it.file);
+        cell.classList.toggle('on', chosen.has(it.file));
+        info.textContent = chosen.size ? '已选 ' + chosen.size + ' 张' : '';
+      });
+      grid.appendChild(cell);
+    });
+    if (list.length > 300) {
+      const more = document.createElement('p');
+      more.className = 'hint';
+      more.textContent = '（只显示前 300 张，用上面的搜索缩小范围）';
+      grid.appendChild(more);
+    }
+    if (!list.length) {
+      const none = document.createElement('p');
+      none.className = 'hint';
+      none.textContent = '没有匹配的图片。';
+      grid.appendChild(none);
+    }
+  };
+  paint('');
+
+  $('#galPickSearch').addEventListener('input', (e) => paint(e.target.value.trim()));
+  $('#galPickInsert').addEventListener('click', () => {
+    if (!chosen.size) { toast('先点几张图选中', 'err'); return; }
+    const files = [...chosen];
+    if (opts && opts.onPick) { opts.onPick(files); return; }
+    // 没给回调就走「插入 <img>」的老路（正文里插图用）
+    const w = imgWidthValue();
+    let out = '';
+    files.forEach((f) => {
+      out += makeImg('/images/' + f, f.replace(/^.*\//, '').replace(/\.[^.]+$/, ''), w) + '\n';
+    });
+    insertText(out);
+    toast('已插入 ' + files.length + ' 个 <img>', 'ok');
+  });
 }
 
 /* --- 音乐播放器（侧栏最上面那条窄条） ---
@@ -1497,6 +1910,71 @@ for (const [id, key] of [['#btnBold', 'bold'], ['#btnItalic', 'italic'], ['#btnV
   });
 }
 
+/* ---------- 超链接 ----------
+   正文是原生 HTML，所以链接要写成 <a href="...">文字</a>。
+   三个常见需求：
+     · 选中文字 → 包成链接
+     · 选中的已经是链接 → 拆掉（再点一次就是取消）
+     · 没选文字但有网址 → 用网址当文字
+   地址栏记最近用过的 12 条，站内互相引用时不用每次手打。 */
+const RANGE_OPEN = '<a href="', RANGE_CLOSE = '</a>';
+const RECENT_LINKS_KEY = 'editor.recentLinks';
+
+function recentLinks() {
+  try { return JSON.parse(localStorage.getItem(RECENT_LINKS_KEY) || '[]'); } catch (e) { return []; }
+}
+function rememberLink(url) {
+  const list = [url].concat(recentLinks().filter((x) => x !== url)).slice(0, 12);
+  try { localStorage.setItem(RECENT_LINKS_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+function linkRange() {
+  const ta = $('#editor');
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  const v = ta.value;
+  const sel = v.slice(s, e);
+
+  // ① 选中的整段就是个链接 → 拆掉
+  if (/^<a\s+href="[^"]*">[\s\S]*<\/a>$/.test(sel)) {
+    const inner = sel.replace(/^<a\s+href="[^"]*">/, '').replace(/<\/a>$/, '');
+    replaceRange(s, e, inner, s, s + inner.length);
+    toast('已取消链接', 'ok');
+    return;
+  }
+  // ② 光标紧贴在链接外侧 → 拆掉
+  const before = v.slice(0, s);
+  const m = before.match(/<a\s+href="[^"]*">$/);
+  if (m && v.slice(e, e + RANGE_CLOSE.length) === RANGE_CLOSE) {
+    const openStart = s - m[0].length;
+    replaceRange(openStart, e + RANGE_CLOSE.length, sel, openStart, openStart + sel.length);
+    toast('已取消链接', 'ok');
+    return;
+  }
+
+  // ③ 问地址。记着最近用过的，常见情况点一下就完事。
+  const recent = recentLinks();
+  let hint = '地址（可以写 https://… 或站内路径 /blog/xxx/）';
+  if (recent.length) hint += '\n\n最近用过：\n' + recent.slice(0, 5).join('\n');
+  let url = window.prompt(hint, recent[0] || 'https://');
+  if (url === null) return;
+  url = url.trim();
+  if (!url) return;
+  // 光写域名的话补上 https://（站内路径以 / 开头，保持原样）
+  if (!/^(https?:|\/|#|mailto:|\.\.?\/)/i.test(url)) url = 'https://' + url;
+
+  const text = sel || url;
+  const html = RANGE_OPEN + url + '">' + text + RANGE_CLOSE;
+  replaceRange(s, e, html, s + RANGE_OPEN.length + url.length + 2, s + RANGE_OPEN.length + url.length + 2 + text.length);
+  rememberLink(url);
+  toast('已加链接：' + url, 'ok');
+}
+
+$('#btnLink').addEventListener('click', () => {
+  if (!CUR) { toast('先从左边选一个文件', 'err'); return; }
+  if ($('#editor').selectionStart === undefined) { toast('这个文件不能在编辑区加链接', 'err'); return; }
+  linkRange();
+});
+
 ['keyup', 'mouseup', 'click', 'select', 'input'].forEach((ev) =>
   $('#editor').addEventListener(ev, updateFmtButtons));
 
@@ -1505,6 +1983,7 @@ $('#editor').addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'b') { e.preventDefault(); fmtRange('bold'); }
   else if (k === 'i') { e.preventDefault(); fmtRange('italic'); }
+  else if (k === 'k') { e.preventDefault(); linkRange(); }
 });
 
 async function uploadImages(files) {
@@ -1604,7 +2083,50 @@ $('#imgWidthSel').addEventListener('change', () => {
 
 $('#btnApplyWidth').addEventListener('click', applyWidthToSelection);
 
-$('#btnInsertImg').addEventListener('click', () => $('#filePicker').click());
+$('#btnInsertImg').addEventListener('click', async () => {
+  // 两种来源：传新的（落进 static/images/），或者引用站上已经有的（不占第二份空间）
+  const choice = await askChoice('插入图片', '这张图从哪来？', [
+    { key: 'upload', label: '上传新图（选文件 / 也可以直接拖进编辑区）' },
+    { key: 'pick', label: '站上已有的图（不复制文件，只是引用）' },
+  ]);
+  if (choice === 'upload') $('#filePicker').click();
+  else if (choice === 'pick') pickExistingImages({});
+});
+
+/* 极简二选一对话框。站上别处没有这种需求，就不引库了。 */
+function askChoice(title, hint, options) {
+  return new Promise((resolve) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(12,24,40,.35)';
+    const box = document.createElement('div');
+    box.style.cssText = 'min-width:320px;padding:14px 16px;background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.2)';
+    const h = document.createElement('div');
+    h.style.cssText = 'font-weight:bold;margin-bottom:4px';
+    h.textContent = title;
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.style.margin = '0 0 10px';
+    p.textContent = hint || '';
+    box.append(h, p);
+    options.forEach((o) => {
+      const b = document.createElement('button');
+      b.textContent = o.label;
+      b.style.cssText = 'display:block;width:100%;margin-bottom:6px;text-align:left';
+      b.addEventListener('click', () => { wrap.remove(); resolve(o.key); });
+      box.appendChild(b);
+    });
+    const cancel = document.createElement('button');
+    cancel.textContent = '取消';
+    cancel.addEventListener('click', () => { wrap.remove(); resolve(null); });
+    box.appendChild(cancel);
+    wrap.appendChild(box);
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) { wrap.remove(); resolve(null); } });
+    document.body.appendChild(wrap);
+  });
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('#galPickGrid') && !$('#galPickBack').hidden) $('#galPickBack').click();
+});
 $('#filePicker').addEventListener('change', (e) => { uploadImages(e.target.files); e.target.value = ''; });
 
 ['dragenter', 'dragover'].forEach((ev) => $('#editor').addEventListener(ev, (e) => {

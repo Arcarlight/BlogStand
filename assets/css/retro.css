@@ -954,6 +954,201 @@ img { border: 0; }
   color: #a03000;
 }
 
+/* ---------- 画廊（Infinite Gallery） ----------
+   排版用「对齐行」（justified rows）：每个缩略图带 --gr = 高/宽，靠 flex-grow
+   按比例分配宽度，于是**每行等高、整行填满**。这样既不像固定方格那样裁画，
+   也不会让一张竖图把整行撑出一片空白。
+
+   每行的目标高度由 --gal-row 控制（默认 150px）：一行放不下就换行，
+   flex-wrap 自己处理。图片保留原生宽高比，不裁不拉伸。 */
+.gal { margin-bottom: 10px; }
+
+.gal-toc {
+  padding: 6px 8px;
+  margin-bottom: 10px;
+  font-size: var(--px-sm, 11px) !important;
+  list-style: none;
+  text-align: center;
+  background: #eef5fd;
+  border: 1px solid #c3d9ef;
+}
+
+.gal-toc li { display: inline; }
+
+.gal-toc li + li::before {
+  margin: 0 6px;
+  color: #9bb4cc;
+  content: "|";
+}
+
+.gal-toc a { color: #0033cc; }
+
+.gal-sec { margin-bottom: 14px; }
+
+.gal-h {
+  margin: 10px 0 2px;
+  font-size: var(--px-lg, 15px) !important;
+  line-height: 1.4;
+  color: #123f70;
+  text-align: center;
+}
+
+.gal-desc {
+  margin: 0 0 8px;
+  font-size: var(--px-sm, 11px) !important;
+  line-height: 1.6;
+  color: #7488a0;
+  text-align: center;
+}
+
+.gal-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* flex-basis 按比例给个基准，flex-grow 拿走剩余空间 —— 一行拼满为止。
+   min-width 防止极端比例的图单独占一整行。 */
+.gal-item {
+  flex: var(--gr, 1) 1 calc(var(--gal-row, 150px) / var(--gr, 1));
+  min-width: 76px;
+  margin: 0;
+}
+
+.gal-link { display: block; text-decoration: none; }
+
+.gal-pic {
+  display: block;
+  overflow: hidden;
+  background: #fbfdff;
+  border: 1px solid #c3d9ef;
+}
+
+/* 高度交给 flex 行决定，宽度拉满，靠 object-fit 保证不变形。
+   注意 .entry-content img 那条 max-width:100% + height:auto 会把高度按回 auto
+   （一行就不等高了），所以这里必须 !important。 */
+.gal-pic img {
+  display: block;
+  width: 100% !important;
+  height: var(--gal-row, 150px) !important;
+  max-width: none !important;
+  object-fit: contain;
+}
+
+.gal-link:hover .gal-pic { border-color: #3b6ea5; }
+.gal-link:hover .gal-title { text-decoration: underline; }
+
+.gal-meta {
+  padding: 2px 1px 4px;
+  line-height: 1.45;
+}
+
+.gal-title {
+  display: block;
+  overflow: hidden;
+  font-size: var(--px-sm, 11px) !important;
+  color: #0033cc;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.gal-date {
+  display: block;
+  font-size: var(--px-sm, 11px) !important;
+  color: #7488a0;
+  text-align: center;
+}
+
+.gal-empty {
+  margin: 4px 0 10px;
+  font-size: var(--px-sm, 11px) !important;
+  color: #7488a0;
+  text-align: center;
+}
+
+/* 窄一点的屏幕把行高调小，一行自然多放几张 */
+@media (max-width: 900px) {
+  .gal { --gal-row: 128px; }
+}
+
+@media (max-width: 620px) {
+  .gal { --gal-row: 104px; }
+  .gal-item { min-width: 60px; }
+}
+
+/* ---------- 画廊的看大图弹层 ---------- */
+html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
+
+.gal-lb {
+  position: fixed;
+  z-index: 999;
+  inset: 0;
+  background: rgba(8, 18, 32, 0.88);
+}
+
+.gal-lb-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 34px 42px 22px;
+}
+
+.gal-lb-fig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+}
+
+.gal-lb-img {
+  max-width: 100% !important;
+  max-height: calc(100vh - 120px);
+  background: #ffffff;
+  border: 3px solid #e8eef6;
+  box-shadow: 0 0 0 1px #0b1a2b, 4px 4px 0 rgba(0, 0, 0, 0.35);
+}
+
+.gal-lb-cap {
+  padding-top: 8px;
+  font-size: var(--px-sm, 11px) !important;
+  line-height: 1.6;
+  color: #dfe9f4;
+  text-align: center;
+}
+
+.gal-lb-title { color: #ffffff; }
+.gal-lb-date { margin-left: 4px; color: #a9c2da; }
+.gal-lb-count { margin-left: 8px; color: #7f9db9; }
+
+.gal-lb button {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: #eaf2fb;
+  cursor: pointer;
+  background: rgba(59, 110, 165, 0.9);
+  border: 1px solid #cfe0f2;
+}
+
+.gal-lb button:hover { background: #4b81bd; }
+
+.gal-lb-close { top: 8px; right: 10px; }
+.gal-lb-prev { top: 50%; left: 6px; margin-top: -15px; }
+.gal-lb-next { top: 50%; right: 6px; margin-top: -15px; }
+
 /* 搜索框 */
 .search-form { overflow: hidden; }
 

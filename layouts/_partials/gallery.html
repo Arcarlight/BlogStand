@@ -1,0 +1,113 @@
+{{/* ============================================================
+     画廊（Infinite Gallery）
+
+     数据在 data/gallery.toml：
+       [[sections]] 分类（id 是锚点，name 是标题，desc 是标题下那行灰字）
+       [[items]]    每张画（title / file / cat / date / cover）
+
+     为什么缩略图不是 Hugo 生成的：Hugo 的图片管线只认 assets/（resources.Get
+     读不到 static/），而这个站所有图都在 static/images/ 下。所以缩略图在
+     「编辑器上传那一刻」就由 tools/make-thumb.py 压好，跟原图放同目录、
+     同名加 .webp。这里只是「有就用、没有就用原图」——
+     等于零构建开销，也不会因为一张图没压过就让构建变慢。
+
+     img 都带 width/height（imageConfig 读出来的真实尺寸）+ aspect-ratio，
+     所以图没加载完也不会跳版；再加上 loading=lazy，几十张画也只有首屏那几张
+     会真正下载。
+     ============================================================ */}}
+{{ $g := hugo.Data.gallery }}
+{{ $sections := $g.sections | default slice }}
+{{ $items := $g.items | default slice }}
+
+{{/* 缩略图：统一放 static/images/gallery/thumbs/，文件名是「相对 /images/ 的路径
+     把 / 换成 __」再加 .webp。没有就用原图 —— 只是想省带宽，不是必须品。
+     （Hugo 的图片管线读不到 static/，所以缩略图是编辑器上传/点按时用
+     tools/make-thumb.py 生成的，构建期零开销。） */}}
+{{ $thumbs := dict }}
+{{ range $items }}
+  {{ $f := .file | default "" }}
+  {{ if $f }}
+    {{ if ne (lower (path.Ext $f)) ".webp" }}
+      {{ $base := strings.TrimSuffix (path.Ext $f) $f }}
+      {{ $name := replace $base "/" "__" }}
+      {{ $wp := printf "gallery/thumbs/%s.webp" $name }}
+      {{ if fileExists (printf "static/images/%s" $wp) }}
+        {{ $thumbs = merge $thumbs (dict $f $wp) }}
+      {{ end }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+
+<div class="gal">
+  <ul class="gal-toc">
+    {{ range $sections }}
+    <li><a href="#{{ .id }}">{{ .name }}</a></li>
+    {{ end }}
+  </ul>
+
+  {{ range $sections }}
+    {{ $sec := . }}
+    {{ $list := where $items "cat" $sec.id }}
+    {{/* 排序：封面最前，其余按日期从新到旧，没日期的排最后（按标题）。
+         注意封面那条要从后面的列表里剔除 —— 否则会被追加两次（踩过）。 */}}
+    {{ $cover := slice }}
+    {{ $rest := slice }}
+    {{ range $list }}
+      {{ if .cover }}{{ $cover = $cover | append . }}{{ else }}{{ $rest = $rest | append . }}{{ end }}
+    {{ end }}
+    {{ $dated := slice }}
+    {{ $undated := slice }}
+    {{ range $rest }}
+      {{ if .date }}{{ $dated = $dated | append . }}{{ else }}{{ $undated = $undated | append . }}{{ end }}
+    {{ end }}
+    {{ $ordered := $cover }}
+    {{ range sort $dated "date" "desc" }}{{ $ordered = $ordered | append . }}{{ end }}
+    {{ range sort $undated "title" "asc" }}{{ $ordered = $ordered | append . }}{{ end }}
+
+    <section class="gal-sec">
+      <h1 class="gal-h"><span id="{{ $sec.id }}">{{ $sec.name }}</span></h1>
+      {{ with $sec.desc }}<p class="gal-desc">{{ . }}</p>{{ end }}
+      {{ if $ordered }}
+      <ul class="gal-grid">
+        {{ range $ordered }}
+          {{ $f := .file | default "" }}
+          {{ if $f }}
+            {{ $thumb := index $thumbs $f | default $f }}
+            {{ $src := printf "images/%s" $thumb | absURL }}
+            {{ $full := printf "images/%s" $f | absURL }}
+            {{ $w := 0 }}{{ $h := 0 }}
+            {{ with (imageConfig (printf "static/images/%s" $f)) }}{{ $w = .Width }}{{ $h = .Height }}{{ end }}
+            {{ $ratio := "1" }}
+            {{ if and $w $h }}{{ $ratio = printf "%.4f" (div (float $h) (float $w)) }}{{ end }}
+            <li class="gal-item" style="--gr: {{ $ratio }}">
+              <a class="gal-link" href="{{ $full }}" data-full="{{ $full }}"
+                 data-title="{{ .title }}"{{ with .date }} data-date="{{ . }}"{{ end }}>
+                <span class="gal-pic">
+                  <img src="{{ $src }}" alt="{{ .title }}" loading="lazy"
+                       {{ with $w }}width="{{ . }}"{{ end }}{{ with $h }} height="{{ . }}"{{ end }}>
+                </span>
+              </a>
+              <div class="gal-meta">
+                <span class="gal-title">{{ .title }}</span>
+                {{ with .date }}<span class="gal-date">{{ . }}</span>{{ end }}
+              </div>
+            </li>
+          {{ end }}
+        {{ end }}
+      </ul>
+      {{ else }}
+      <p class="gal-empty">这个分类还没有画。</p>
+      {{ end }}
+    </section>
+  {{ end }}
+
+  {{ if not $sections }}
+  <p class="gal-empty">data/gallery.toml 里还没有分类。</p>
+  {{ end }}
+</div>
+
+{{/* 点开看大图的弹层。脚本很小，只为画廊这一页加载。 */}}
+{{ if not (.Page.Scratch.Get "galScript") }}
+  {{ .Page.Scratch.Set "galScript" true }}
+  <script src="{{ "js/gallery.js" | relURL }}" defer></script>
+{{ end }}

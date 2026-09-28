@@ -735,7 +735,58 @@ try {
   pythonOk = true;
 } catch { /* 没装 python 也能编辑，只是生成不了 JSON */ }
 
+/* 图片缩略图：调用 tools/make-thumb.py（只需要 Pillow）。
+   失败不抛错 —— 缩略图是优化，不该拦住上传本身；
+   把原因记在返回值里，面板上能看见。 */
+function runThumbScript(srcRel, dstRel) {
+  const script = path.join(ROOT, 'tools', 'make-thumb.py');
+  try {
+    const r = execFileSync(PYTHON, [script, srcRel.replace(/\//g, path.sep), dstRel.replace(/\//g, path.sep), '520'],
+      { encoding: 'utf8', cwd: ROOT, windowsHide: true, timeout: 60000 });
+    return JSON.parse(String(r).trim());
+  } catch (e) {
+    const raw = String((e.stdout || e.stderr || e.message || '')).trim();
+    let detail = raw;
+    try { detail = JSON.parse(raw).error || raw; } catch { /* 原样 */ }
+    return { ok: false, error: String(detail).slice(0, 300) };
+  }
+}
+
+/* 缩略图统一放 static/images/gallery/thumbs/，文件名里的 / 换成 __。
+   为什么不跟原图放一起：画廊可以直接引用站上任意已有图片，缩略图要是放在
+   原图旁边，static/images/ 那 110 个文件里会被掺进一堆 .webp（而且以后每加
+   一张画就多一个同名文件）。集中一处，找也好找、删也好删。
+   rel 是相对 /images/ 的路径，例如 gallery/AngheSan.jpg -> gallery/thumbs/gallery__AngheSan.webp */
+function thumbRelFor(rel) {
+  const clean = String(rel || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  const name = clean.replace(/\.[^.]+$/, '').replace(/\//g, '__');
+  return `static/images/gallery/thumbs/${name}.webp`;
+}
+
+
+const GALLERY_HEADER = `# ============================================================
+#  画廊（Infinite Gallery）—— 画作清单
+#
+#  由编辑器左侧「画作」面板维护，手改也行。
+#  页面 content/gallery.md 正文里只写一行 {{< gallery >}}，
+#  分类小节和缩略图网格都由这个文件生成。
+#
+#  一张画：
+#    title = "画的名字"         必填
+#    file  = "xxx.png"          必填 —— 相对 /images/ 的路径。
+#                               编辑器上传的会落在 gallery/ 下，写 "gallery/xxx.png"
+#    cat   = "hoshihum"         必填 —— 属于哪个分类（用分类的 id）
+#    date  = "2026-08-07"       选填 —— 创作日期，没有就留空
+#    cover = true               选填 —— 这张当分类封面（排最前）
+#
+#  分类：id 是页面锚点，改了旧链接会失效；desc 是标题下面那行灰色说明。
+#
+#  缩略图在 static/images/gallery/thumbs/（由编辑器上传/点按时生成），
+#  没有缩略图就用原图，不影响显示。
+# ============================================================`;
+
 // data/*.toml 里那几张 [[items]] 列表：接口 /api/list/<key> 用这张表
+// （依赖下面那些 *_HEADER 常量：const 有暂时性死区，这一块必须排在它们之后）
 const DATA_LISTS = {
   links:   { file: 'data/links.toml',   keys: ['name', 'url', 'desc'],               header: LINKS_HEADER },
   buttons: { file: 'data/buttons.toml', keys: ['line1', 'line2', 'url', 'bg', 'fg'], header: BUTTONS_HEADER },
@@ -743,7 +794,11 @@ const DATA_LISTS = {
   notices: { file: 'data/notices.toml', keys: ['date', 'text', 'url'],               header: NOTICES_HEADER },
   // 音乐这份的段落名是 [[tracks]] 而不是 [[items]]，所以要单独写盘（见下面的分支）
   music:   { file: 'data/music.toml',   keys: ['file', 'title', 'artist'],           header: MUSIC_HEADER, section: 'tracks', music: true },
+  // 画廊：两份列表（分类 sections + 画作 items），走字符串直出，见 writeGalleryFile
+  gallery: { file: 'data/gallery.toml', keys: ['title', 'file', 'cat', 'date', 'cover'], header: GALLERY_HEADER, gallery: true },
 };
+
+
 
 /* ============================================================
    音乐播放器：音频上传 + 「文件在不在」检查
@@ -812,6 +867,57 @@ async function readMusicFile() {
     title: (head.match(/^\s*title\s*=\s*"([^"]*)"/m) || [])[1] ?? '音乐',
   };
 }
+
+/* ============================================================
+   画廊（data/gallery.toml）
+   ------------------------------------------------------------
+   这份文件有两段列表：[[sections]]（分类）和 [[items]]（画作）。
+   都按「同类型相邻、用空行分隔」的规范形状写出来，
+   和 data/music.toml 那边同一个思路（解析器也是按空行断段的）。
+   ============================================================ */
+
+/** 从现有文件里抠出分类（保序，编辑器一直整份重写，所以不用管注释） */
+function parseGallerySections(text) {
+  const out = [];
+  let cur = null;
+  let inSec = false;
+  for (const line of String(text).split(/\r?\n/)) {
+    const t = line.trim();
+    if (t === '[[sections]]') { cur = {}; out.push(cur); inSec = true; continue; }
+    if (t === '[[items]]') { cur = null; inSec = false; continue; }
+    if (!inSec) continue;
+    if (!t) { cur = null; continue; }
+    if (t.startsWith('#')) continue;
+    if (!cur) continue;
+    const m = t.match(/^([A-Za-z0-9_]+)\s*=\s*"(.*)"\s*$/);
+    if (m) cur[m[1]] = m[2].replace(/\\"/g, '"');
+  }
+  return out;
+}
+
+const tomlStr = (v) => String(v ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+function writeGalleryFile(header, sections, items) {
+  const out = [header.trimEnd(), ''];
+  for (const s of sections) {
+    out.push('[[sections]]');
+    out.push(`  id = "${tomlStr(s.id)}"`);
+    out.push(`  name = "${tomlStr(s.name)}"`);
+    out.push(`  desc = "${tomlStr(s.desc)}"`);
+    out.push('');
+  }
+  for (const it of items) {
+    out.push('[[items]]');
+    out.push(`  title = "${tomlStr(it.title)}"`);
+    out.push(`  file = "${tomlStr(it.file)}"`);
+    out.push(`  cat = "${tomlStr(it.cat)}"`);
+    out.push(`  date = "${tomlStr(it.date)}"`);
+    if (it.cover) out.push('  cover = true');
+    out.push('');
+  }
+  return out.join('\n');
+}
+
 
 /* ============================================================
    脚本管理
@@ -1231,16 +1337,98 @@ async function handle(req, res, url) {
     return json(res, 200, { ok: true, p: rel, navSync });
   }
 
-  /* ---------- 图片上传（拖拽 / 选择）---------- */
+  /* 列出 static/images 下的图（相对 /images/ 的路径 + 有没有缩略图 + 大小）。
+     「画作」面板用它让站长直接引用站上已有的图，不用为了进画廊再传一份。
+     缩略图放在 static/images/gallery/thumbs/，文件名里的 / 换成 __。 */
+  if (p === '/api/gallery/images' && req.method === 'GET') {
+    const root = safePath('static/images');
+    const IMG = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif']);
+    const list = [];
+    async function walk(dir, rel) {
+      let entries = [];
+      try { entries = await fsp.readdir(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        if (e.name.startsWith('.')) continue;
+        if (rel === '' && e.isDirectory() && e.name === 'gallery') continue;  // gallery 单独扫，跳过它自己的 thumbs
+        const full = path.join(dir, e.name);
+        const r = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) {
+          if (e.name === 'thumbs') continue;
+          await walk(full, r);
+          continue;
+        }
+        const ext = path.extname(e.name).toLowerCase();
+        if (!IMG.has(ext)) continue;
+        const st = await fsp.stat(full).catch(() => null);
+        if (!st) continue;
+        const thumbRel = thumbRelFor(r);
+        const hasThumb = await fsp.stat(safePath(thumbRel)).catch(() => null);
+        // 面板里要拿它当预览图：有缩略图就用缩略图，否则用原图（小的也够用）
+        const preview = hasThumb ? thumbRel.replace(/^static\//, '') : `images/${r}`;
+        list.push({ file: r, bytes: st.size, thumb: !!hasThumb, preview: '/' + preview });
+      }
+    }
+    await walk(root, '');
+    await walk(path.join(root, 'gallery'), 'gallery');
+    list.sort((a, b) => a.file.localeCompare(b.file));
+    return json(res, 200, { items: list, count: list.length });
+  }
+
+  /* 给指定的图补生成缩略图。只处理「需要且还没有」的，重复跑是安全的。
+     传进来的是相对 /images/ 的路径（和列表里给的一致）。 */
+  if (p === '/api/gallery/thumbs' && req.method === 'POST') {
+    const { files } = await readBody(req);
+    if (!Array.isArray(files) || !files.length) throw new Error('要给哪些图生成缩略图？');
+    const done = [];
+    for (const f of files) {
+      const rel = String(f || '').replace(/\\/g, '/').replace(/^\/+/, '');
+      if (!rel || rel.includes('..') || rel.startsWith('static')) {
+        done.push({ file: rel, ok: false, error: '路径不合法' });
+        continue;
+      }
+      if (path.extname(rel).toLowerCase() === '.webp') {
+        done.push({ file: rel, ok: true, skipped: '本来就是 webp' });
+        continue;
+      }
+      if (!await fsp.stat(safePath(`static/images/${rel}`)).catch(() => null)) {
+        done.push({ file: rel, ok: false, error: '找不到这个文件' });
+        continue;
+      }
+      const dst = thumbRelFor(rel);
+      if (await fsp.stat(safePath(dst)).catch(() => null)) {
+        done.push({ file: rel, ok: true, skipped: '已经有缩略图了' });
+        continue;
+      }
+      const r = runThumbScript(`static/images/${rel}`, dst);
+      done.push(Object.assign({ file: rel }, r));
+    }
+    const failed = done.filter((x) => x.ok === false);
+    return json(res, 200, { ok: failed.length === 0, done, failed: failed.length });
+  }
+
+  /* ---------- 图片上传（拖拽 / 选择）----------
+     默认落到 static/images/（正文插图用）。
+     dir 可以指定 static/images 下的子目录（画廊面板传 images/gallery），
+     此时顺手用 tools/make-thumb.py 生成一张 webp 缩略图 —— 画廊一页几十张画，
+     直接上原图就是几十 MB，缩略图让首屏只背几十 KB。（Hugo 的图片管线读不到
+     static/，所以这一步只能在上传时做。）缩略图失败不影响上传本身。 */
   if (p === '/api/upload' && req.method === 'POST') {
-    const { name, data } = await readBody(req);
+    const { name, data, dir: wantDir, thumb: wantThumb } = await readBody(req);
     if (!data) throw new Error('没有收到图片数据');
     const buf = Buffer.from(String(data).replace(/^data:[^;]+;base64,/, ''), 'base64');
     if (!buf.length) throw new Error('图片是空的');
 
     let clean = String(name || 'image').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '-');
     if (!/\.[a-z0-9]+$/i.test(clean)) clean += '.png';
-    const dir = 'static/images';
+
+    let dir = 'static/images';
+    if (wantDir) {
+      const sub = String(wantDir).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+      if (sub.includes('..') || !/^images(\/[A-Za-z0-9._-]+)*$/.test(sub)) {
+        throw new Error('目录只能是 static/images 下面的子目录：' + sub);
+      }
+      dir = 'static/' + sub;
+    }
     await fsp.mkdir(safePath(dir), { recursive: true });
 
     // 重名就加序号
@@ -1251,7 +1439,17 @@ async function handle(req, res, url) {
       final = `${stem}-${n++}${ext}`;
     }
     await fsp.writeFile(safePath(`${dir}/${final}`), buf);
-    return json(res, 200, { ok: true, url: '/images/' + final, rel: `${dir}/${final}`, bytes: buf.length });
+
+    const rel = `${dir}/${final}`;
+    const out = { ok: true, url: '/' + rel.replace(/^static\//, ''), rel, bytes: buf.length };
+
+    // 画廊那种大图：顺手压一张缩略图（统一放 gallery/thumbs/）
+    if (wantThumb !== false && dir !== 'static/images') {
+      const relFromImages = rel.replace(/^static\/images\//, '');
+      const r = runThumbScript('static/' + rel.replace(/^static\//, ''), thumbRelFor(relFromImages));
+      out.thumb = r;
+    }
+    return json(res, 200, out);
   }
 
   /* ---------- 音频上传（音乐播放器用） ----------
@@ -1364,12 +1562,23 @@ async function handle(req, res, url) {
     if (!spec) return json(res, 404, { error: '没有这个列表：' + which });
 
     if (req.method === 'GET') {
-      const items = parseItems(await readText(spec.file));
+      const raw = await readText(spec.file);
+      const items = parseItems(raw);
       // 音乐这份顺带告诉自己（和编辑器）哪些音频其实不在
       if (spec.music) {
         const status = await musicFileStatus(items);
         return json(res, 200, { items, keys: spec.keys, status,
           missing: status.filter((s) => !s.exists && !s.external).map((s) => s.file) });
+      }
+      // 画廊：分类也一起给，面板还要用它当下拉框；顺带报「图片文件不在」的
+      if (spec.gallery) {
+        const sections = parseGallerySections(raw);
+        const missing = [];
+        for (const it of items) {
+          const f = String(it.file || '').trim();
+          if (f && !await fsp.stat(safePath(`static/images/${f}`)).catch(() => null)) missing.push(f);
+        }
+        return json(res, 200, { items, sections, keys: spec.keys, missing });
       }
       return json(res, 200, { items, keys: spec.keys });
     }
@@ -1396,6 +1605,57 @@ async function handle(req, res, url) {
       const status = await musicFileStatus(clean);
       return json(res, 200, { ok: true, count: clean.length, status,
         missing: status.filter((s) => !s.exists && !s.external).map((s) => s.file) });
+    }
+
+    if (which === 'gallery') {
+      const body = await readBody(req);
+      const rawItems = Array.isArray(body.items) ? body.items : [];
+      const rawSections = Array.isArray(body.sections) ? body.sections : null;
+
+      const sections = (rawSections || parseGallerySections(await readText(spec.file)))
+        .map((s) => ({
+          id: String(s.id || '').trim(),
+          name: String(s.name || '').trim(),
+          desc: String(s.desc || '').trim(),
+        }))
+        .filter((s) => s.id && s.name);
+      for (const s of sections) {
+        if (!/^[A-Za-z0-9_-]+$/.test(s.id)) {
+          throw new Error('分类 id 只能用字母数字和 - _（它是页面锚点）：「' + s.id + '」');
+        }
+      }
+      const ids = new Set(sections.map((s) => s.id));
+      if (ids.size !== sections.length) throw new Error('分类 id 有重复');
+
+      const clean = rawItems
+        .map((it) => ({
+          title: String(it.title || '').trim(),
+          file: String(it.file || '').trim().replace(/\\/g, '/').replace(/^\/+/, '').replace(/^images\//, ''),
+          cat: String(it.cat || '').trim(),
+          date: String(it.date || '').trim().slice(0, 10),
+          cover: !!it.cover,
+        }))
+        .filter((it) => it.title || it.file);
+
+      for (const it of clean) {
+        if (!it.file) throw new Error(`「${it.title || '（没写标题）'}」还没选图片`);
+        if (it.file.includes('..')) throw new Error('图片路径不能带 ..：「' + it.file + '」');
+        if (!it.cat) throw new Error(`「${it.title || it.file}」还没选分类`);
+        if (!ids.has(it.cat)) throw new Error(`「${it.title || it.file}」的分类不认识：${it.cat}`);
+        if (it.date && !/^\d{4}-\d{2}-\d{2}$/.test(it.date)) {
+          throw new Error(`创作日期要写成 YYYY-MM-DD：「${it.date}」`);
+        }
+        if (!/[."']$/.test(it.file) && !/\.[A-Za-z0-9]+$/.test(it.file)) {
+          throw new Error(`图片路径要带扩展名：「${it.file}」`);
+        }
+      }
+
+      await writeText(spec.file, writeGalleryFile(GALLERY_HEADER, sections, clean));
+      const missing = [];
+      for (const it of clean) {
+        if (!await fsp.stat(safePath(`static/images/${it.file}`)).catch(() => null)) missing.push(it.file);
+      }
+      return json(res, 200, { ok: true, count: clean.length, sections: sections.length, missing });
     }
 
     if (which === 'updates' || which === 'notices') {
