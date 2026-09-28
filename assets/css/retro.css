@@ -1193,23 +1193,39 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
 
 .gal-lb button {
   position: absolute;
-  width: 30px;
-  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   padding: 0;
-  font-family: inherit;
-  font-size: 16px;
-  line-height: 1;
   color: #eaf2fb;
   cursor: pointer;
-  background: rgba(59, 110, 165, 0.9);
+  background: rgba(59, 110, 165, 0.92);
   border: 1px solid #cfe0f2;
 }
 
-.gal-lb button:hover { background: #4b81bd; }
+/* 图标是内联 SVG（不是字体字符）—— 点阵字库里没有 ‹ › × 的字形，
+   用字符的话按钮会是个空框（站长截图报过这个问题）。 */
+.gal-lb button svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
 
-.gal-lb-close { top: 8px; right: 10px; }
-.gal-lb-prev { top: 50%; left: 6px; margin-top: -15px; }
-.gal-lb-next { top: 50%; right: 6px; margin-top: -15px; }
+.gal-lb button:hover {
+  color: #ffffff;
+  background: #4b81bd;
+}
+
+.gal-lb button:focus-visible {
+  outline: 2px solid #ffcc66;
+  outline-offset: 2px;
+}
+
+.gal-lb-close { top: 10px; right: 12px; }
+.gal-lb-prev { top: 50%; left: 10px; margin-top: -17px; }
+.gal-lb-next { top: 50%; right: 10px; margin-top: -17px; }
 
 /* 搜索框 */
 .search-form { overflow: hidden; }
