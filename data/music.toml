@@ -12,5 +12,56 @@
 #
 #  一首都没填时，侧栏那条播放器整个不显示。
 # ============================================================
+
 assetDir = "music/"
 title = "音乐"
+
+[[tracks]]
+  file = "iforest.mp3"
+  title = "氷結の森"
+  artist = "ポケットサウンド"
+
+[[tracks]]
+  file = "Blackglass.mp3"
+  title = "黑硝子"
+  artist = "FICUSEL"
+
+[[tracks]]
+  file = "littlewing.mp3"
+  title = "Little wing"
+  artist = "よこやまなおき"
+
+[[tracks]]
+  file = "Natsuyoru_Noname.mp3"
+  title = "已失传"
+  artist = "已失传"
+
+[[tracks]]
+  file = "Sirius.mp3"
+  title = "Sirius"
+  artist = "颯遊離"
+
+[[tracks]]
+  file = "Strawhat.mp3"
+  title = "小さな麦わら帽子"
+  artist = "もともとP"
+
+[[tracks]]
+  file = "tukuyomi.mp3"
+  title = "月読"
+  artist = "涼椰"
+
+[[tracks]]
+  file = "誰も時を刻まない.mp3"
+  title = "青い海に映れ雲よ"
+  artist = "デジファミ音楽堂"
+
+[[tracks]]
+  file = "Nightmare_reverse.mp3"
+  title = "銀の翼"
+  artist = "Azell"
+
+[[tracks]]
+  file = "Dreamsakura_kairyu.mp3"
+  title = "夢桜"
+  artist = "海龍"
