@@ -54,6 +54,11 @@
   name = "网站用"
   desc = "网站上使用的装饰插图（日记里出现的图不记在这里）。"
 
+[[sections]]
+  id = "tobitaiaaken"
+  name = "想要飞的始祖小鸟"
+  desc = "想要飞的始祖小鸟相关图片，正在火热制作中。"
+
 [[items]]
   title = "在2026年6月之前暂时使用的星虹箱头图"
   file = "migrated/me-Sprite.png"
@@ -79,10 +84,11 @@
   date = ""
 
 [[items]]
-  title = "星虹箱头图2号"
+  title = "星虹巢头图2号"
   file = "Hoshinijisou-Banner2.png"
   cat = "websiteuse"
   date = "2026-09-17"
+  desc = "星虹巢的第二号头图。封面是虹星（沙漠蜻蜓）和符利根。"
 
 [[items]]
   title = "欧亚西莉亚"
@@ -124,7 +130,8 @@
   title = "远行"
   file = "migrated/enkou.png"
   cat = "pkmnflya"
-  date = ""
+  date = "2026-09-01"
+  desc = "象征着暑假结束，要返回学校的图。"
 
 [[items]]
   title = "星原的沙漠蜻蜓"
@@ -197,3 +204,84 @@
   file = "Tabeburi.png"
   cat = "pkmnflya"
   date = ""
+
+[[items]]
+  title = "星虹巢头图1号"
+  file = "migrated/Hoshinijisou-Banner1.png"
+  cat = "websiteuse"
+  date = "2026-06-19"
+  desc = "星虹巢的第一张头图。在那之前，星虹箱用的一直都是“博客主站”中的早期图。"
+
+[[items]]
+  title = "虹星（沙漠蜻蜓本蜓）"
+  file = "migrated/Hoshi-Flygon.jpg"
+  cat = "websiteuse"
+  date = ""
+  desc = "虹星在tbtak中使用的头图一角。"
+
+[[items]]
+  title = "网站缩略图"
+  file = "migrated/Webpic.png"
+  cat = "websiteuse"
+  date = ""
+
+[[items]]
+  title = "守卫者与恐龙"
+  file = "migrated/Guardian-Et-Dino.png"
+  cat = "theothers"
+  date = "2026-07-26"
+  desc = "某夜听到MIMI的《Trick Heart》后激动得爬起来画了的同人图。"
+
+[[items]]
+  title = "合众三猴"
+  file = "migrated/issue3m.png"
+  cat = "pkmn"
+  date = ""
+  desc = "来自tbtak中三猴的立绘。"
+
+[[items]]
+  title = "星虹巢Banner（窄）"
+  file = "migrated/Nijiboshi-Sou-Banner.png"
+  cat = "websiteuse"
+  date = ""
+
+[[items]]
+  title = "星虹巢Banner（宽）"
+  file = "migrated/Nijiboshi-Sou-Banner-20048.png"
+  cat = "websiteuse"
+  date = ""
+
+[[items]]
+  title = "想要飞的始祖小鸟CG01"
+  file = "migrated/CG-01.png"
+  cat = "tobitaiaaken"
+  date = ""
+  desc = "天上飞过了小箭雀"
+
+[[items]]
+  title = "符利根立绘（新）"
+  file = "migrated/Fliegen-sprite-cut.png"
+  cat = "tobitaiaaken"
+  date = ""
+  desc = "重置版的立绘。"
+
+[[items]]
+  title = "德蕊艾德·庞特斯·以格尼斯"
+  file = "migrated/Actors-Script-Sm.png"
+  cat = "tobitaiaaken"
+  date = ""
+  desc = "三小只的立绘。"
+
+[[items]]
+  title = "半推半就"
+  file = "gallery/fakeout.png"
+  cat = "pkmnflya"
+  date = "2026-09-03"
+  desc = "暑假结束后，作为画画不停歇证据的一张。"
+
+[[items]]
+  title = "飞盘"
+  file = "gallery/FlyingDisk.PNG"
+  cat = "pkmnflya"
+  date = "2026-08-31"
+  desc = "neta节奏天国飞盘的图。好好画了背景。"
