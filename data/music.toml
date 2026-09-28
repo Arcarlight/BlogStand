@@ -36,14 +36,3 @@ title = "音乐"
 #   file = "sample.mp3"
 #   title = "曲名"
 #   artist = "作者"
-
-# ---- 临时线上验证用（验完就删）----
-[[tracks]]
-  file = "_test-tone.wav"
-  title = "测试音"
-  artist = "线上验证"
-
-[[tracks]]
-  file = "does-not-exist.mp3"
-  title = "故意放不出来的那首"
-  artist = "线上验证"

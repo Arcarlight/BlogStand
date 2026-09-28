@@ -1,0 +1,2 @@
+# 这个文件只是为了让 git 保留 static/music/ 空目录。
+# 音频文件直接丢这个文件夹里，然后在 data/music.toml 里登记曲目。
