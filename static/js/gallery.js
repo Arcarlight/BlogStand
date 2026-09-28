@@ -33,6 +33,7 @@
       '    <figcaption class="gal-lb-cap"><span class="gal-lb-title"></span>' +
       '      <span class="gal-lb-date"></span>' +
       '      <span class="gal-lb-count"></span></figcaption>' +
+      '    <p class="gal-lb-desc" hidden></p>' +
       '  </figure>' +
       '</div>';
     document.body.appendChild(overlay);
@@ -75,6 +76,9 @@
     overlay.querySelector('.gal-lb-title').textContent = it.title || '';
     var d = overlay.querySelector('.gal-lb-date');
     d.textContent = it.date ? '（' + it.date + '）' : '';
+    var ds = overlay.querySelector('.gal-lb-desc');
+    ds.textContent = it.desc || '';
+    ds.hidden = !it.desc;
     overlay.querySelector('.gal-lb-count').textContent =
       items.length > 1 ? (idx + 1) + ' / ' + items.length : '';
     overlay.querySelector('.gal-lb-prev').hidden = items.length < 2;
@@ -86,6 +90,7 @@
   function open(list, i) {
     items = list;
     if (!overlay) build();
+    hideCard();                              // 悬浮卡别挡着弹层
     lastFocus = document.activeElement;
     overlay.hidden = false;
     document.documentElement.classList.add('gal-lb-open');
@@ -100,6 +105,9 @@
     var img = overlay.querySelector('.gal-lb-img');
     img.removeAttribute('src');               // 放掉大图
     img.alt = '';
+    var ds = overlay.querySelector('.gal-lb-desc');
+    ds.textContent = '';
+    ds.hidden = true;
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
 
@@ -110,7 +118,8 @@
       return {
         full: a.getAttribute('data-full') || a.getAttribute('href'),
         title: a.getAttribute('data-title') || '',
-        date: a.getAttribute('data-date') || ''
+        date: a.getAttribute('data-date') || '',
+        desc: a.getAttribute('data-desc') || ''
       };
     });
     links.forEach(function (a, i) {
@@ -121,6 +130,66 @@
         open(list, i);
       });
     });
+
+    /* ---- 悬浮预览：鼠标停在缩略图上，旁边浮出「大一点的图 + 简介」 ----
+       用缩略图而不是原图：缩略图早就在缓存里了，悬浮是即时反应；
+       真想看原图点一下（弹层那一刻才拉原图）。
+       触屏没有 hover，那边走点击弹层，不受影响。 */
+    if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
+      links.forEach(function (a) {
+        a.addEventListener('mouseenter', function (e) { showCard(a, e); });
+        a.addEventListener('mousemove', moveCard);
+        a.addEventListener('mouseleave', hideCard);
+        a.addEventListener('click', hideCard);
+      });
+      window.addEventListener('scroll', hideCard, { passive: true });
+    }
+  }
+
+  var card = null, cardImg = null, cardTitle = null, cardDesc = null;
+
+  function buildCard() {
+    card = document.createElement('div');
+    card.className = 'gal-card';
+    card.hidden = true;
+    card.setAttribute('aria-hidden', 'true');
+    card.innerHTML = '<img class="gal-card-img" alt="">' +
+      '<div class="gal-card-tx"><b class="gal-card-title"></b>' +
+      '<span class="gal-card-desc"></span><i class="gal-card-hint">点一下看原图</i></div>';
+    document.body.appendChild(card);
+    cardImg = card.querySelector('.gal-card-img');
+    cardTitle = card.querySelector('.gal-card-title');
+    cardDesc = card.querySelector('.gal-card-desc');
+  }
+
+  function showCard(a, e) {
+    if (!card) buildCard();
+    var t = a.getAttribute('data-title') || '';
+    var d = a.getAttribute('data-desc') || '';
+    var dt = a.getAttribute('data-date') || '';
+    var thumb = a.getAttribute('data-thumb') || (a.querySelector('img') || {}).src || '';
+    if (cardImg.getAttribute('src') !== thumb) cardImg.setAttribute('src', thumb);
+    cardTitle.textContent = t + (dt ? '（' + dt + '）' : '');
+    cardDesc.textContent = d;
+    cardDesc.hidden = !d;                 // 没有简介就不占位
+    card.hidden = false;
+    moveCard(e);
+  }
+
+  function moveCard(e) {
+    if (!card || card.hidden) return;
+    var w = card.offsetWidth, h = card.offsetHeight;
+    var pad = 14, gap = 18;
+    var x = e.clientX + gap, y = e.clientY + gap;
+    // 贴到右/下边缘就翻到另一边，别被裁掉
+    if (x + w + pad > window.innerWidth) x = e.clientX - w - gap;
+    if (y + h + pad > window.innerHeight) y = e.clientY - h - gap;
+    card.style.left = Math.max(pad, x) + 'px';
+    card.style.top = Math.max(pad, y) + 'px';
+  }
+
+  function hideCard() {
+    if (card) card.hidden = true;
   }
 
   if (document.readyState === 'loading') {

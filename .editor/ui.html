@@ -1159,7 +1159,14 @@ async function renderGallery() {
       tIn.placeholder = '画的名字';
       tIn.dataset.f = 'title';
       tIn.dataset.i = String(i);
-      tdTitle.appendChild(tIn);
+      // 简介（悬浮卡上显示的那行）：没写就退回该分类的说明，所以可以空着
+      const dscIn = document.createElement('input');
+      dscIn.value = it.desc || '';
+      dscIn.placeholder = '简介（可空，会退回分类说明）';
+      dscIn.dataset.f = 'desc';
+      dscIn.dataset.i = String(i);
+      dscIn.style.cssText = 'margin-top:2px;color:#5a7089';
+      tdTitle.append(tIn, dscIn);
 
       const tdDate = document.createElement('td');
       const dIn = document.createElement('input');
@@ -1234,6 +1241,7 @@ async function renderGallery() {
         file: String(it.file || '').trim(),
         cat: String(it.cat || '').trim(),
         date: String(it.date || '').trim(),
+        desc: String(it.desc || '').trim(),
         cover: !!it.cover,
       })).filter((it) => it.title || it.file),
     };

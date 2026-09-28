@@ -1080,6 +1080,68 @@ img { border: 0; }
   .gal-item { min-width: 60px; }
 }
 
+/* ---------- 画廊：鼠标悬浮的预览卡 ----------
+   停在缩略图上，旁边浮出一张稍大的图 + 简介（没写简介就不占位）。
+   用 position:fixed + 跟随鼠标，边缘自动翻转，所以贴着窗口边也不会被裁。
+   触屏没有 hover，这套不会生效，那边照旧点开弹层。 */
+.gal-card {
+  position: fixed;
+  z-index: 950;
+  width: 300px;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid #7f9db9;
+  box-shadow: 2px 2px 0 #c3d9ef;
+  pointer-events: none;      /* 只是看，不抢鼠标事件 */
+}
+
+.gal-card-img {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+  max-height: 300px;
+  object-fit: contain;
+  background: #fbfdff;
+  border: 1px solid #e3edf7;
+}
+
+.gal-card-tx {
+  padding: 5px 2px 1px;
+  line-height: 1.55;
+}
+
+.gal-card-title {
+  display: block;
+  font-size: var(--px, 13px) !important;
+  color: #123f70;
+}
+
+.gal-card-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--px-sm, 11px) !important;
+  color: #44586e;
+}
+
+.gal-card-hint {
+  display: block;
+  margin-top: 3px;
+  font-size: var(--px-sm, 11px) !important;
+  font-style: normal;
+  color: #9bb4cc;
+  text-align: right;
+}
+
+/* 弹层里的简介（图下面那行） */
+.gal-lb-desc {
+  max-width: min(720px, 90vw);
+  margin: 6px 0 0;
+  font-size: var(--px-sm, 11px) !important;
+  line-height: 1.7;
+  color: #a9c2da;
+  text-align: center;
+}
+
 /* ---------- 画廊的看大图弹层 ---------- */
 html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
 

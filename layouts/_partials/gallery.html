@@ -80,8 +80,12 @@
             {{ $ratio := "1" }}
             {{ if and $w $h }}{{ $ratio = printf "%.4f" (div (float $h) (float $w)) }}{{ end }}
             <li class="gal-item" style="--gr: {{ $ratio }}">
+              {{/* 简介：画自己写了就用画的；没写就退回它所在分类的说明（所以是「如果有」） */}}
+              {{ $desc := .desc | default $sec.desc | default "" }}
               <a class="gal-link" href="{{ $full }}" data-full="{{ $full }}"
-                 data-title="{{ .title }}"{{ with .date }} data-date="{{ . }}"{{ end }}>
+                 data-title="{{ .title }}"{{ with .date }} data-date="{{ . }}"{{ end }}
+                 {{ with $desc }}data-desc="{{ . }}"{{ end }}
+                 data-thumb="{{ $src }}">
                 <span class="gal-pic">
                   <img src="{{ $src }}" alt="{{ .title }}" loading="lazy"
                        {{ with $w }}width="{{ . }}"{{ end }}{{ with $h }} height="{{ . }}"{{ end }}>

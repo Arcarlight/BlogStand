@@ -795,7 +795,7 @@ const DATA_LISTS = {
   // 音乐这份的段落名是 [[tracks]] 而不是 [[items]]，所以要单独写盘（见下面的分支）
   music:   { file: 'data/music.toml',   keys: ['file', 'title', 'artist'],           header: MUSIC_HEADER, section: 'tracks', music: true },
   // 画廊：两份列表（分类 sections + 画作 items），走字符串直出，见 writeGalleryFile
-  gallery: { file: 'data/gallery.toml', keys: ['title', 'file', 'cat', 'date', 'cover'], header: GALLERY_HEADER, gallery: true },
+  gallery: { file: 'data/gallery.toml', keys: ['title', 'file', 'cat', 'date', 'desc', 'cover'], header: GALLERY_HEADER, gallery: true },
 };
 
 
@@ -912,6 +912,8 @@ function writeGalleryFile(header, sections, items) {
     out.push(`  file = "${tomlStr(it.file)}"`);
     out.push(`  cat = "${tomlStr(it.cat)}"`);
     out.push(`  date = "${tomlStr(it.date)}"`);
+    // 简介：没有就不写这一行（模板会退回该分类的说明）
+    if (String(it.desc ?? '').trim()) out.push(`  desc = "${tomlStr(it.desc)}"`);
     if (it.cover) out.push('  cover = true');
     out.push('');
   }
@@ -1660,6 +1662,7 @@ async function handle(req, res, url) {
           file: String(it.file || '').trim().replace(/\\/g, '/').replace(/^\/+/, '').replace(/^images\//, ''),
           cat: String(it.cat || '').trim(),
           date: String(it.date || '').trim().slice(0, 10),
+          desc: String(it.desc || '').trim(),
           cover: !!it.cover,
         }))
         .filter((it) => it.title || it.file);
