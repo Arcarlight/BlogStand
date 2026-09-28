@@ -1611,8 +1611,12 @@ async function handle(req, res, url) {
       return json(res, 200, { items, keys: spec.keys });
     }
 
-    let { items } = await readBody(req);
-    if (!Array.isArray(items)) throw new Error('参数不对：需要 items 数组');
+    // ⚠️ 请求体只能读一次：readBody(req) 把整个 body 收干，再调一次拿到的是空对象。
+    // 画廊那份要 items + sections 两样，所以在这里读一次、两个都拆出来。
+    const body = await readBody(req);
+    let items = Array.isArray(body.items) ? body.items : null;
+    if (!items) throw new Error('参数不对：需要 items 数组');
+    const rawSections = Array.isArray(body.sections) ? body.sections : null;
 
     if (which === 'music') {
       // 空行（点了「加一条」还没填文件名的）丢掉；顺手把结果里的「文件不在」报回去
@@ -1636,12 +1640,7 @@ async function handle(req, res, url) {
     }
 
     if (which === 'gallery') {
-      const body = await readBody(req);
-      const rawItems = Array.isArray(body.items) ? body.items : [];
-      const rawSections = Array.isArray(body.sections) ? body.sections : null;
-
-      const sections = (rawSections || parseGallerySections(await readText(spec.file)))
-        .map((s) => ({
+      const sections = (rawSections || parseGallerySections(await readText(spec.file)))        .map((s) => ({
           id: String(s.id || '').trim(),
           name: String(s.name || '').trim(),
           desc: String(s.desc || '').trim(),
@@ -1655,7 +1654,7 @@ async function handle(req, res, url) {
       const ids = new Set(sections.map((s) => s.id));
       if (ids.size !== sections.length) throw new Error('分类 id 有重复');
 
-      const clean = rawItems
+      const clean = items
         .map((it) => ({
           title: String(it.title || '').trim(),
           file: String(it.file || '').trim().replace(/\\/g, '/').replace(/^\/+/, '').replace(/^images\//, ''),
@@ -1679,6 +1678,15 @@ async function handle(req, res, url) {
       }
 
       await writeText(spec.file, writeGalleryFile(GALLERY_HEADER, sections, clean));
+
+      /* 写完再数一遍：条数对不上就报错，别返回一个「成功」把数据丢了。
+         （出过一次真事故：请求体被读了两次，items 变成空数组，
+           结果把整个画廊清空、接口还返回 200 ok —— 编辑器以为保存成功了。） */
+      const written = parseItems(await readText(spec.file));
+      if (written.length !== clean.length) {
+        throw new Error(`保存后条数不对：打算写 ${clean.length} 条，实际落盘 ${written.length} 条`);
+      }
+
       const missing = [];
       for (const it of clean) {
         if (!await fsp.stat(safePath(`static/images/${it.file}`)).catch(() => null)) missing.push(it.file);

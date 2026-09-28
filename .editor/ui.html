@@ -1306,7 +1306,12 @@ async function renderGallery() {
       sections,
       back: () => openPanel('gallery'),
       onPick: (files) => {
+        // 同一张图重复点进来会很困惑，已经在本页里的就跳过（并说一声）
+        const have = new Set(items.map((x) => String(x.file || '').trim()));
+        const skipped = [];
         files.forEach((f) => {
+          if (have.has(f)) { skipped.push(f); return; }
+          have.add(f);
           items.push({
             title: f.replace(/^.*\//, '').replace(/\.[^.]+$/, ''),
             file: f,
@@ -1315,6 +1320,8 @@ async function renderGallery() {
             cover: false,
           });
         });
+        if (skipped.length) toast('已在画廊里，跳过 ' + skipped.length + ' 张：' + skipped.join('、'), 'err');
+        if (!files.length || (skipped.length === files.length)) { openPanel('gallery'); return; }
         save().then(() => openPanel('gallery'));
       },
     });
