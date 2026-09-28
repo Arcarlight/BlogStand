@@ -1227,6 +1227,51 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
 .gal-lb-prev { top: 50%; left: 10px; margin-top: -17px; }
 .gal-lb-next { top: 50%; right: 10px; margin-top: -17px; }
 
+/* 首页「欢迎光临」里的更新日志：只列最近几条 + 一行「看全部」。
+   完整记录在 /updates/ 那一页（同一份数据）。 */
+.home-log {
+  margin: 8px 0 0;
+  text-align: left;
+}
+
+.home-log-list {
+  padding: 0;
+  margin: 0 0 5px;
+  list-style: none;
+}
+
+.home-log-list li {
+  padding: 2px 0 2px 10px;
+  overflow: hidden;
+  border-bottom: 1px dotted #dbe8f5;
+}
+
+.home-log-list li::before {
+  float: left;
+  margin-left: -10px;
+  color: #a8bccf;
+  content: "·";
+}
+
+.hl-date {
+  display: inline-block;
+  width: 82px;
+  color: #7488a0;
+  letter-spacing: 0;
+}
+
+.hl-more {
+  margin-left: 6px;
+  color: #9bb4cc;
+  font-size: var(--px-sm, 11px) !important;
+}
+
+.home-log-more {
+  margin: 4px 0 0;
+  font-size: var(--px-sm, 11px) !important;
+  text-align: right;
+}
+
 /* 更新日志里「同一日期下有多条」的写法：第一行跟在日期后面，其余缩进 */
 .update-log .ul-sub {
   padding: 0;

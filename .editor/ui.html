@@ -957,71 +957,47 @@ async function renderButtons() {
   draw(d.items.map((x) => Object.assign({}, x)));
 }
 
-/* --- 更新日志（手写那份：网站结构更新 + 手动通报） ---
-   首页只显示最近 10 条，完整列表在 /updates/。
-   同一日期下要写好几条时用「多行」模式（一句一行，存成 text = [...]）。 */
+/* --- 更新日志（只放手动加的「更新通报」） ---
+   ⚠️ 这和「网站结构更新」那份不是一回事，别混：
+     · 这个面板 = 「更新通报」，进侧栏那块「更新日志」，对应 data/updates.toml
+     · 网站结构更新 = data/changelog.toml，首页「欢迎光临」显示最近 5 条，
+       完整列表在 /updates/ */
 async function renderUpdates() {
   const d = await apiGet('/api/list/updates');
   const today = new Date().toISOString().slice(0, 10);
   const draw = (items) => {
     let h = '<h2 class="sec">更新日志</h2>';
-    h += '<p class="hint">网站结构的更新都记在这里，对应 <code>data/updates.toml</code>。' +
-         '首页显示最近 10 条，完整列表在 <a href="/updates/" target="_blank">/updates/</a>。</p>';
-    h += '<div class="note">另外还有一份<b>自动</b>的：按 git 提交日期收最近改过的页面（含日记），' +
-         '在侧栏那块「更新日志」里，不用在这里登记。<br>' +
-         '同一天要写好几条 → 点右边的「多行」，一句一行。</div>';
-    h += '<table class="grid"><thead><tr><th style="width:150px">日期</th><th>写点什么</th>' +
-         '<th style="width:20%">链接（可空）</th><th style="width:92px"></th></tr></thead><tbody id="tbUpd">';
+    h += '<p class="hint">这里是<b>手动加的「更新通报」</b>，显示在<b>侧栏</b>那块「更新日志」，' +
+         '对应 <code>data/updates.toml</code>。</p>';
+    h += '<div class="note">页面的更新是<b>自动</b>收的：按 git 提交日期取最近更新的页面（含日记），' +
+         '不用在这里登记。<br>' +
+         '<b>网站结构更新（建站、换字体、接留言板…）不在这个面板里</b> —— 那份是 ' +
+         '<code>data/changelog.toml</code>，首页「欢迎光临」显示最近 5 条，' +
+         '完整列表在 <a href="/updates/" target="_blank">/updates/</a>。<br>' +
+         '两份都叫「更新日志」，但不是一回事，改的时候别看错。</div>';
+    h += '<table class="grid"><thead><tr><th style="width:150px">日期</th><th>标题</th>' +
+         '<th style="width:28%">链接（可空）</th><th style="width:40px"></th></tr></thead><tbody id="tbUpd">';
     items.forEach((it, i) => {
-      const multi = Array.isArray(it.text);
-      const body = multi
-        ? `<textarea data-f="text" data-i="${i}" rows="${Math.min(8, Math.max(2, it.text.length))}"
-             style="width:100%;font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:3px"
-             placeholder="一句一行">${esc(it.text.join('\n'))}</textarea>`
-        : `<input data-f="title" data-i="${i}" value="${esc(it.title || '')}" placeholder="比如：换了新的点阵字体">`;
       h += `<tr>
         <td><input type="date" data-f="date" data-i="${i}" value="${esc(it.date || '')}"></td>
-        <td>${body}</td>
+        <td><input data-f="title" data-i="${i}" value="${esc(it.title || '')}" placeholder="比如：换了新的点阵字体"></td>
         <td><input data-f="url" data-i="${i}" value="${esc(it.url || '')}" placeholder="/blog/xxx/ 或留空"></td>
-        <td style="text-align:center;white-space:nowrap">
-          <button data-multi="${i}" style="padding:1px 6px"
-            title="${multi ? '改成一句话' : '改成同一日期下多条（一句一行）'}">${multi ? '1 行' : '多行'}</button>
-          <button class="danger" data-del="${i}">×</button>
-        </td></tr>`;
+        <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
     });
     h += '</tbody></table>';
-    if (!items.length) h += '<p class="hint">还没有记录。不加也没关系，侧栏那份会自动收最近改过的页面。</p>';
-    h += '<button id="btnAddUpd">＋ 加一条</button> <button class="primary" id="btnSaveUpd">保存</button>';
+    if (!items.length) h += '<p class="hint">还没有手动通报。不加也没关系，侧栏那块已经在收自动的最近更新。</p>';
+    h += '<button id="btnAddUpd">＋ 加一条通报</button> <button class="primary" id="btnSaveUpd">保存</button>';
     showPanel(h);
 
     const collect = () => {
-      document.querySelectorAll('#tbUpd [data-f]').forEach((el) => {
+      document.querySelectorAll('#tbUpd input[data-f]').forEach((el) => {
         const i = +el.dataset.i;
         if (!items[i]) return;
-        if (el.dataset.f === 'text') {
-          // 空行丢掉；只剩一行的话照旧存成数组，保存时服务端会折回单行
-          items[i].text = el.value.split('\n').map((s) => s.trim()).filter(Boolean);
-        } else {
-          items[i][el.dataset.f] = el.value;
-        }
+        items[i][el.dataset.f] = el.value;
       });
     };
     document.querySelectorAll('#tbUpd [data-del]').forEach((b) => b.addEventListener('click', () => {
       collect(); items.splice(+b.dataset.del, 1); draw(items);
-    }));
-    // 「多行 <-> 一行」切换：把当前内容带过去，不丢字
-    document.querySelectorAll('#tbUpd [data-multi]').forEach((b) => b.addEventListener('click', () => {
-      collect();
-      const i = +b.dataset.multi;
-      const it = items[i];
-      if (Array.isArray(it.text)) {
-        it.title = it.text.join('，');       // 折成一句话（用逗号连起来，好改）
-        delete it.text;
-      } else {
-        it.text = String(it.title || '').split('\n').map((s) => s.trim()).filter(Boolean);
-        delete it.title;
-      }
-      draw(items);
     }));
     $('#btnAddUpd').addEventListener('click', () => {
       collect(); items.unshift({ date: today, title: '' }); draw(items);
@@ -1030,7 +1006,7 @@ async function renderUpdates() {
       collect();
       try {
         const r = await apiPost('/api/list/updates', { items });
-        toast('更新日志已保存（预览里刷新一下就能看到）' + (r && r.count ? '，共 ' + r.count + ' 条' : ''), 'ok');
+        toast('更新通报已保存（预览里刷新一下就能看到）' + (r && r.count ? '，共 ' + r.count + ' 条' : ''), 'ok');
       } catch (e) {
         toast('保存失败：' + e.message, 'err');
       }

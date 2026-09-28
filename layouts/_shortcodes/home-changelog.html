@@ -1,0 +1,38 @@
+{{- /* 首页「欢迎光临」框里的更新日志：只显示最近几条 + 一行「看全部」。
+       数据在 data/changelog.toml（和 /updates/ 那一页同一个来源，
+       所以只需要维护一个文件，两处不会对不上）。
+
+       为什么做成短代码而不是直接写在 _index.md 正文里：
+       正文里手写那段 HTML 有 10 个日期块、两层嵌套，混在导航表格和友情链接
+       中间看着很乱。这里只渲染最近几条，剩下的交给 /updates/ 那一页。 */ -}}
+
+{{- $limit := int (.Get "limit" | default 5) -}}
+{{- $items := hugo.Data.changelog.items | default slice -}}
+{{/* 数据文件是按时间正序写的（方便人读），这里自己排一次，
+   确保首页永远显示"最近"的几条 —— 不依赖文件里的顺序 */}}
+{{- $items = sort $items "date" "desc" -}}
+
+{{- if $items -}}
+<div class="home-log">
+  <ul class="home-log-list">
+    {{- range first $limit $items -}}
+      {{- $lines := slice -}}
+      {{- with .text }}{{ range . }}{{ $lines = $lines | append . }}{{ end }}{{ end -}}
+      <li>
+        <span class="hl-date">{{ (time .date).Format "2006-01-02" }}</span>
+        {{- if $lines -}}
+          <span class="hl-text">{{ index $lines 0 }}</span>
+          {{- if gt (len $lines) 1 }}<span class="hl-more">（这一天还有 {{ sub (len $lines) 1 }} 条）</span>{{ end -}}
+        {{- else if .url -}}
+          <a href="{{ .url }}">{{ .title | default "（没写标题）" }}</a>
+        {{- else -}}
+          <span class="hl-text">{{ .title | default "（没写标题）" }}</span>
+        {{- end -}}
+      </li>
+    {{- end -}}
+  </ul>
+  <p class="home-log-more">
+    <a href="{{ "/updates" | relURL }}">看全部更新日志（共 {{ len $items }} 条）&raquo;</a>
+  </p>
+</div>
+{{- end -}}
