@@ -1,23 +1,32 @@
 {{/* ============================================================
-     更新日志 —— 侧栏挂件和首页列表共用的一个零件
+     更新日志 —— 首页那份、侧栏挂件、以及 /updates/ 完整列表共用的零件
 
      用法：
        {{ partial "update-log.html" (dict "limit" 8) }}
        {{ partial "update-log.html" (dict "limit" 10 "excludeSections" (slice "niki")) }}
+       {{ partial "update-log.html" (dict "limit" 99999 "onlyManual" true) }}
 
      内容两部分：
        自动 —— 最近更新的页面。按 .Lastmod（= git 提交日期，见 hugo.toml 的
                enableGitInfo）从近到远排。所以往老日记里补一天、改一篇文章，
                都会立刻反映出来。
-       手动 —— data/updates.toml 里的「更新通报」，在编辑器左侧那个面板里加。
+       手动 —— data/updates.toml 里的更新日志，在编辑器左侧「更新日志」面板里加。
 
-     排除规则：
-       excludeSections  传进来要跳过的 section（首页那份用它排除 niki）
+     参数的几个开关：
+       limit            取前几条
+       excludeSections  跳过的 section（首页那份用它排除 niki：一天一改太频繁，
+                        会把「网站结构更新」挤下去）
+       onlyManual       true = 只要手动那份（/updates/ 完整列表用，不掺自动的）
        updateLog: false 页面 front matter 里写这个，就永远不进日志
                         （隐藏页 / 工具页用，比如 reply、ihsobijin2006）
+     手动那份的两种写法：
+       title = "一句话"                  -> 一行
+       text  = ["第一条", "第二条"]       -> 同一日期下多行，日期只显示一次
+                                           （从首页手写列表搬过来的历史记录就是这种）
      ============================================================ */}}
 {{- $limit := int (.limit | default 8) }}
 {{- $exclude := .excludeSections | default slice }}
+{{- $onlyManual := .onlyManual | default false }}
 {{- $newDays := int (site.Params.updateLogNewDays | default 7) }}
 {{- $cut := now.AddDate 0 0 (mul -1 $newDays) }}
 
@@ -33,25 +42,33 @@
 {{- $entries := slice }}
 
 {{/* ---- 自动：最近更新的页面 ---- */}}
-{{- range site.RegularPages }}
-  {{- if and (not (in $exclude .Section)) (ne .Params.updateLog false) }}
-    {{- $entries = $entries | append (dict
-          "date"  .Lastmod
-          "title" .Title
-          "url"   .RelPermalink
-          "new"   (and (ge .Lastmod $cut) (or (not $hasSince) (ge .Lastmod $since)))) }}
+{{- if not $onlyManual }}
+  {{- range site.RegularPages }}
+    {{- if and (not (in $exclude .Section)) (ne .Params.updateLog false) }}
+      {{- $entries = $entries | append (dict
+            "date"  .Lastmod
+            "title" .Title
+            "url"   .RelPermalink
+            "lines" (slice)
+            "new"   (and (ge .Lastmod $cut) (or (not $hasSince) (ge .Lastmod $since)))) }}
+    {{- end }}
   {{- end }}
 {{- end }}
 
-{{/* ---- 手动：更新通报 ---- */}}
-{{/* 手动加的通报都是「刚刚发生的事」，所以不受 updateLogSince 限制，只看 7 天窗口。 */}}
+{{/* ---- 手动：data/updates.toml ---- */}}
+{{/* 手动加的日志都是「刚刚发生的事」，所以不受 updateLogSince 限制，只看 7 天窗口。 */}}
 {{- range hugo.Data.updates.items }}
   {{- if .date }}
     {{- $d := time .date }}
+    {{- $lines := slice }}
+    {{- with .text }}
+      {{- range . }}{{ $lines = $lines | append . }}{{ end }}
+    {{- end }}
     {{- $entries = $entries | append (dict
           "date"  $d
-          "title" (.title | default "（没写标题）")
+          "title" (.title | default "")
           "url"   (.url | default "")
+          "lines" $lines
           "new"   (ge $d $cut)) }}
   {{- end }}
 {{- end }}
@@ -60,6 +77,22 @@
 
 <ul class="update-log">
   {{- range first $limit $entries }}
-  <li{{ if .new }} class="is-new"{{ end }}><span class="ul-date">{{ .date.Format "2006-01-02" }}</span>{{ if .url }}<a href="{{ .url }}">{{ .title }}</a>{{ else }}<span class="ul-title">{{ .title }}</span>{{ end }}</li>
+  <li{{ if .new }} class="is-new"{{ end }}>
+    <span class="ul-date">{{ .date.Format "2006-01-02" }}</span>
+    {{- if .lines }}
+      {{/* 同一日期多条：第一行跟在日期后面，其余缩进一行 */}}
+      {{- $first := index .lines 0 }}
+      <span class="ul-title">{{ $first }}</span>
+      {{- if gt (len .lines) 1 }}
+      <ul class="ul-sub">
+        {{- range after 1 .lines }}<li>{{ . }}</li>{{ end }}
+      </ul>
+      {{- end }}
+    {{- else if .url }}
+      <a href="{{ .url }}">{{ .title | default "（没写标题）" }}</a>
+    {{- else }}
+      <span class="ul-title">{{ .title | default "（没写标题）" }}</span>
+    {{- end }}
+  </li>
   {{- end }}
 </ul>

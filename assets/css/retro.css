@@ -1227,6 +1227,67 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
 .gal-lb-prev { top: 50%; left: 10px; margin-top: -17px; }
 .gal-lb-next { top: 50%; right: 10px; margin-top: -17px; }
 
+/* 更新日志里「同一日期下有多条」的写法：第一行跟在日期后面，其余缩进 */
+.update-log .ul-sub {
+  padding: 0;
+  margin: 2px 0 0 62px;      /* 与日期同宽，看起来是同一组的续行 */
+  list-style: none;
+}
+
+.update-log .ul-sub li {
+  padding: 1px 0 1px 9px;
+  border-bottom: 0;
+}
+
+.update-log .ul-sub li::before {
+  float: left;
+  margin-left: -9px;
+  color: #a8bccf;
+  content: "·";
+}
+
+/* ---------- /updates/ 完整更新日志页 ---------- */
+.updall { margin-bottom: 10px; }
+
+.updall-count {
+  margin: 0 0 8px;
+  font-size: var(--px-sm, 11px) !important;
+  color: #7488a0;
+  text-align: center;
+}
+
+.updall-year {
+  margin-bottom: 6px;
+  background: #fbfdff;
+  border: 1px solid #c3d9ef;
+}
+
+.updall-year > summary {
+  padding: 5px 9px;
+  font-weight: bold;
+  color: #123f70;
+  cursor: pointer;
+  background: #eef5fd;
+  border-bottom: 1px solid #dbe8f5;
+}
+
+.updall-year > summary:hover { background: #e2eefb; }
+
+.updall-n {
+  margin-left: 8px;
+  font-weight: normal;
+  font-size: var(--px-sm, 11px) !important;
+  color: #7488a0;
+}
+
+.updall-year .update-log { padding: 6px 9px 4px; }
+
+.updall-back {
+  margin: 10px 0 0;
+  font-size: var(--px-sm, 11px) !important;
+  text-align: center;
+}
+
 /* 搜索框 */
 .search-form { overflow: hidden; }
 

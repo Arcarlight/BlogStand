@@ -39,12 +39,17 @@
 {{ end }}
 
 {{/* ============ 更新日志 ============
-     只收「新增页面 / 新增博客 / 手动通报」，不收日记（一天一改，太频繁）。 */}}
+     首页这份只列 data/updates.toml 里那份手写的「网站结构更新」（最近 10 条），
+     完整列表在 /updates/。
+     自动收集的「最近改过哪些页面」（含日记）在侧栏那块 —— 两边的角度不一样：
+     这里回答「站做了什么改动」，侧栏回答「最近谁动过」。不混在一起，
+     否则一天改几篇日记就会把结构更新挤下去。 */}}
 {{ if site.Params.updateLog }}
 <div class="box">
   <div class="box-title">更新日志</div>
   <div class="box-body">
-    {{ partial "update-log.html" (dict "limit" (site.Params.updateLogHome | default 10) "excludeSections" (slice "niki")) }}
+    {{ partial "update-log.html" (dict "limit" (site.Params.updateLogHome | default 10) "onlyManual" true) }}
+    <p class="list-footer"><a href="{{ "/updates" | relURL }}">&raquo; 看全部更新日志（{{ len (hugo.Data.updates.items | default slice) }} 条）</a></p>
     <p class="list-footer"><a href="{{ "/navigator" | relURL }}">&raquo; 想看每日更新？翻翻日记本</a></p>
   </div>
 </div>

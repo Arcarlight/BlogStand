@@ -1,0 +1,58 @@
+{{- /* 完整更新日志（/updates/ 这一页）。
+       只列 data/updates.toml 里那份手写的「网站结构更新」，
+       不掺自动收集的页面更新 —— 那些是「最近谁改过」，侧栏那份已经管了。
+       按年份分组，最新的年份在前。 */ -}}
+
+{{- $updates := hugo.Data.updates.items | default slice -}}
+{{- $byYear := dict -}}
+
+{{- range $updates -}}
+  {{- if .date -}}
+    {{- $y := (time .date).Format "2006" -}}
+    {{- $cur := index $byYear $y | default slice -}}
+    {{- $byYear = merge $byYear (dict $y ($cur | append .)) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $years := slice -}}
+{{- range $y, $_ := $byYear }}{{ $years = $years | append (dict "year" $y) }}{{ end -}}
+{{- $years = sort $years "year" "desc" -}}
+
+{{- $newDays := int (site.Params.updateLogNewDays | default 7) -}}
+{{- $cut := now.AddDate 0 0 (mul -1 $newDays) -}}
+
+<div class="updall">
+  <p class="updall-count">共 {{ len $updates }} 条记录，跨 {{ len $years }} 个年份。</p>
+
+  {{- range $years -}}
+    {{- $year := .year -}}
+    {{- $list := index $byYear $year -}}
+    {{- $list = sort $list "date" "desc" -}}
+    <details class="updall-year"{{ if eq $year "2026" }} open{{ end }}>
+      <summary>{{ $year }} 年<span class="updall-n">{{ len $list }} 条</span></summary>
+      <ul class="update-log">
+        {{- range $list -}}
+          {{- $lines := slice -}}
+          {{- with .text }}{{ range . }}{{ $lines = $lines | append . }}{{ end }}{{ end -}}
+          {{- $d := time .date -}}
+          <li{{ if ge $d $cut }} class="is-new"{{ end }}>
+            <span class="ul-date">{{ $d.Format "01-02" }}</span>
+            {{- if $lines -}}
+              {{- $first := index $lines 0 -}}
+              <span class="ul-title">{{ $first }}</span>
+              {{- if gt (len $lines) 1 -}}
+              <ul class="ul-sub">{{ range after 1 $lines }}<li>{{ . }}</li>{{ end }}</ul>
+              {{- end -}}
+            {{- else if .url -}}
+              <a href="{{ .url }}">{{ .title | default "（没写标题）" }}</a>
+            {{- else -}}
+              <span class="ul-title">{{ .title | default "（没写标题）" }}</span>
+            {{- end -}}
+          </li>
+        {{- end -}}
+      </ul>
+    </details>
+  {{- end -}}
+
+  <p class="updall-back"><a href="{{ "/" | relURL }}">&laquo; 回首页</a></p>
+</div>

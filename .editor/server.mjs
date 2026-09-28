@@ -461,29 +461,66 @@ function parseItems(text) {
   const items = [];
   let cur = null;
   let inSection = false;
+  let arr = null;                 // 正在读的字符串数组
   for (const line of text.split(/\r?\n/)) {
     const t = line.trim();
     // 大多数列表用 [[items]]；音乐那份用语义更清楚的 [[tracks]]，两者都认
-    if (t === '[[items]]' || t === '[[tracks]]') { cur = {}; items.push(cur); inSection = true; continue; }
+    if (t === '[[items]]' || t === '[[tracks]]') { cur = {}; items.push(cur); inSection = true; arr = null; continue; }
     if (!inSection) continue;
+
+    // 数组续行：一句一行，到 ] 结束（更新日志里「同一日期多条」就是这种）
+    if (arr) {
+      const end = t.match(/^\]\s*,?\s*$/);
+      if (end) { arr = null; continue; }
+      const v = t.match(/^"(.*)"\s*,?\s*$/);
+      if (v) { cur[arr].push(v[1].replace(/\\"/g, '"')); continue; }
+      // 看不懂的行就结束数组，别把后面整段吃掉
+      arr = null;
+    }
+
     // 空行结束当前段落：后面的顶层设置（比如音乐那份结尾的 assetDir / title）
     // 不能再算进最后一条，否则会把曲目的 title 覆盖掉。
     if (!t) { cur = null; continue; }
     if (t.startsWith('#')) continue;
     if (!cur) continue;
+
+    // text = [ 开头
+    const open = t.match(/^([A-Za-z0-9_]+)\s*=\s*\[\s*$/);
+    if (open) {
+      cur[open[1]] = [];
+      arr = open[1];
+      continue;
+    }
     const m = t.match(/^([A-Za-z0-9_]+)\s*=\s*"(.*)"\s*$/);
     if (m) cur[m[1]] = m[2].replace(/\\"/g, '"');
   }
   return items;
 }
 
+/* 写一条：值可以是字符串，也可以是字符串数组（一句一行）。
+   更新日志里「同一日期下好几条」用的就是数组。
+   空值默认不写 —— 少一堆 `url = ""` / `title = ""` 这种噪音，也让
+   「读出来 -> 原样写回」的往返完全一致（有测试盯着这一点）。
+   只有 date 例外：它是必填，空着也要留个位置，免得整段少一个字段。 */
+const KEEP_EMPTY_KEYS = new Set(['date']);
+
 function writeItems(header, items, keys) {
   const out = [header.trimEnd(), ''];
   for (const it of items) {
     out.push('[[items]]');
     for (const k of keys) {
-      const v = String(it[k] ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      out.push(`  ${k} = "${v}"`);
+      const raw = it[k];
+      if (Array.isArray(raw)) {
+        const vals = raw.map((x) => String(x ?? '').trim()).filter(Boolean);
+        if (!vals.length) continue;                  // 空数组不写
+        out.push(`  ${k} = [`);
+        for (const v of vals) out.push(`    "${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}",`);
+        out.push('  ]');
+      } else {
+        const s = String(raw ?? '');
+        if (!s.trim() && !KEEP_EMPTY_KEYS.has(k)) continue;
+        out.push(`  ${k} = "${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
+      }
     }
     out.push('');
   }
@@ -790,7 +827,7 @@ const GALLERY_HEADER = `# ======================================================
 const DATA_LISTS = {
   links:   { file: 'data/links.toml',   keys: ['name', 'url', 'desc'],               header: LINKS_HEADER },
   buttons: { file: 'data/buttons.toml', keys: ['line1', 'line2', 'url', 'bg', 'fg'], header: BUTTONS_HEADER },
-  updates: { file: 'data/updates.toml', keys: ['date', 'title', 'url'],              header: UPDATES_HEADER },
+  updates: { file: 'data/updates.toml', keys: ['date', 'title', 'text', 'url'],       header: UPDATES_HEADER, multi: true },
   notices: { file: 'data/notices.toml', keys: ['date', 'text', 'url'],               header: NOTICES_HEADER },
   // 音乐这份的段落名是 [[tracks]] 而不是 [[items]]，所以要单独写盘（见下面的分支）
   music:   { file: 'data/music.toml',   keys: ['file', 'title', 'artist'],           header: MUSIC_HEADER, section: 'tracks', music: true },
@@ -1698,10 +1735,16 @@ async function handle(req, res, url) {
     }
 
     if (which === 'updates' || which === 'notices') {
-      // 这两个列表都是「日期 + 一句话 + 可选链接」，规则一样，只是正文的字段名不同
-      const textKey = which === 'updates' ? 'title' : 'text';
-      // 空行（点了「加一条」还没填的）直接丢掉，免得往 toml 里写一堆空 [[items]]
-      items = items.filter((it) => String(it.date || '').trim() || String(it[textKey] || '').trim());
+      // 「日期 + 一句话 + 可选链接」。更新日志还支持「同一日期多条」（text = [...]）。
+      const isArr = (v) => Array.isArray(v);
+      const hasBody = (it) => {
+        const a = it.text, t = it.title;
+        return String(it.date || '').trim()
+          || (isArr(a) ? a.length : String(a || '').trim())
+          || String(t || '').trim();
+      };
+      items = items.filter(hasBody);
+
       const today = new Date().toISOString().slice(0, 10);
       for (const it of items) {
         // 日期写坏的话 Hugo 构建会直接报错（模板里要 time 解析它），所以这里先拦住
@@ -1709,7 +1752,18 @@ async function handle(req, res, url) {
         if (!d) d = today;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error(`日期要写成 YYYY-MM-DD：「${it.date}」`);
         it.date = d;
-        it[textKey] = String(it[textKey] || '').trim() || (which === 'updates' ? '（没写标题）' : '（没写内容）');
+
+        if (isArr(it.text)) {
+          // 多行写法：清理空行；只剩一行的话退回单行（文件更干净）
+          const lines = it.text.map((x) => String(x ?? '').trim()).filter(Boolean);
+          if (lines.length === 1) { it.title = lines[0]; delete it.text; }
+          else if (lines.length > 1) { delete it.title; }
+          else { delete it.text; it.title = '（没写内容）'; }
+        } else {
+          const body = String(it[which === 'updates' ? 'title' : 'text'] || '').trim();
+          if (which === 'updates') it.title = body || '（没写标题）';
+          else it.text = body || '（没写内容）';
+        }
       }
     }
 
