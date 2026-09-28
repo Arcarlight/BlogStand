@@ -1,7 +1,7 @@
 # ============================================================
 #  画廊（Infinite Gallery）—— 画作清单
 #
-#  由编辑器左侧「画廊」面板维护，手改也行。
+#  由编辑器左侧「画作」面板维护，手改也行。
 #  页面 content/gallery.md 正文里只写一行 {{< gallery >}}，
 #  分类小节和缩略图网格都由这个文件生成。
 #
@@ -15,12 +15,10 @@
 #
 #  分类：id 是页面锚点，改了旧链接会失效；desc 是标题下面那行灰色说明。
 #
-#  ⚠️ 只写 [[items]] 不写 [[sections]] 的话，画廊页会显示「还没有分类」，
-#     所以分类这几段别删（面板里的「加一个分类 / 删掉」会同步这里）。
-#
-#  缩略图在 static/images/gallery/thumbs/，由编辑器上传时生成；
+#  缩略图在 static/images/gallery/thumbs/（由编辑器上传/点按时生成），
 #  没有缩略图就用原图，不影响显示。
 # ============================================================
+
 [[sections]]
   id = "hoshihum"
   name = "虹星（人）"
@@ -38,8 +36,13 @@
 
 [[sections]]
   id = "pkmn"
-  name = "宝可梦"
+  name = "宝可梦（除沙漠蜻蜓、暴飞龙）"
   desc = "版权IP的其他角色，一般都是未指定特定角色..."
+
+[[sections]]
+  id = "pkmnflya"
+  name = "沙漠蜻蜓、暴飞龙"
+  desc = "我推的孩子。一般是阿斯特拉 x 欧亚西莉亚。"
 
 [[sections]]
   id = "theothers"
@@ -61,4 +64,136 @@
   title = "tbtak页面的背景图片"
   file = "migrated/TBTAKPage-BG.png"
   cat = "websiteuse"
+  date = ""
+
+[[items]]
+  title = "强敌"
+  file = "Formidable_rival.PNG"
+  cat = "pkmnflya"
+  date = ""
+
+[[items]]
+  title = "顺风车"
+  file = "Hakobiya.png.PNG"
+  cat = "pkmnflya"
+  date = ""
+
+[[items]]
+  title = "星虹箱头图2号"
+  file = "Hoshinijisou-Banner2.png"
+  cat = "websiteuse"
+  date = "2026-09-17"
+
+[[items]]
+  title = "欧亚西莉亚"
+  file = "Hutsuu_flygon.PNG"
+  cat = "pkmnflya"
+  date = "2026-09-27"
+
+[[items]]
+  title = "三首恶龙·再归"
+  file = "Hydreigon_saiki.PNG"
+  cat = "pkmn"
+  date = "2026-09-13"
+
+[[items]]
+  title = "气球电龙"
+  file = "migrated/Ballon-Cheonryeong.png"
+  cat = "pkmn"
+  date = ""
+
+[[items]]
+  title = "做噩梦"
+  file = "migrated/Akumu.png"
+  cat = "pkmnflya"
+  date = "2026-09-01"
+
+[[items]]
+  title = "Flygon The Waiter"
+  file = "migrated/Flygon-August.png"
+  cat = "pkmnflya"
+  date = "2026-08-02"
+
+[[items]]
+  title = "远足"
+  file = "migrated/Enzoku.png"
+  cat = "pkmnflya"
+  date = ""
+
+[[items]]
+  title = "远行"
+  file = "migrated/enkou.png"
+  cat = "pkmnflya"
+  date = ""
+
+[[items]]
+  title = "星原的沙漠蜻蜓"
+  file = "migrated/Flygon-In-Hoshibara.png"
+  cat = "pkmnflya"
+  date = ""
+
+[[items]]
+  title = "2026·沙漠蜻蜓之日贺图其一"
+  file = "migrated/Flygon-No-Hi01.png"
+  cat = "pkmnflya"
+  date = "2026-03-30"
+
+[[items]]
+  title = "2026·沙漠蜻蜓之日贺图其二"
+  file = "migrated/Flygon-No-Hi02.jpg"
+  cat = "pkmnflya"
+  date = "2026-03-30"
+
+[[items]]
+  title = "满月的龙舞"
+  file = "migrated/Fullmoon.png"
+  cat = "pkmnflya"
+  date = ""
+
+[[items]]
+  title = "威吓姿势的沙漠蜻蜓"
+  file = "migrated/Flygon617.jpg"
+  cat = "pkmnflya"
+  date = ""
+
+[[items]]
+  title = "一同向蓝天"
+  file = "migrated/Issyouni-Sorae.png"
+  cat = "pkmnflya"
+  date = "2026-08-23"
+
+[[items]]
+  title = "六月的拉帝亚斯"
+  file = "migrated/Latias-June.png"
+  cat = "pkmn"
+  date = ""
+
+[[items]]
+  title = "兄妹"
+  file = "migrated/Kyoumai.png"
+  cat = "pkmn"
+  date = ""
+
+[[items]]
+  title = "虹星20周岁纪念图"
+  file = "migrated/Nijiboshi20-Yrs-CHN.png"
+  cat = "hoshiflya"
+  date = "2026-06-11"
+
+[[items]]
+  title = "tbtak的虹星"
+  file = "migrated/Nijiboshi-sprite-cut.png"
+  cat = "hoshiflya"
+  date = ""
+
+[[items]]
+  title = "无尽夏"
+  file = "Owaranaki_natsu.png"
+  cat = "pkmnflya"
+  date = ""
+
+[[items]]
+  title = "吃相"
+  file = "Tabeburi.png"
+  cat = "pkmnflya"
   date = ""
