@@ -55,6 +55,47 @@
       root.style.setProperty('--px-sm', k > 1 ? px(k - 1) : px(k));
       // 一个设备像素 = 1/dpr 个 CSS px（假粗体的偏移量，必须整数设备像素）
       root.style.setProperty('--devpx', (1 / dpr).toFixed(5) + 'px');
+
+      /* ============ 整页等比放大（可选） ============
+         dpr=1 的屏幕很吃亏：字号只能是 12 / 24 两档（12 的整数倍），
+         「略大一点」在数学上不存在 —— 要么 12，要么 24。
+         而 24 会把这个 1000px 固定宽度的版面撑破（标题、导航、侧栏都会溢出）。
+
+         所以这里走另一条路：**整页等比放大**。12px 的字放大 2 倍，看着相当于 24px，
+         而字形本身仍是 12 个设备像素的方块、整数倍放大不做插值 ——
+         实测中间灰 0%（完全锐利）；1.5 倍是 2.4%（发虚），所以只认整数倍。
+
+         代价：放大后页面更宽（2 倍下版心 2004px），窗口得够宽才行
+         （窄了就横向滚动，很难看），所以 auto 只在装得下时才开。
+
+         要量页面宽度，就得等 body 解析出来 —— 这一步放到 DOMContentLoaded，
+         所以会在首屏之后发生（不是闪一下字号，而是整页轻微放大一下）。
+         真嫌慢可以让浏览器在解析 HTML 期间就预扫一遍（见 speculative parsing），
+         但那个太依赖浏览器实现，这里不赌。
+
+         开关在 hugo.toml 的 pixelFontZoom：
+           "auto"（默认）能装下就放大   "off" 永不放大   数字(如 2) 强制该倍数 */
+      var zoomMode = '{{ site.Params.pixelFontZoom | default "auto" }}';
+      if (zoomMode !== 'off') {
+        var applyZoom = function () {
+          var forced = parseFloat(zoomMode);
+          if (forced > 0) { root.style.zoom = String(forced); return; }   // 强制指定倍数
+          var el = document.getElementById('page');
+          var pageW = el ? el.getBoundingClientRect().width : 0;
+          if (!pageW) { return; }
+          // 留出 #main 的 padding + 纵向滚动条的宽度（不给余量的话，
+          // 一旦出现滚动条就会横向溢出，很难看）
+          var margin = 32;
+          var z = Math.floor((window.innerWidth - margin) / pageW + 0.001);
+          if (z > 2) { z = 2; }                  // 再大意义不大，也会很占屏幕
+          if (z > 1) { root.style.zoom = String(z); }
+        };
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', applyZoom);
+        } else {
+          applyZoom();
+        }
+      }
       // 缩放率/页面缩放变了要重算（matchMedia 能捕获 DPR 变化）
       var watch = function () {
         var mq = window.matchMedia('(resolution: ' + (window.devicePixelRatio || 1) + 'dppx)');
