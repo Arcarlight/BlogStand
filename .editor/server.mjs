@@ -314,10 +314,28 @@ function applyOrder(files, saved) {
 async function buildTree() {
   const tree = [];
 
-  const statics = [
+  /* 「首页与单页」这些：先按固定顺序排（_index 在最前，符合直觉），
+     再自动补上 content/ 顶层里其它还没列到的 .md。
+     以前这里是写死的名单 —— 我新加了 content/updates.md 却忘了登记，
+     结果站长在编辑器里看不到那个页面、改不了文案。自动发现就不会再漏。
+     注意：只认**顶层**文件（不递归），博客/日记在各自的组里。 */
+  const staticsOrder = [
     'content/_index.md', 'content/self_intros.md', 'content/navigator.md',
-    'content/gallery.md', 'content/tobitaiaaken.md', 'content/ihsobijin2006.md',
+    'content/gallery.md', 'content/updates.md', 'content/tobitaiaaken.md', 'content/ihsobijin2006.md',
   ];
+  let topFiles = [];
+  try {
+    for (const e of await fsp.readdir(safePath('content'), { withFileTypes: true })) {
+      if (e.isFile() && isMd(e.name)) topFiles.push('content/' + e.name);
+    }
+  } catch { /* content/ 读不到就算了，下面还会用固定名单兜底 */ }
+  const statics = [...new Set([...staticsOrder, ...topFiles])].sort((a, b) => {
+    const ia = staticsOrder.indexOf(a), ib = staticsOrder.indexOf(b);
+    if (ia >= 0 && ib >= 0) return ia - ib;      // 名单内的按名单顺序
+    if (ia >= 0) return -1;                      // 名单内的排前面
+    if (ib >= 0) return 1;
+    return a.localeCompare(b);                   // 其余按名字
+  });
   tree.push({
     group: '首页与单页', kind: 'content',
     files: (await Promise.all(statics.map(async (f) =>
@@ -555,23 +573,39 @@ const UPDATES_HEADER = `# ======================================================
 #    url    = "/blog/xxx/"      可空，填了就变成链接
 # ============================================================`;
 
+/* ⚠️ 这段必须和 data/changelog.toml 文件里那段**逐字一致**：
+   编辑器保存时整段重写这个抬头，写短了就等于把文件里的说明「降级」掉
+   （我犯过一次：保存后两种写法的例子没了）。改这里要同步改数据文件。
+
+   ⚠️ 抬头里**一个字面量的段落头都不要写**（连注释里也不行）——
+   Hugo 的 TOML 解析器会把注释里出现的段落头当成真的表格定义，
+   然后撞上后面的中文报 "expected newline but got U+00EF"。
+   下面用「段落头」三个字代替，只描述写法。 */
 const CHANGELOG_HEADER = `# ============================================================
 #  更新日志（完整记录）—— /updates/ 那一页读取这个文件
 #
 #  ⚠️ 和 data/updates.toml 不是一回事：
 #      这里 = 网站结构更新（建站、换字体、接留言板…），完整历史
 #      那边 = 「更新通报」，只进侧栏那块自动日志
-#    首页「欢迎光临」显示这里最近的 5 条，更多在 /updates/。
+#    首页「欢迎光临」显示这里最近 5 条，更多在 /updates/。
 #
-#  用本地编辑器左侧「更新历史」面板改最省事，注释会自动保留。
+#    date   = "2026-09-22"        必填
+#    title  = "连接了花涧堂。"       一条更新
+#    url    = "/blog/xxx/"        可空，填了就变成链接
 #
-#    date   = "2026-09-22"      必填，YYYY-MM-DD（写错构建会报错）
-#    title  = "连接了花涧堂。"    必填
-#    url    = "/blog/xxx/"      可空，填了就变成链接
+#  【同一天有更新时的两种写法 —— 按它们是不是「并行的大更新」来选】
 #
-#  同一天有好几条时，两种写法（在面板里用「并列 / 子条目」按钮切换）：
-#    并列（默认）—— 重复写 [[items]]，date 相同：两行平级显示
-#    折叠        —— 加 indent = true：这一条缩进成上一条的子条目
+#    并列（默认，大多数情况）：同一天写两段，date 都填同一天
+#      date = "2026-02-05"   title = "创建了这个网站，添加了基本内容。"
+#      date = "2026-02-05"   title = "增加了制作游戏常用素材分享页面。"
+#      -> 两行平级显示，各自是一条更新（日期只出现在第一行）
+#
+#    折叠（同一件事分了几步、第二条算子更新）：后一段加 indent = true
+#      date = "2026-09-28"                     title = "换了新的点阵字体"
+#      date = "2026-09-28"  indent = true      title = "顺手把字号统一了"
+#      -> 第一行正常，第二条缩进成子条目
+#
+#  每段都要以一对中括号加 items 开头（编辑器保存时会自动写好）。
 # ============================================================`;
 
 const NOTICES_HEADER = `# ============================================================
