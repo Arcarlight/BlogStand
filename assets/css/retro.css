@@ -1272,7 +1272,19 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
   text-align: right;
 }
 
-/* 更新日志里「同一日期下有多条」的写法：第一行跟在日期后面，其余缩进 */
+/* 更新日志里「同一日期下有多条」的两种写法：
+   · 并列（默认）：同一天重复写 [[items]]，日期只在第一行出现，后续行日期列留空
+   · 折叠（text = [...] + indent = true）：子条目缩进成续行 */
+.update-log .ul-date-same {
+  min-height: 1px;           /* 占住日期那一列，让正文对齐 */
+}
+
+.update-log .ul-sub-item .ul-title {
+  display: inline-block;
+  padding-left: 62px;        /* 与日期同宽，看起来是上一条的续行 */
+  color: #56677a;
+}
+
 .update-log .ul-sub {
   padding: 0;
   margin: 2px 0 0 62px;      /* 与日期同宽，看起来是同一组的续行 */

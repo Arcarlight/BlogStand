@@ -2,14 +2,17 @@
        数据在 data/changelog.toml —— 它和 data/updates.toml 是**两份不同的东西**：
          · changelog.toml  = 网站结构更新的完整记录（建站、换字体、接留言板…）
          · updates.toml    = 「更新通报」，只进侧栏那块自动日志
-       首页「欢迎光临」里那段手写日志是同一份内容的正文版（写在
-       content/_index.md 里），两处都叫「更新日志」但不是同一个列表。
-       按年份分组，最新的年份在前。 */ -}}
+       首页「欢迎光临」里那几行是同一份的精简版（最近几条 + 看全部入口）。
+       按年份分组，最新的年份在前。
 
-{{- $updates := hugo.Data.changelog.items | default slice -}}
+       同一个日期下的两种写法（见数据文件抬头的说明）：
+         并列 —— 重复写 [[items]]：几行平级显示，日期只在第一行出现
+         折叠 —— text = [...] + indent = true：第一行正常，其余缩进成子条目 */ -}}
+
+{{- $all := hugo.Data.changelog.items | default slice -}}
 {{- $byYear := dict -}}
 
-{{- range $updates -}}
+{{- range $all -}}
   {{- if .date -}}
     {{- $y := (time .date).Format "2006" -}}
     {{- $cur := index $byYear $y | default slice -}}
@@ -25,7 +28,7 @@
 {{- $cut := now.AddDate 0 0 (mul -1 $newDays) -}}
 
 <div class="updall">
-  <p class="updall-count">共 {{ len $updates }} 条记录，跨 {{ len $years }} 个年份。</p>
+  <p class="updall-count">共 {{ len $all }} 条记录，跨 {{ len $years }} 个年份。</p>
 
   {{- range $years -}}
     {{- $year := .year -}}
@@ -34,24 +37,28 @@
     <details class="updall-year"{{ if eq $year "2026" }} open{{ end }}>
       <summary>{{ $year }} 年<span class="updall-n">{{ len $list }} 条</span></summary>
       <ul class="update-log">
+        {{- $shownDate := "" -}}
         {{- range $list -}}
-          {{- $lines := slice -}}
-          {{- with .text }}{{ range . }}{{ $lines = $lines | append . }}{{ end }}{{ end -}}
           {{- $d := time .date -}}
-          <li{{ if ge $d $cut }} class="is-new"{{ end }}>
-            <span class="ul-date">{{ $d.Format "01-02" }}</span>
-            {{- if $lines -}}
-              {{- $first := index $lines 0 -}}
-              <span class="ul-title">{{ $first }}</span>
-              {{- if gt (len $lines) 1 -}}
-              <ul class="ul-sub">{{ range after 1 $lines }}<li>{{ . }}</li>{{ end }}</ul>
+          {{- $iso := $d.Format "2006-01-02" -}}
+          {{- if .indent -}}
+            {{/* 子更新：text 数组里第二条起，缩进成上一条的续行 */}}
+            <li class="ul-sub-item"><span class="ul-title">{{ .title }}</span></li>
+          {{- else -}}
+            <li class="ul-row{{ if ge $d $cut }} is-new{{ end }}">
+              {{- if eq $iso $shownDate -}}
+                <span class="ul-date ul-date-same"></span>
+              {{- else -}}
+                <span class="ul-date">{{ $d.Format "01-02" }}</span>
               {{- end -}}
-            {{- else if .url -}}
-              <a href="{{ .url }}">{{ .title | default "（没写标题）" }}</a>
-            {{- else -}}
-              <span class="ul-title">{{ .title | default "（没写标题）" }}</span>
-            {{- end -}}
-          </li>
+              {{- if .url -}}
+                <a href="{{ .url }}">{{ .title | default "（没写标题）" }}</a>
+              {{- else -}}
+                <span class="ul-title">{{ .title | default "（没写标题）" }}</span>
+              {{- end -}}
+            </li>
+            {{- $shownDate = $iso -}}
+          {{- end -}}
         {{- end -}}
       </ul>
     </details>

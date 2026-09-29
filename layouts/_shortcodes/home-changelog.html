@@ -2,9 +2,10 @@
        数据在 data/changelog.toml（和 /updates/ 那一页同一个来源，
        所以只需要维护一个文件，两处不会对不上）。
 
-       为什么做成短代码而不是直接写在 _index.md 正文里：
-       正文里手写那段 HTML 有 10 个日期块、两层嵌套，混在导航表格和友情链接
-       中间看着很乱。这里只渲染最近几条，剩下的交给 /updates/ 那一页。 */ -}}
+       同一个日期下的两种写法（见数据文件抬头的说明）：
+         并列 —— 重复写 [[items]]，各自成一行，各算一条（默认，大多数情况）
+         折叠 —— text = [...] + indent = true，第一行正常、其余缩进成子条目
+                 首页上把子条目显示成「这一天还有 N 条」 */ -}}
 
 {{- $limit := int (.Get "limit" | default 5) -}}
 {{- $items := hugo.Data.changelog.items | default slice -}}
@@ -13,22 +14,41 @@
 {{- $items = sort $items "date" "desc" -}}
 
 {{- if $items -}}
+{{- $shown := 0 -}}
 <div class="home-log">
   <ul class="home-log-list">
-    {{- range first $limit $items -}}
-      {{- $lines := slice -}}
-      {{- with .text }}{{ range . }}{{ $lines = $lines | append . }}{{ end }}{{ end -}}
-      <li>
-        <span class="hl-date">{{ (time .date).Format "2006-01-02" }}</span>
-        {{- if $lines -}}
-          <span class="hl-text">{{ index $lines 0 }}</span>
-          {{- if gt (len $lines) 1 }}<span class="hl-more">（这一天还有 {{ sub (len $lines) 1 }} 条）</span>{{ end -}}
-        {{- else if .url -}}
-          <a href="{{ .url }}">{{ .title | default "（没写标题）" }}</a>
-        {{- else -}}
-          <span class="hl-text">{{ .title | default "（没写标题）" }}</span>
+    {{- range $items -}}
+      {{- /* indent = true 的是上一条的子更新，不单独占一行 */ -}}
+      {{- if not (.indent | default false) -}}
+        {{- if lt $shown $limit -}}
+          {{- $shown = add $shown 1 -}}
+          {{- $myDate := .date -}}
+          {{- $myTitle := .title -}}
+          {{- /* 这个日期一共有几条（从本条开始数），用来标「同日 N 条」/「这一天还有 N 条」 */ -}}
+          {{- $same := 0 -}}
+          {{- $sub := 0 -}}
+          {{- $found := false -}}
+          {{- range $items -}}
+            {{- if eq .date $myDate -}}
+              {{- if eq .title $myTitle -}}{{- $found = true -}}{{- else if $found -}}{{- $same = add $same 1 -}}{{- if .indent -}}{{- $sub = add $sub 1 -}}{{- end -}}{{- end -}}
+            {{- end -}}
+          {{- end -}}
+          {{- if gt $same 0 -}}{{- $same = add $same 1 -}}{{- end -}}
+          <li>
+            <span class="hl-date">{{ (time .date).Format "2006-01-02" }}</span>
+            {{- if .url -}}
+              <a href="{{ .url }}">{{ .title | default "（没写标题）" }}</a>
+            {{- else -}}
+              <span class="hl-text">{{ .title | default "（没写标题）" }}</span>
+            {{- end -}}
+            {{- if gt $sub 0 -}}
+              <span class="hl-more">（这一天还有 {{ $sub }} 条）</span>
+            {{- else if gt $same 1 -}}
+              <span class="hl-more">· 同日 {{ $same }} 条</span>
+            {{- end -}}
+          </li>
         {{- end -}}
-      </li>
+      {{- end -}}
     {{- end -}}
   </ul>
   <p class="home-log-more">
