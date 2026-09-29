@@ -492,7 +492,10 @@ function parseItems(text) {
       continue;
     }
     const m = t.match(/^([A-Za-z0-9_]+)\s*=\s*"(.*)"\s*$/);
-    if (m) cur[m[1]] = m[2].replace(/\\"/g, '"');
+    if (m) { cur[m[1]] = m[2].replace(/\\"/g, '"'); continue; }
+    // 布尔值（更新日志里标「子条目」用的 indent = true）
+    const b = t.match(/^([A-Za-z0-9_]+)\s*=\s*(true|false)\s*$/);
+    if (b) cur[b[1]] = b[2] === 'true';
   }
   return items;
 }
@@ -510,6 +513,11 @@ function writeItems(header, items, keys) {
     out.push('[[items]]');
     for (const k of keys) {
       const raw = it[k];
+      if (typeof raw === 'boolean') {
+        // 布尔字段照实写（更新日志的 indent = true）；false 不写
+        if (raw) out.push(`  ${k} = true`);
+        continue;
+      }
       if (Array.isArray(raw)) {
         const vals = raw.map((x) => String(x ?? '').trim()).filter(Boolean);
         if (!vals.length) continue;                  // 空数组不写
@@ -545,6 +553,25 @@ const UPDATES_HEADER = `# ======================================================
 #    date   = "2026-09-12"      必填，YYYY-MM-DD（写错构建会报错）
 #    title  = "换了新的点阵字体"  必填
 #    url    = "/blog/xxx/"      可空，填了就变成链接
+# ============================================================`;
+
+const CHANGELOG_HEADER = `# ============================================================
+#  更新日志（完整记录）—— /updates/ 那一页读取这个文件
+#
+#  ⚠️ 和 data/updates.toml 不是一回事：
+#      这里 = 网站结构更新（建站、换字体、接留言板…），完整历史
+#      那边 = 「更新通报」，只进侧栏那块自动日志
+#    首页「欢迎光临」显示这里最近的 5 条，更多在 /updates/。
+#
+#  用本地编辑器左侧「更新历史」面板改最省事，注释会自动保留。
+#
+#    date   = "2026-09-22"      必填，YYYY-MM-DD（写错构建会报错）
+#    title  = "连接了花涧堂。"    必填
+#    url    = "/blog/xxx/"      可空，填了就变成链接
+#
+#  同一天有好几条时，两种写法（在面板里用「并列 / 子条目」按钮切换）：
+#    并列（默认）—— 重复写 [[items]]，date 相同：两行平级显示
+#    折叠        —— 加 indent = true：这一条缩进成上一条的子条目
 # ============================================================`;
 
 const NOTICES_HEADER = `# ============================================================
@@ -828,6 +855,8 @@ const DATA_LISTS = {
   links:   { file: 'data/links.toml',   keys: ['name', 'url', 'desc'],               header: LINKS_HEADER },
   buttons: { file: 'data/buttons.toml', keys: ['line1', 'line2', 'url', 'bg', 'fg'], header: BUTTONS_HEADER },
   updates: { file: 'data/updates.toml', keys: ['date', 'title', 'text', 'url'],       header: UPDATES_HEADER, multi: true },
+  // 更新日志（网站结构更新的完整记录）：首页「欢迎光临」显示最近几条，全部在 /updates/
+  changelog: { file: 'data/changelog.toml', keys: ['date', 'title', 'url', 'indent'], header: CHANGELOG_HEADER, changelog: true },
   notices: { file: 'data/notices.toml', keys: ['date', 'text', 'url'],               header: NOTICES_HEADER },
   // 音乐这份的段落名是 [[tracks]] 而不是 [[items]]，所以要单独写盘（见下面的分支）
   music:   { file: 'data/music.toml',   keys: ['file', 'title', 'artist'],           header: MUSIC_HEADER, section: 'tracks', music: true },
@@ -1752,6 +1781,9 @@ async function handle(req, res, url) {
         if (!d) d = today;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error(`日期要写成 YYYY-MM-DD：「${it.date}」`);
         it.date = d;
+
+        // 更新日志的「子条目」标记：true 才写 indent = true，否则去掉这个字段
+        if (it.indent === true) it.indent = true; else delete it.indent;
 
         if (isArr(it.text)) {
           // 多行写法：清理空行；只剩一行的话退回单行（文件更干净）
