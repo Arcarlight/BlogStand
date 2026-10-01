@@ -240,7 +240,31 @@ body.theme-collection .box-review .comments-tip { color: #5b7358; }
   .collection-watermark img { width: clamp(64px, 22vmin, 110px); }
 }
 
-/* ---------- 5. 文集目录页 ---------- */
+/* ---------- 5. 正文排版：粘贴稿直接成型 ---------- */
+/* 目标：从别处复制来的稿子，粘进来就是成品，不用手工分段、也不用打空两格。
+   分段那半边在 layouts/_partials/collection-body.html（把「一段一行」的稿子
+   按换行拆成独立 <p>），这里只管两件 CSS 的事：
+
+   ① 首行缩进两格。用 text-indent，而不是让作者手打「　　」——
+      粘贴稿里手打的空两格会被 collection-body 去掉（否则缩成四格）。
+   ② 长串自动换行。overflow-wrap:anywhere 兜住没有空格的超长串
+      （URL、连写的拉丁文、连续数字）；中文本来就能逐字断行。
+
+   ⚠️ 图片段要豁免缩进：Hugo 默认把独占一行的图片包成 <p><img></p>，
+      连它一起缩进的话图片会整体右移两格。:has() 现在的浏览器都支持；
+      万一不支持，最坏也只是图片右移两格，不影响阅读。 */
+body.theme-collection .entry-content p {
+  text-indent: 2em !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word;
+}
+
+body.theme-collection .entry-content p:has(> img:only-child) { text-indent: 0 !important; }
+
+/* 原生整块 HTML（<center> 包的图注之类）也一起自动换行 */
+body.theme-collection .entry-content { overflow-wrap: anywhere; }
+
+/* ---------- 6. 文集目录页 ---------- */
 body.theme-collection .collection-list {
   margin: 14px 0 0;
   padding: 0;

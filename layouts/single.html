@@ -33,7 +33,9 @@
     {{ end }}
 
     <div class="entry-content">
-      {{ .Content }}
+      {{/* 文集正文过一道 collection-body：粘贴稿是「一段一行」，
+           需要把并成一个 <p> 的整章按换行拆回独立段落。 */}}
+      {{ if $isCollection }}{{ partial "collection-body.html" . }}{{ else }}{{ .Content }}{{ end }}
     </div>
 
     {{/* ============ 上一篇 / 下一篇 ============
