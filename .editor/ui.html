@@ -255,6 +255,10 @@
   <!-- 记事本：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/notebook.svg
        「更新历史」用它（纸张类）；日历那个留给日记。 -->
   <symbol id="ico-notebook" viewBox="0 0 24 24"><path d="M22,3V2H21V1H5V2H4V5H1V7H4v4H1v2H4v4H1v2H4v3H5v1H21V22h1V21h1V3ZM9,21H6V3H9Zm12-1H20v1H11V3h9V4h1Z"/></symbol>
+  <!-- 书：给「文集」用（更新历史占用的是记事本 ico-notebook，两个图标不能撞）。
+       这个是照同一套像素风格手画的方块书（不是 Pixel Icon Library 的现成文件），
+       想换成图库里的 book.svg 直接替换这条 path 即可。 -->
+  <symbol id="ico-book" viewBox="0 0 24 24"><path d="M2 1h3v22H2V1Zm3 0h17v3H5V1Zm0 19h17v3H5v-3Zm14-16h3v16h-3V4ZM7 7h9v2H7V7Zm0 4h9v2H7v-2Zm0 4h6v2H7v-2Z"/></symbol>
   <symbol id="ico-bold" viewBox="0 0 24 24"><path d="m19,13v-1h-2v-1h1v-1h1v-6h-1v-1h-1v-1h-1v-1H5v1h-1v20h1v1h12v-1h1v-1h1v-1h1v-7h-1ZM6,3h10v1h1v6H6V3Zm12,17h-1v1H6v-9h10v1h1v1h1v6Z"/></symbol>
   <symbol id="ico-italics" viewBox="0 0 24 24"><polygon points="22 1 22 3 17 3 17 4 16 4 16 6 15 6 15 8 14 8 14 11 13 11 13 13 12 13 12 16 11 16 11 18 10 18 10 20 9 20 9 21 16 21 16 23 2 23 2 21 7 21 7 20 8 20 8 18 9 18 9 16 10 16 10 13 11 13 11 11 12 11 12 8 13 8 13 6 14 6 14 4 15 4 15 3 8 3 8 1 22 1"/></symbol>
   <symbol id="ico-comment-quote" viewBox="0 0 24 24"><polygon points="17 7 17 15 16 15 16 16 13 16 13 15 14 15 14 14 15 14 15 12 13 12 13 7 17 7"/><polygon points="11 7 11 15 10 15 10 16 7 16 7 15 8 15 8 14 9 14 9 12 7 12 7 7 11 7"/><path d="m22,8v-2h-1v-1h-1v-1h-2v-1h-3v-1h-6v1h-3v1h-2v1h-1v1h-1v2h-1v6h1v2h1v2h-1v1h-1v2h5v-1h1v-1h2v1h6v-1h3v-1h2v-1h1v-1h1v-2h1v-6h-1Zm-2,6v2h-2v1h-3v1h-6v-1h-2v1h-1v1h-2v-1h1v-2h-1v-2h-1v-6h1v-2h2v-1h3v-1h6v1h3v1h2v2h1v6h-1Z"/></symbol>
@@ -401,7 +405,7 @@ function renderTree() {
   let h = '';
   h += '<div class="row create" data-act="new">' + ico('plus') + '新建页面</div>';
   h += '<div class="grp">工具</div>';
-  h += '<div class="row tool" data-panel="collection">' + ico('notebook') + '文集</div>';
+  h += '<div class="row tool" data-panel="collection">' + ico('book') + '文集</div>';
   h += '<div class="row tool" data-panel="music">' + ico('music') + '音乐</div>';
   h += '<div class="row tool" data-panel="gallery">' + ico('paint-brush') + '画廊</div>';
   h += '<div class="row tool" data-panel="settings">' + ico('cog') + '站点设置</div>';
@@ -763,20 +767,35 @@ $('#btnPublish').addEventListener('click', async () => {
 function showPanel(html) { $('#panel').innerHTML = html; }
 
 async function openPanel(which) {
-  if (which === 'settings') return renderSettings();
-  if (which === 'collection') return renderCollection();
-  if (which === 'navbar')   return renderNavbar();
-  if (which === 'music')    return renderMusic();
-  if (which === 'gallery')  return renderGallery();
-  if (which === 'links')    return renderLinks();
-  if (which === 'buttons')  return renderButtons();
-  if (which === 'updates')  return renderUpdates();
-  if (which === 'changelog') return renderChangelog();
-  if (which === 'notices')  return renderNotices();
-  if (which === 'sidebar')  return renderSidebar();
-  if (which === 'scripts')  return renderScripts();
-  if (which === 'pkmn')     return renderPkmn();
-  if (which === 'nav')      return renderNav();
+  /* 各面板自己负责 showPanel()。任一环节失败（最典型的是编辑器进程还是旧代码，
+     新接口 404）以前只在控制台抛错，面板上留着上一个画面 —— 看着就像「点了没反应」。
+     这里兜住，把原因画在面板里，并直接给出「重启编辑器」的提示。 */
+  try {
+    if (which === 'settings') return await renderSettings();
+    if (which === 'collection') return await renderCollection();
+    if (which === 'navbar')   return await renderNavbar();
+    if (which === 'music')    return await renderMusic();
+    if (which === 'gallery')  return await renderGallery();
+    if (which === 'links')    return await renderLinks();
+    if (which === 'buttons')  return await renderButtons();
+    if (which === 'updates')  return await renderUpdates();
+    if (which === 'changelog') return await renderChangelog();
+    if (which === 'notices')  return await renderNotices();
+    if (which === 'sidebar')  return await renderSidebar();
+    if (which === 'scripts')  return await renderScripts();
+    if (which === 'pkmn')     return await renderPkmn();
+    if (which === 'nav')      return await renderNav();
+  } catch (e) {
+    showPanel(
+      '<h2 class="sec">这个面板打不开</h2>'
+      + '<p class="hint">' + esc(e.message) + '</p>'
+      + '<p class="hint">如果刚刚拉取过新版编辑器的代码，<b>请重启编辑器</b>：'
+      + '关掉那个命令行窗口，重新运行 <code>.editor/start.command</code>'
+      + '（Windows 上是 <code>start.cmd</code>）。正在跑的进程还是旧代码，'
+      + '新加的接口在它里面并不存在 —— 浏览器里刷新页面是没用的。</p>'
+    );
+    toast('打开面板失败：' + e.message, 'err');
+  }
 }
 
 /* --- 日记日历一览（2026-09-12 起日历改为自动生成，这里只做只读展示） --- */
