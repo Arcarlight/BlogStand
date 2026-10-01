@@ -1,12 +1,24 @@
 {{ define "main" }}
+{{ $isCollection := eq .Params.theme "collection" }}
+{{ if $isCollection }}{{ partial "collection-css.html" . }}{{ end }}
 
 <article class="box post-single">
-  <div class="box-title">日志正文</div>
+  <div class="box-title">{{ if $isCollection }}文集正文{{ else }}日志正文{{ end }}</div>
   <div class="box-body">
 
     <h1 class="entry-title">{{ .Title }}</h1>
 
+    {{/* 文集：作者永远是同一个马甲，署名是噪音 —— 只显示字数 / 阅读时间，
+         「写作时间」挪到文末（需求指定的版式）。
+         主站其它页面保持原样（日期 + 作者 + 字数）。 */}}
+    {{ if $isCollection }}
+    {{- $st := partial "stats.html" . -}}
+    <div class="entry-meta">
+      <span class="meta-item">共 {{ $st.Chars }} 字，阅读约 {{ $st.Minutes }} 分钟</span>
+    </div>
+    {{ else }}
     {{ partial "post-meta.html" . }}
+    {{ end }}
 
     {{/* 标签链接要用 Hugo 生成的 term 永久链接。
          原来手工拼 "/tags/" + urlize + "/"，遇到 "#sokuzai" 这类带 # 的
@@ -39,18 +51,33 @@
     {{- end -}}
     {{- end }}
 
+    {{ if $isCollection }}
+    {{/* ============ 文集：文末顺序 = 写作时间 →（底下的）作者简介 → 点评 ============ */}}
+    <div class="entry-foot">
+      <div class="entry-foot-meta">
+        <span class="foot-label">写作时间</span>
+        <span class="foot-value">{{ .Date.Format "2006-01-02 15:04" }}</span>
+      </div>
+    </div>
+    {{ else }}
     {{/* ============ 打赏（那个年代叫"支付宝"） ============ */}}
     <div class="entry-actions">
       <a class="action-btn" href="mailto:{{ site.Params.email }}?subject={{ .Title | urlquery }}">写信给站长</a>
       <a class="action-btn" href="#top" onclick="window.scrollTo(0,0);return false;">回到顶部</a>
     </div>
+    {{ end }}
 
   </div>
 </article>
 
 {{/* ============ 始祖小鸟页面底部的放养区（在留言板上面）
-     只在开了 tbtakPasture 的页面出现，见 content/tobitaiaaken.md ============ */}}
+      只在开了 tbtakPasture 的页面出现，见 content/tobitaiaaken.md ============ */}}
 {{ if .Params.tbtakPasture }}{{ partial "tbtak-pasture.html" . }}{{ end }}
+
+{{/* ============ 文集：作者简介（在点评上面）
+      和始祖小鸟底部那几块的排法一致：文章框 → 作者简介框 → 点评框，
+      都是并列的 box。 */}}
+{{ if $isCollection }}{{ partial "blizzer-box.html" . }}{{ end }}
 
 {{ partial "comments.html" . }}
 

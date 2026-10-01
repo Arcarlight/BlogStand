@@ -8,7 +8,21 @@
      兜底：data/sidebar.toml 不存在、或者里面漏了某个挂件，
      下面 $default 里的挂件会按默认顺序补在后面（新加的挂件不会凭空消失）。
      所以往侧栏加新挂件 = 建一个 partial + 在 $default 里排个位置。
+
+     文集（theme="collection"）只留两个：音乐 + 现在时间。
+     作者卡不放侧栏，统一放到文末（见 partials/blizzer-box.html）。
+
+     ⚠️ 刻意**没有**按 section 拆成多份 sidebar：
+     Hugo 的 partial 只按 `layouts/_partials/` 找，不做 section 查找
+     （`layouts/collection/_partials/sidebar.html` 找不到，线上实测报 not found）。
+     所以特殊版式在这里按 theme 分流。
      ============================================================ */}}
+{{ if eq .Params.theme "collection" }}
+<div id="sidebar">
+  {{ partial "sidebar/music.html" . }}
+  {{ partial "sidebar/clock.html" . }}
+</div>
+{{ else }}
 {{ $default := slice "music" "notices" "about" "search" "tags" "recent" "updates" "links" "visitors" "clock" "hitokoto" "pasture" "buttons" }}
 {{ $order := slice }}
 {{ with hugo.Data.sidebar.order }}{{ $order = . }}{{ end }}
@@ -22,3 +36,4 @@
   {{- end }}
 {{- end }}
 </div>
+{{ end }}

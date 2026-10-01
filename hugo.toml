@@ -227,6 +227,11 @@ timeZone = "Asia/Shanghai"
   weight  = 50
 
 [[menu.main]]
+  name    = "文集"
+  pageRef = "/collection/"
+  weight  = 55
+
+[[menu.main]]
   name    = "始祖小鸟"
   pageRef = "/tobitaiaaken/"
   weight  = 60

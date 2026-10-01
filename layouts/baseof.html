@@ -15,7 +15,7 @@
 {{- else if eq $bn "tobitaiaaken" }}{{ $pctx = "tbtak" }}
 {{- else if eq .Kind "page" }}{{ $pctx = "blog" }}
 {{- end -}}
-<body{{ if .Params.dayReplies }} data-day-replies="1"{{ end }} data-pkmn-ctx="{{ $pctx }}">
+<body{{ if .Params.dayReplies }} data-day-replies="1"{{ end }} class="theme-{{ .Params.theme | default "default" }}" data-pkmn-ctx="{{ $pctx }}">
 {{ if site.Params.comments }}
 <script>
   window.SITE_REPLY = {
@@ -32,12 +32,24 @@
     <div id="content">
       {{ block "main" . }}{{ end }}
     </div>
+    {{/* 页面可以在 front matter 里写 theme = "xxx"，换一套侧栏和版式。
+         Hugo 的部分模板查找规则：layouts/<类型>/_partials/ 会优先于
+         layouts/_partials/ 被找到 —— 所以只在有特殊版式的 section 下建一份
+         sidebar.html，其它页面照旧用通用的那个。 */}}
     {{ partial "sidebar.html" . }}
   </div>
 
   {{ partial "footer.html" . }}
 
 </div>
+
+{{/* 文集页左下角的水印（不遮挡阅读：pointer-events:none + 低透明度）。
+     图片路径用 absURL —— 站是子目录部署（/BlogStand/），相对路径会指错地方。 */}}
+{{ if eq .Params.theme "collection" }}
+<div class="collection-watermark" aria-hidden="true">
+  <img src="{{ "images/collection/Blizzer_collection_pageileftdown.png" | absURL }}" alt="">
+</div>
+{{ end }}
 
 {{/* 右下角悬浮的"回到顶部"，当年几乎每个站都有 */}}
 <a id="gotop" href="#" onclick="window.scrollTo(0,0);return false;">↑ TOP</a>

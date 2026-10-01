@@ -275,7 +275,11 @@ async function listDir(rel) {
   try {
     const out = [];
     for (const e of await fsp.readdir(safePath(rel), { withFileTypes: true })) {
-      if (e.name.startsWith('.') || e.name.startsWith('_')) continue;
+      // 跳过隐藏文件；下划线开头的也跳过，但 **section 首页 _index.md 除外** ——
+      // 它是那一组的门面（文集的绿色主题就是靠它的 cascade 带下来的），
+      // 不在编辑器里露出来的话，那一组会是空的、也改不了。
+      const isSectionIndex = e.name === '_index.md';
+      if (e.name.startsWith('.') || (e.name.startsWith('_') && !isSectionIndex)) continue;
       const r = path.posix.join(rel, e.name);
       if (e.isDirectory()) out.push(...await listDir(r));
       else out.push(r);
@@ -344,6 +348,11 @@ async function buildTree() {
 
   const blog = (await listDir('content/blog')).filter(isMd).sort();
   tree.push({ group: '博客', kind: 'content', files: blog });
+
+  // 文集（绿色主题那个 section）：_index.md 排最前，然后是各篇
+  const col = (await listDir('content/collection')).filter(isMd)
+    .sort((a, b) => (a.endsWith('/_index.md') ? -1 : b.endsWith('/_index.md') ? 1 : a.localeCompare(b)));
+  tree.push({ group: '文集', kind: 'content', files: col });
 
   const niki = (await listDir('content/niki')).filter(isMd).sort();
   tree.push({ group: '日记', kind: 'content', files: niki });
@@ -1488,6 +1497,11 @@ async function handle(req, res, url) {
     if (kind === 'blog') {
       rel = `content/blog/${clean}.md`;
       body = `---\ntitle: "${title}"\ndate: ${d}\ndraft: ${draftFlag}\ntags: []\ndescription: ""\n---\n\n在这里写正文。\n\n<!--more-->\n`;
+    } else if (kind === 'collection') {
+      // 文集：绿色主题、窄侧栏那套由 content/collection/_index.md 的 cascade
+      // 带下来（theme: collection），所以这里不用写 theme。
+      rel = `content/collection/${clean}.md`;
+      body = `---\ntitle: "${title}"\ndate: ${d}\ndraft: ${draftFlag}\ndescription: ""\n---\n\n在这里写正文。\n`;
     } else if (kind === 'niki') {
       // 年月优先从文件名 niki_YYYYMM 里取，取不到就用日期
       let y, mo;

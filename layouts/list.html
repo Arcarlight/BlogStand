@@ -1,4 +1,5 @@
 {{ define "main" }}
+{{ if eq .Params.theme "collection" }}{{ partial "collection-css.html" . }}{{ end }}
 
 <div class="box">
   <div class="box-title">
@@ -11,6 +12,23 @@
     <div class="list-intro">{{ . }}</div>
     {{ end }}
 
+    {{ if eq .Params.theme "collection" }}
+    {{/* 文集的篇目：日期 + 标题 + 一句简介，比博客列表更安静一点 */}}
+    {{ $items := .Pages.ByDate.Reverse }}
+    {{ if $items }}
+    <ul class="collection-list">
+      {{ range $items }}
+      <li class="collection-item">
+        <span class="ci-date">{{ .Date.Format "2006-01-02" }}</span>
+        <a class="ci-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
+        {{ with .Description }}<span class="ci-desc">{{ . }}</span>{{ end }}
+      </li>
+      {{ end }}
+    </ul>
+    {{ else }}
+    <p class="collection-empty">还什么都没放进来。在编辑器里新建一篇、放进 <code>content/collection/</code> 就会出现在这里。</p>
+    {{ end }}
+    {{ else }}
     <ul class="post-list">
       {{ range .Paginator.Pages }}
       {{- $st := partial "stats.html" . }}
@@ -29,6 +47,7 @@
     </ul>
 
     {{ partial "pager.html" . }}
+    {{ end }}
 
   </div>
 </div>

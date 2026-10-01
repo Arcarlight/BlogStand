@@ -1,10 +1,19 @@
-{{/* 留言板：utterances（基于 GitHub Issue）
-     日记页（dayReplies）改成「每天一个回复区」，所以这里跳过 */}}
+{{/* ============ 留言板 / 点评 ============
+     两个名字，同一套机制（utterances），只有文案和 label 不同：
+       默认（博客、日记、单页）-> 「留言板」   theme="collection" -> 「点评」
+
+     issue-term 一律用 site.Params.utterancesIssue（hugo.toml 里配的），
+     别在模板里写死 —— 那样等于把这个设置废掉。
+     ============================================================ */}}
 {{ if and site.Params.comments (eq .Kind "page") (not .Params.dayReplies) }}
-<div class="box">
-  <div class="box-title">留言板</div>
+{{ $isCollection := eq .Params.theme "collection" }}
+{{ $title := cond $isCollection "点评" "留言板" }}
+<div class="box{{ if $isCollection }} box-review{{ end }}">
+  <div class="box-title">{{ $title }}</div>
   <div class="box-body">
-    <p class="comments-tip">留言需要 GitHub 账号登录，文明发言，谢绝广告。</p>
+    <p class="comments-tip">
+      {{ if $isCollection }}想说点什么就用 GitHub 账号登录，文明发言，谢绝广告。{{ else }}留言需要 GitHub 账号登录，文明发言，谢绝广告。{{ end }}
+    </p>
     <script src="https://utteranc.es/client.js"
             repo="{{ site.Params.utterancesRepo }}"
             issue-term="{{ site.Params.utterancesIssue }}"
@@ -12,7 +21,7 @@
             crossorigin="anonymous"
             async>
     </script>
-    <noscript>你的浏览器没有开启 JavaScript，无法显示留言板。</noscript>
+    <noscript>你的浏览器没有开启 JavaScript，无法显示{{ $title }}。</noscript>
   </div>
 </div>
 {{ end }}

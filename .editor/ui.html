@@ -2492,6 +2492,7 @@ function defaultNameTitle(kind) {
     return { name: `niki_${y}${String(m).padStart(2, '0')}`, title: `${y}年${m}月日记` };
   }
   if (kind === 'blog') return { name: 'new-post', title: '新文章' };
+  if (kind === 'collection') return { name: 'new-piece', title: '新篇目' };
   return { name: 'new-page', title: '新页面' };
 }
 
@@ -2514,6 +2515,7 @@ async function newPage() {
       { key: 'kind', type: 'select', label: '类型', value: 'niki', options: [
         { v: 'niki', t: '日记（挂到导航页，不进博客列表）' },
         { v: 'blog', t: '博客文章' },
+        { v: 'collection', t: '文集（绿色主题那个页面，小说 / 随感 / 杂笔）' },
         { v: 'page', t: '独立单页' },
       ] },
       { key: 'name', type: 'text', label: '文件名', value: d0.name, hint: '英文/数字/下划线，不用写 .md' },

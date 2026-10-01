@@ -1,4 +1,29 @@
-{{/* ============ 站长名片 ============ */}}
+{{/* ============ 关于作者 / 站长名片 ============
+
+     三种形态：
+       theme="collection" 且 title="作者简介" -> 文集文末那张（副标题不同）
+       theme="collection"                     -> 「关于作者」：文集那一套马甲（布利札）
+       其它                                    -> 「关于站长」：主站这张（昵称 + 邮箱）
+
+     ⚠️ 做成一个文件按 theme 分流，而不是各建一份 partial：
+     Hugo 的 partial **不做 section 查找**（layouts/collection/_partials/ 里的
+     东西 partial 找不到，线上实测直接报 not found），所以「每个 section
+     各自覆盖 partial」的写法行不通。
+     ============================================================ */}}
+{{ if eq .Params.theme "collection" }}
+{{ $title := "关于作者" }}
+{{ with .Scratch.Get "aboutTitle" }}{{ $title = . }}{{ end }}
+<div class="widget widget-about-blizzer">
+  <div class="widget-title">{{ $title }}</div>
+  <div class="widget-body widget-about">
+    <div class="avatar-box">
+      <img class="avatar" src="{{ "images/collection/Blizzer_icon.png" | absURL }}" alt="布利札的头像">
+    </div>
+    <p class="about-name">布利札</p>
+    <p class="about-desc">喜欢写作、文学、语言学的热带龙，一心一意地收集喜欢的东西。</p>
+  </div>
+</div>
+{{ else }}
 <div class="widget">
   <div class="widget-title">关于站长</div>
   <div class="widget-body widget-about">
@@ -13,3 +38,4 @@
     </ul>
   </div>
 </div>
+{{ end }}

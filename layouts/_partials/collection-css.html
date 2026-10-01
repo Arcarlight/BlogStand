@@ -1,0 +1,262 @@
+{{/* ==========================================================================
+     文集的版式 —— 绿色主题
+
+     为什么放在短代码里、而不是直接写在页面正文或 retro.css：
+       · 写在正文里不行：Hugo 的 markdown 遇到空行就结束 HTML 块，
+         <style> 中间留空行会让后半段 CSS 变成可见的 <pre>（Tbtak 那页踩过）
+       · 放在 retro.css 里要处处加 :not(.theme-collection)，反而更容易漏
+     短代码的输出不经过 markdown，而且只有调用它的页面加载这段样式。
+
+     选择器为什么一律带 #collection-scope 前缀：
+     全站点阵字体那条规则是 `html.pxfont body * { font-size: … !important }`，
+     通配符 + !important，只有 ID 选择器才压得住（Tbtak 那页同理）。
+     ========================================================================== */}}
+<style>
+/* ---------- 1. 整页换成绿色主题 ---------- */
+body.theme-collection {
+  background-color: #eaf3e6 !important;
+  background-image: repeating-linear-gradient(
+    0deg, rgba(122,168,116,.10) 0 1px, transparent 1px 12px),
+    repeating-linear-gradient(90deg, rgba(122,168,116,.10) 0 1px, transparent 1px 12px) !important;
+}
+
+/* 版心：白底改成带一点绿的白。
+   ⚠️ 版心底纹原本是 static/images/bg-tile.png（8×8 的蓝色网格图）叠在白色上 ——
+   只改 background-color 是压不住图片的（一开始就漏了这点，左侧空档还是蓝的）。
+   这里把那张图换掉，用同尺寸（8×8：底色 + 1px 网格线）的绿色渐变重画一遍，
+   偏移量沿用原来的 -4px -4px，否则版心内侧第一列会正好压在网格线上。 */
+body.theme-collection #page {
+  background-color: #f2f8ef !important;
+  background-image:
+    repeating-linear-gradient(90deg,  #c2dcba 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(0deg,   #c2dcba 0 1px, transparent 1px 8px) !important;
+  background-repeat: repeat, repeat !important;
+  background-position: -4px -4px, -4px -4px !important;
+  border-color: #b6d3ae !important;
+  box-shadow: 4px 4px 0 #cfe3c9 !important;
+}
+
+/* 框：标题条换成绿色渐变，边框换绿 */
+body.theme-collection .box,
+body.theme-collection .widget {
+  border-color: #b6d3ae !important;
+}
+
+body.theme-collection .box-title,
+body.theme-collection .widget-title {
+  color: #23491f !important;
+  background: linear-gradient(#dcebd6, #bcd8b3) !important;
+  border-bottom-color: #a8cba0 !important;
+  text-shadow: 1px 1px 0 #ffffff !important;
+}
+
+body.theme-collection .widget-title { background: linear-gradient(#e2efdd, #c6ddbe) !important; }
+
+/* 挂件正文底、正文小标题这些原来也是蓝的，一起换绿 */
+body.theme-collection .widget-body { background: #f6fbf4 !important; }
+
+body.theme-collection .entry-content h1,
+body.theme-collection .entry-content h2,
+body.theme-collection .entry-content summary { color: #23491f !important; }
+
+body.theme-collection .entry-content h3 { color: #2f6b33 !important; }
+body.theme-collection .entry-content h4 { color: #4c664a !important; }
+
+body.theme-collection .entry-content details {
+  background: #f6fbf4 !important;
+  border-color: #9dc294 !important;
+  border-left-color: #2f6b33 !important;
+}
+
+body.theme-collection .entry-content details[open] summary { border-bottom-color: #c2dcba !important; }
+
+/* 链接、标签、按钮换成绿系 */
+body.theme-collection a { color: #2f6b33 !important; }
+body.theme-collection a:hover { color: #1f4d24 !important; }
+body.theme-collection .tag-item { color: #2f6b33 !important; border-color: #b6d3ae !important; }
+body.theme-collection .action-btn { color: #23491f !important; border-color: #9dc294 !important; background: #eaf3e6 !important; }
+body.theme-collection .action-btn:hover { background: #d7e9d0 !important; }
+
+/* ---------- 1b. 页头 / 导航栏 / 公告条 / 页脚也换绿 ----------
+   这一块一开始漏了：只改了版心、框和链接，结果页头和导航还是蓝的，
+   整页看着不像绿色主题。下面按原来的分层结构（高光带 + 两套斜纹 + 底色渐变）
+   原样重画成绿系，只是把颜色换掉，版式一个字没动。 */
+body.theme-collection #header {
+  background-color: #2f6b3a !important;
+  background-image:
+    linear-gradient(180deg,
+      rgba(255,255,255,.30) 0,
+      rgba(255,255,255,.09) 34px,
+      rgba(255,255,255,0)   35px,
+      rgba(0,0,0,.14)       112px,
+      rgba(0,0,0,.32)       118px),
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,.07) 0 2px,
+      rgba(255,255,255,0)   2px 29px),
+    repeating-linear-gradient(115deg,
+      rgba(255,255,255,.11) 0 5px,
+      rgba(255,255,255,0)   5px 13px),
+    linear-gradient(180deg, #6aa86e 0, #2f6b3a 55%, #1c4526 100%) !important;
+  border-bottom-color: #ff9900 !important;
+}
+
+body.theme-collection .site-name {
+  text-shadow: 2px 2px 0 #16351d, -1px -1px 0 #a9d3a4, 0 0 10px rgba(255,255,255,.45) !important;
+}
+
+body.theme-collection .site-slogan { color: #dff0da !important; }
+
+body.theme-collection #navbar {
+  background: #1f4d29 !important;
+  border-top-color: #8cc287 !important;
+  border-bottom-color: #0f2c16 !important;
+}
+
+body.theme-collection #navbar .nav li a {
+  color: #dcefd8 !important;
+  border-right-color: #3d7f4a !important;
+  border-left-color: #0f2c16 !important;
+}
+
+body.theme-collection #navbar .nav li a:hover { background: #3d7f4a !important; color: #ffffff !important; }
+
+/* 当前页那栏保持那个橙色高亮 —— 它是全站的强调色，和绿底对比更清楚 */
+body.theme-collection #navbar .nav li.active a {
+  background: #ff9900 !important;
+  color: #ffffff !important;
+  border-right-color: #b36b00 !important;
+  border-left-color: #ffcc66 !important;
+}
+
+/* 公告条：淡黄底和红标签是「公告」的语义色，只把边线和文字调成配绿的暖色 */
+body.theme-collection #notice {
+  background: #f6f7dd !important;
+  border-bottom-color: #b9a24a !important;
+  color: #b23b2e !important;
+}
+
+body.theme-collection #footer {
+  background: #eef6ec !important;
+  border-top-color: #7fae7a !important;
+}
+
+/* ---------- 2. 版式：这一页读起来更宽 ---------- */
+/* 原来正文 656 / 侧栏 300。
+   文集只留两个挂件，所以侧栏压到 190、正文加宽到 790 ——
+   ⚠️ 两者之和必须 ≤ #main 的内宽 984（= 版心 1000 − padding 8×2）。
+   一开始写的 830+160=990 超了 6px，CSS 就把右浮动的侧栏整个挤到正文下面；
+   160 又太窄、把侧栏里的播放器挤到换行，所以取 190 + 790 = 980，留 4px 余量。 */
+body.theme-collection #content { width: 790px !important; }
+body.theme-collection #sidebar { width: 190px !important; }
+
+/* 侧栏窄了，时钟和播放器跟着收一点，别撑破 */
+body.theme-collection #sidebar .retro-clock { font-size: 20px !important; }
+
+body.theme-collection .entry-content { line-height: 1.85 !important; }
+body.theme-collection .entry-content p { margin-bottom: 1.05em !important; }
+
+/* ---------- 3. 文末：写作时间 / 作者简介 / 点评 ---------- */
+body.theme-collection .entry-foot {
+  margin-top: 26px;
+  padding-top: 10px;
+  border-top: 1px dashed #b6d3ae;
+}
+
+body.theme-collection .entry-foot-meta {
+  color: #5b7358;
+  text-align: right;
+}
+
+body.theme-collection .foot-label { color: #7d9579; }
+body.theme-collection .foot-value { color: #23491f; letter-spacing: 0; }
+
+/* 文末那张作者卡做成一个独立的 box（和「始祖小鸟」底部那几块同一个排法），
+   里面横排：头像在左、文字在右 */
+body.theme-collection .box-blizzer .box-body { padding: 12px 14px; }
+
+body.theme-collection .blizzer-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+body.theme-collection .blizzer-avatar {
+  flex: 0 0 auto;
+  width: 76px;
+  height: 76px;
+  border: 1px solid #a8cba0;
+  background: #ffffff;
+  image-rendering: pixelated;
+}
+
+body.theme-collection .blizzer-text { min-width: 0; }
+
+body.theme-collection .blizzer-name {
+  margin: 2px 0 6px;
+  color: #23491f;
+  font-size: var(--px-lg, 15px) !important;
+}
+
+body.theme-collection .blizzer-desc {
+  margin: 0;
+  color: #4c664a;
+  line-height: 1.8 !important;
+}
+
+/* 点评那一块 */
+body.theme-collection .box-review .comments-tip { color: #5b7358; }
+
+/* ---------- 4. 左下角水印 ---------- */
+/* 固定定位、不吃鼠标事件、低透明度 —— 只做装饰，不挡阅读。
+   宽度用 vmin 跟着窗口走，小屏也不会盖住正文。 */
+.collection-watermark {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  z-index: 5;
+  pointer-events: none;
+  line-height: 0;
+  opacity: .34;
+}
+
+.collection-watermark img {
+  width: clamp(90px, 15vmin, 190px);
+  height: auto;
+  display: block;
+}
+
+/* 窗口很窄时（手机）再淡一点，别和正文抢注意力 */
+@media (max-width: 820px) {
+  .collection-watermark { opacity: .22; }
+  .collection-watermark img { width: clamp(64px, 22vmin, 110px); }
+}
+
+/* ---------- 5. 文集目录页 ---------- */
+body.theme-collection .collection-list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+body.theme-collection .collection-item {
+  padding: 7px 0;
+  border-bottom: 1px dotted #cfe3c9;
+}
+
+body.theme-collection .ci-date {
+  display: inline-block;
+  width: 82px;
+  color: #7d9579;
+}
+
+body.theme-collection .ci-title { font-size: var(--px-lg, 15px) !important; }
+
+body.theme-collection .ci-desc {
+  display: block;
+  margin: 2px 0 0 82px;
+  color: #5b7358;
+  font-size: var(--px-sm, 11px) !important;
+}
+
+body.theme-collection .collection-empty { color: #7d9579; }
+</style>
