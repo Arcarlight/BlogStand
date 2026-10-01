@@ -67,7 +67,12 @@
       </li>
       {{ end }}
     </ul>
+    {{/* 一句面向读者、一句面向编辑器：一篇文章都还没有的时候，说「去建分册」很怪 */}}
+    {{ if $pages }}
     <p class="collection-empty">还没有分册。在编辑器「文集」面板里建一册，再把文章分进去。</p>
+    {{ else }}
+    <p class="collection-empty">还什么都没放进来。在编辑器里新建一篇、放进 <code>content/collection/</code> 就会出现在这里。</p>
+    {{ end }}
     {{ end }}
 
   </div>
