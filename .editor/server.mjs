@@ -472,6 +472,57 @@ function setParams(text, updates) {
 }
 
 /* ============================================================
+   顶部导航栏 —— hugo.toml 里的 [[menu.main]]
+   每个块长这样（编辑器「站点设置」只管 [params]，所以这些标签一直没地方改）：
+       [[menu.main]]
+         name    = "画廊"
+         pageRef = "/gallery/"
+         weight  = 50
+   ============================================================ */
+
+function parseMenu(text) {
+  const lines = text.split(/\r?\n/);
+  const items = [];
+  let cur = null;
+  for (const line of lines) {
+    if (/^\s*\[\[menu\.main\]\]\s*$/.test(line)) { cur = { name: '', pageRef: '', url: '' }; items.push(cur); continue; }
+    if (/^\s*\[/.test(line)) { cur = null; continue; }      // 进到别的段就停
+    if (!cur) continue;
+    const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*"(.*)"\s*$/);
+    if (m) cur[m[1]] = m[2].replace(/\\"/g, '"');
+  }
+  return items;
+}
+
+/* 写回菜单：整段重排（weight 按顺序重编 10/20/30…）。
+   菜单块在 hugo.toml 里的位置保持不变，只换内容。 */
+function writeMenu(text, items) {
+  const nl = text.includes('\r\n') ? '\r\n' : '\n';
+  const lines = text.split(/\r?\n/);
+  const first = lines.findIndex((l) => /^\s*\[\[menu\.main\]\]\s*$/.test(l));
+  if (first < 0) throw new Error('hugo.toml 里找不到 [[menu.main]] 段');
+  let last = first;
+  for (let i = first; i < lines.length; i++) {
+    if (/^\s*\[\[menu\.main\]\]\s*$/.test(lines[i])) { last = i; continue; }
+    // 菜单块之间允许有空行和注释；碰到别的段就停
+    if (i > first && /^\s*\[/.test(lines[i])) break;
+  }
+  const blocks = [];
+  items.forEach((it, i) => {
+    if (!String(it.name || '').trim()) return;
+    blocks.push('[[menu.main]]');
+    blocks.push(`  name    = "${String(it.name).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
+    const ref = String(it.pageRef || it.url || '').trim();
+    if (ref) blocks.push(`  pageRef = "${ref.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
+    blocks.push(`  weight  = ${(i + 1) * 10}`);
+    blocks.push('');
+  });
+  while (blocks.length && blocks[blocks.length - 1] === '') blocks.pop();
+  const out = [...lines.slice(0, first), ...blocks, ...lines.slice(last + 1)];
+  return out.join(nl);
+}
+
+/* ============================================================
    data/*.toml 的 [[items]] 列表
    ============================================================ */
 
@@ -1684,6 +1735,27 @@ async function handle(req, res, url) {
     const next = setParams(await readText('hugo.toml'), updates);
     await writeText('hugo.toml', next);
     return json(res, 200, parseParams(next));
+  }
+
+  // 顶部导航栏（[[menu.main]]）—— 「站点设置」只管 [params]，所以单开一组接口
+  if (p === '/api/menu' && req.method === 'GET') {
+    return json(res, 200, { items: parseMenu(await readText('hugo.toml')) });
+  }
+  if (p === '/api/menu' && req.method === 'POST') {
+    const { items } = await readBody(req);
+    if (!Array.isArray(items)) throw new Error('参数不对：需要 items 数组');
+    const clean = items
+      .map((it) => ({
+        name: String(it.name || '').trim(),
+        pageRef: String(it.pageRef || it.url || '').trim(),
+      }))
+      .filter((it) => it.name);
+    for (const it of clean) {
+      if (!it.pageRef) throw new Error(`「${it.name}」还没选指向哪个页面`);
+    }
+    const next = writeMenu(await readText('hugo.toml'), clean);
+    await writeText('hugo.toml', next);
+    return json(res, 200, { ok: true, count: clean.length, items: parseMenu(next) });
   }
 
   if (p.startsWith('/api/list/')) {

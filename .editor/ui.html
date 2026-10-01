@@ -249,6 +249,9 @@
   <symbol id="ico-grid" viewBox="0 0 24 24"><path d="m10,13H2v1h-1v8h1v1h8v-1h1v-8h-1v-1Zm-1,8H3v-6h6v6Z"/><path d="m10,2v-1H2v1h-1v8h1v1h8v-1h1V2h-1Zm-7,7V3h6v6H3Z"/><path d="m22,13h-8v1h-1v8h1v1h8v-1h1v-8h-1v-1Zm-1,8h-6v-6h6v6Z"/><path d="m22,2v-1h-8v1h-1v8h1v1h8v-1h1V2h-1Zm-1,7h-6V3h6v6Z"/></symbol>
   <symbol id="ico-code" viewBox="0 0 24 24"><polygon points="7 7 7 8 6 8 6 9 5 9 5 10 4 10 4 11 3 11 3 13 4 13 4 14 5 14 5 15 6 15 6 16 7 16 7 17 5 17 5 16 4 16 4 15 3 15 3 14 2 14 2 13 1 13 1 11 2 11 2 10 3 10 3 9 4 9 4 8 5 8 5 7 7 7"/><polygon points="15 3 16 3 16 6 15 6 15 9 14 9 14 12 13 12 13 14 12 14 12 17 11 17 11 20 10 20 10 21 9 21 9 18 10 18 10 15 11 15 11 12 12 12 12 10 13 10 13 7 14 7 14 4 15 4 15 3"/><polygon points="23 11 23 13 22 13 22 14 21 14 21 15 20 15 20 16 19 16 19 17 17 17 17 16 18 16 18 15 19 15 19 14 20 14 20 13 21 13 21 11 20 11 20 10 19 10 19 9 18 9 18 8 17 8 17 7 19 7 19 8 20 8 20 9 21 9 21 10 22 10 22 11 23 11"/></symbol>
   <symbol id="ico-calendar-alt" viewBox="0 0 24 24"><rect x="6" y="1" width="2" height="6"/><rect x="9" y="4" width="6" height="2"/><rect x="16" y="1" width="2" height="6"/><path d="M22,5V4H19V6h2V9H3V6H5V4H2V5H1V22H2v1H22V22h1V5ZM21,21H3V11H21Z"/></symbol>
+  <!-- 三横线：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/bars.svg
+       「顶部导航」面板用它 -->
+  <symbol id="ico-bars" viewBox="0 0 24 24"><rect x="1" y="11" width="22" height="2"/><rect x="1" y="19" width="22" height="2"/><rect x="1" y="3" width="22" height="2"/></symbol>
   <!-- 记事本：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/notebook.svg
        「更新历史」用它（纸张类）；日历那个留给日记。 -->
   <symbol id="ico-notebook" viewBox="0 0 24 24"><path d="M22,3V2H21V1H5V2H4V5H1V7H4v4H1v2H4v4H1v2H4v3H5v1H21V22h1V21h1V3ZM9,21H6V3H9Zm12-1H20v1H11V3h9V4h1Z"/></symbol>
@@ -401,6 +404,7 @@ function renderTree() {
   h += '<div class="row tool" data-panel="music">' + ico('music') + '音乐</div>';
   h += '<div class="row tool" data-panel="gallery">' + ico('paint-brush') + '画廊</div>';
   h += '<div class="row tool" data-panel="settings">' + ico('cog') + '站点设置</div>';
+  h += '<div class="row tool" data-panel="navbar">' + ico('bars') + '顶部导航</div>';
   h += '<div class="row tool" data-panel="links">' + ico('link') + '友情链接</div>';
   h += '<div class="row tool" data-panel="buttons">' + ico('grid') + '小按钮</div>';
   h += '<div class="row tool" data-panel="updates">' + ico('refresh') + '更新日志</div>';
@@ -759,6 +763,7 @@ function showPanel(html) { $('#panel').innerHTML = html; }
 
 async function openPanel(which) {
   if (which === 'settings') return renderSettings();
+  if (which === 'navbar')   return renderNavbar();
   if (which === 'music')    return renderMusic();
   if (which === 'gallery')  return renderGallery();
   if (which === 'links')    return renderLinks();
@@ -801,6 +806,92 @@ async function renderNav() {
      + '前两位是月、后两位是日。标题里写「10月 5日 ～ 10月 7日」这种跨日，三天都会链到同一个锚点。'
      + '</p>';
   showPanel(h);
+}
+
+/* --- 顶部导航（hugo.toml 的 [[menu.main]]） ---
+   站长问「首页 / 关于 / 画廊 / 始祖小鸟 这些标签能不能在编辑器里改」——
+   以前不能：「站点设置」只管 [params] 段。 */
+async function renderNavbar() {
+  const d = await apiGet('/api/menu');
+  const draw = (items) => {
+    // 可选页面：先放几个常用的，再把「首页与单页」里的文件都列上
+    const pages = [
+      ['/', '首页 /'], ['/self_intros/', '关于 self_intros'],
+      ['/blog/', '博客列表 /blog/'], ['/navigator/', '导航 navigator'],
+      ['/gallery/', '画廊 gallery'], ['/updates/', '更新日志（全部）updates'],
+      ['/tobitaiaaken/', '始祖小鸟 tobitaiaaken'],
+    ];
+    for (const g of (TREE || [])) {
+      if (g.group !== '首页与单页') continue;
+      for (const f of g.files) {
+        const u = urlForFile(f);
+        if (u && !pages.some((p) => p[0] === u)) pages.push([u, f.replace(/^content\//, '')]);
+      }
+    }
+    let h = '<h2 class="sec">顶部导航</h2>';
+    h += '<p class="hint">页面顶部那条导航栏（首页 / 关于 / 博客 …），对应 <code>hugo.toml</code> 的 <code>[[menu.main]]</code>。</p>';
+    h += '<div class="note">左边那列是<b>显示的文字</b>（想叫什么都行）；右边选它<b>指向哪个页面</b>。<br>' +
+         '顺序就是显示顺序，用每行右边的 <b>↑ ↓</b> 调；保存时 weight 会按顺序自动重排（10 / 20 / 30…）。<br>' +
+         '「站点设置」面板管不到这里 —— 那边只管 <code>[params]</code>。</div>';
+    h += '<table class="grid"><thead><tr>' +
+         '<th style="width:30px"></th><th style="width:26%">显示的文字</th>' +
+         '<th>指向的页面</th><th style="width:96px"></th></tr></thead><tbody id="tbNav">';
+    items.forEach((it, i) => {
+      const cur = it.pageRef || it.url || '';
+      let opts = '<option value="">（选一个页面）</option>';
+      for (const [u, label] of pages) {
+        opts += `<option value="${esc(u)}"${u === cur ? ' selected' : ''}>${esc(label)}　${esc(u)}</option>`;
+      }
+      // 现在指向的地址不在候选里就补一条，免得保存时被悄悄改掉
+      if (cur && !pages.some((p) => p[0] === cur)) opts += `<option value="${esc(cur)}" selected>${esc(cur)}（自定义）</option>`;
+      h += `<tr>
+        <td style="text-align:center;color:#9bb4cc">☰</td>
+        <td><input data-f="name" data-i="${i}" value="${esc(it.name || '')}" placeholder="显示的文字"></td>
+        <td><select data-f="pageRef" data-i="${i}">${opts}</select></td>
+        <td style="text-align:center;white-space:nowrap">
+          <button data-up="${i}" title="上移" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button data-down="${i}" title="下移" ${i === items.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="danger" data-del="${i}" title="删掉这一项">×</button>
+        </td></tr>`;
+    });
+    h += '</tbody></table>';
+    if (!items.length) h += '<p class="hint">还没有导航项。加一个吧。</p>';
+    h += '<button id="btnAddNav">＋ 加一项</button> <button class="primary" id="btnSaveNav">保存</button>';
+    showPanel(h);
+
+    const collect = () => {
+      document.querySelectorAll('#tbNav [data-f]').forEach((el) => {
+        const i = +el.dataset.i;
+        if (!items[i]) return;
+        items[i][el.dataset.f] = el.value;
+      });
+    };
+    const swap = (a, b) => { const t = items[a]; items[a] = items[b]; items[b] = t; };
+    document.querySelectorAll('#tbNav [data-del]').forEach((b) => b.addEventListener('click', () => {
+      collect(); items.splice(+b.dataset.del, 1); draw(items);
+    }));
+    document.querySelectorAll('#tbNav [data-up]').forEach((b) => b.addEventListener('click', () => {
+      collect(); const i = +b.dataset.up; if (i > 0) { swap(i, i - 1); draw(items); }
+    }));
+    document.querySelectorAll('#tbNav [data-down]').forEach((b) => b.addEventListener('click', () => {
+      collect(); const i = +b.dataset.down; if (i < items.length - 1) { swap(i, i + 1); draw(items); }
+    }));
+    $('#btnAddNav').addEventListener('click', () => {
+      collect();
+      items.push({ name: '新标签', pageRef: '/blog/' });
+      draw(items);
+    });
+    $('#btnSaveNav').addEventListener('click', async () => {
+      collect();
+      try {
+        const r = await apiPost('/api/menu', { items });
+        toast('导航栏已保存（预览里刷新一下就能看到）' + (r && r.count ? '，共 ' + r.count + ' 项' : ''), 'ok');
+      } catch (e) {
+        toast('保存失败：' + e.message, 'err');
+      }
+    });
+  };
+  draw(d.items.map((x) => Object.assign({}, x)));
 }
 
 /* --- 站点设置 --- */
