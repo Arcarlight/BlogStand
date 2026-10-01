@@ -145,9 +145,18 @@ body.theme-collection #footer {
    文集只留两个挂件，所以侧栏压到 190、正文加宽到 790 ——
    ⚠️ 两者之和必须 ≤ #main 的内宽 984（= 版心 1000 − padding 8×2）。
    一开始写的 830+160=990 超了 6px，CSS 就把右浮动的侧栏整个挤到正文下面；
-   160 又太窄、把侧栏里的播放器挤到换行，所以取 190 + 790 = 980，留 4px 余量。 */
-body.theme-collection #content { width: 790px !important; }
-body.theme-collection #sidebar { width: 190px !important; }
+   160 又太窄、把侧栏里的播放器挤到换行，所以取 190 + 790 = 980，留 4px 余量。
+
+   ⚠️ 这两条宽度只在「两栏并列」时才成立，所以必须限定在桌面断点内。
+   retro.css 用 @media (max-width: 1004px) 把 #content / #sidebar 改成
+   float:none; width:auto 的单栏堆叠，但这里的 !important 优先级更高，
+   不限定断点就会把宽度顶回 790 / 190 —— 手机上正文仍按 790px 排
+   （比视口宽一倍），整页横向溢出：标题、导航、正文、页脚右边全被截掉，
+   侧栏又只剩 190px。断点与 retro.css 取同一处，补集就是 min-width:1005px。 */
+@media (min-width: 1005px) {
+  body.theme-collection #content { width: 790px !important; }
+  body.theme-collection #sidebar { width: 190px !important; }
+}
 
 /* 侧栏窄了，时钟和播放器跟着收一点，别撑破 */
 body.theme-collection #sidebar .retro-clock { font-size: 20px !important; }
