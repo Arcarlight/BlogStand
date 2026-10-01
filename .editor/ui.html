@@ -2652,8 +2652,9 @@ function renderCollectionWith(books, articles) {
   if (saveBtn) saveBtn.addEventListener('click', async () => {
     try {
       await apiPost('/api/collection/books', { books: collectBooks() });
-      await apiPost('/api/collection/articles', { articles: collectArticles() });
-      toast('文集已保存', 'ok');
+      const r = await apiPost('/api/collection/articles', { articles: collectArticles() });
+      const n = (r && r.rescued ? r.rescued.length : 0);
+      toast(n ? `文集已保存（${n} 篇正文里漏出的字段已收回 front matter）` : '文集已保存', 'ok');
       await renderCollection();
     } catch (e) { toast('保存失败: ' + e.message, 'err'); }
   });

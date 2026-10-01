@@ -691,7 +691,7 @@ async function writeCollectionBooks(books) {
 
 /** 读一篇文章的 front matter（只认简单的 `key: value`，够文集用） */
 function parseFrontMatter(text) {
-  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const m = String(text).replace(/^\uFEFF/, '').match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return {};
   const fm = {};
   for (const line of m[1].split(/\r?\n/)) {
@@ -701,6 +701,9 @@ function parseFrontMatter(text) {
     if (/^".*"$/.test(v) || /^'.*'$/.test(v)) v = v.slice(1, -1);
     else if (v === 'true') v = true;
     else if (v === 'false') v = false;
+    // 不带引号的数字（weight: 2）当成数字，否则写回去会变成 "2" —— Hugo 的 weight 要数字
+    else if (/^-?\d+$/.test(v)) v = parseInt(v, 10);
+    else if (/^-?\d*\.\d+$/.test(v)) v = parseFloat(v);
     else if (/^\[.*\]$/.test(v)) {
       v = v.slice(1, -1).split(',').map((x) => x.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
     }
@@ -719,7 +722,7 @@ function serializeFrontValue(v) {
 
 /** 只动 front matter：值为 null / 空串 / 空数组 就把那一行删掉，其余就地替换或补在末尾 */
 function setFrontMatter(text, updates) {
-  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const m = String(text).replace(/^\uFEFF/, '').match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) throw new Error('这个文件没有 front matter（开头应当是 ---）');
   const blank = (v) => v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length);
   const kept = [];
@@ -737,7 +740,41 @@ function setFrontMatter(text, updates) {
   for (const k of Object.keys(updates)) {
     if (!seen.has(k) && !blank(updates[k])) kept.push(`${k}: ${serializeFrontValue(updates[k])}`);
   }
-  return `---\n${kept.join('\n')}\n---${text.slice(m[0].length)}`;
+  const start = String(text).replace(/^\uFEFF/, '');
+  const rest = start.slice(start.match(/^---\r?\n([\s\S]*?)\r?\n---/)[0].length);
+  return `---\n${kept.join('\n')}\n---${rest}`;
+}
+
+/* ------------------------------------------------------------
+   把「漏在正文开头的 front matter 字段」收回 front matter
+   ------------------------------------------------------------
+   手改的时候很容易把那几行打在结束的 --- **下面**，那样它们就成了正文，
+   页面上会原样显示成 `collection_tags: [...]` 这种。这里做两件事：
+     1. 认开头连续的那几行（只认文集管的键，认到不认识的非空行就停）
+     2. 把它们解析成值返回，并从正文里删掉 —— 由调用方并进 front matter
+   只动「正文最开头」这一小段，后面的正文一个字不碰。
+   ------------------------------------------------------------ */
+const COLLECTION_PARAM_KEYS = ['book', 'weight', 'essay', 'r18', 'collection_tags'];
+
+function hoistLeakedCollectionParams(text) {
+  const src = String(text).replace(/^\uFEFF/, '');
+  const m = src.match(/^(---\r?\n[\s\S]*?\r?\n---)([\s\S]*)$/);
+  if (!m) return { text: src, moved: {} };
+  const lines = m[2].split(/\r?\n/);
+  const grabbed = [];
+  const drop = new Set();
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t) continue;                       // 空行跳过，继续往后找
+    const kv = t.match(/^([A-Za-z0-9_-]+)\s*:\s*(.+)$/);
+    if (!kv || !COLLECTION_PARAM_KEYS.includes(kv[1])) break;
+    grabbed.push(`${kv[1]}: ${kv[2].trim()}`);
+    drop.add(i);
+  }
+  if (!grabbed.length) return { text: src, moved: {} };
+  const moved = parseFrontMatter(`---\n${grabbed.join('\n')}\n---`);
+  const kept = lines.filter((_, i) => !drop.has(i));
+  return { text: m[1] + kept.join('\n'), moved, dropped: [...drop].length };
 }
 
 /** 文集里的所有文章（不含 _index.md），带上归属信息给面板用 */
@@ -1946,27 +1983,35 @@ async function handle(req, res, url) {
     const { articles } = await readBody(req);
     if (!Array.isArray(articles)) throw new Error('参数不对：需要 articles 数组');
     const saved = [];
+    const rescued = [];                       // 正文里漏出的字段被收回来的文章
     for (const a of articles) {
       const rel = String(a.file || '');
       // 只允许改文集目录里的文章，别的一个都不碰
       if (!rel.startsWith('content/collection/') || /_index\.md$/.test(rel)) {
         throw new Error('只能改 content/collection/ 里的文章：' + rel);
       }
-      const text = await readText(rel);
+      const rawText = await readText(rel);
+      // 手改时容易把 book/weight/… 打在结束的 --- 下面，那样会在页面上当正文显示出来。
+      // 先收回，再写 front matter（面板里填了以面板为准，面板空着就把漏出来的值救回去）。
+      const hoisted = hoistLeakedCollectionParams(rawText);
+      const text = hoisted.text;
+      const mv = hoisted.moved;
       const weight = String(a.weight ?? '').trim();
+      const tags = Array.isArray(a.tags)
+        ? a.tags.map((t) => String(t).trim()).filter(Boolean)
+        : String(a.tags || '').split(/[,，]/).map((t) => t.trim()).filter(Boolean);
       const next = setFrontMatter(text, {
-        book: a.book ? String(a.book) : null,
-        weight: weight === '' ? null : Number(weight),
-        essay: a.essay === true ? true : null,
-        r18: a.r18 === true ? true : null,
-        collection_tags: Array.isArray(a.tags)
-          ? a.tags.map((t) => String(t).trim()).filter(Boolean)
-          : String(a.tags || '').split(/[,，]/).map((t) => t.trim()).filter(Boolean),
+        book: a.book ? String(a.book) : (mv.book || null),
+        weight: weight !== '' ? Number(weight) : (mv.weight === undefined ? null : mv.weight),
+        essay: a.essay === true ? true : (mv.essay === true ? true : null),
+        r18: a.r18 === true ? true : (mv.r18 === true ? true : null),
+        collection_tags: tags.length ? tags : (Array.isArray(mv.collection_tags) ? mv.collection_tags : []),
       });
-      if (next !== text) await writeText(rel, next);
+      if (next !== rawText) await writeText(rel, next);
+      if (hoisted.dropped) rescued.push(rel);
       saved.push(rel);
     }
-    return json(res, 200, { ok: true, count: saved.length, saved });
+    return json(res, 200, { ok: true, count: saved.length, saved, rescued });
   }
 
   if (p.startsWith('/api/list/')) {
