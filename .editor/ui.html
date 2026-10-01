@@ -401,6 +401,7 @@ function renderTree() {
   let h = '';
   h += '<div class="row create" data-act="new">' + ico('plus') + '新建页面</div>';
   h += '<div class="grp">工具</div>';
+  h += '<div class="row tool" data-panel="collection">' + ico('notebook') + '文集</div>';
   h += '<div class="row tool" data-panel="music">' + ico('music') + '音乐</div>';
   h += '<div class="row tool" data-panel="gallery">' + ico('paint-brush') + '画廊</div>';
   h += '<div class="row tool" data-panel="settings">' + ico('cog') + '站点设置</div>';
@@ -763,6 +764,7 @@ function showPanel(html) { $('#panel').innerHTML = html; }
 
 async function openPanel(which) {
   if (which === 'settings') return renderSettings();
+  if (which === 'collection') return renderCollection();
   if (which === 'navbar')   return renderNavbar();
   if (which === 'music')    return renderMusic();
   if (which === 'gallery')  return renderGallery();
@@ -2537,9 +2539,110 @@ async function newPage() {
   } catch (e) { toast('创建失败: ' + e.message, 'err'); }
 }
 
+/* ---------- 文集：分册 + 文章归属 + 标签 ---------- */
+/* 分册表写 data/collection_books.toml；文章的归属写在各自的 front matter
+   （book / essay / weight / r18 / collection_tags）。保存时两边一起写。 */
+async function renderCollection() {
+  const d = await apiGet('/api/collection');
+  renderCollectionWith(d.books.map((x) => Object.assign({}, x)), d.articles.map((x) => Object.assign({}, x)));
+}
+
+function renderCollectionWith(books, articles) {
+  let h = '<h2 class="sec">文集</h2>';
+  h += `<div class="note">
+    上部是<b>分册表</b>（<code>data/collection_books.toml</code>），下部是<b>每篇的归属</b>
+    （写进文章 front matter 的 <code>book</code> / <code>essay</code> / <code>weight</code> /
+    <code>r18</code> / <code>collection_tags</code>）。改完点<b>保存</b>，两边一起写。
+    <br>· 一册里还没有章节时，目录页会跳过它（不显示空框）。
+    <br>· 勾了「随感」就不进册，目录页单独一组。
+    <br>· <b>weight</b> 是册内章节顺序，小的在前；留空就按日期。
+    <br>· <b>R18</b>：勾在册上 = 整册标红；勾在文章上 = 单篇标红。目录页顶部会出提示条。
+    <br>· 标签是独立的一套，term 页在 <code>/collection_tags/</code>，不会混进主站的 /tags/。
+  </div>`;
+
+  h += '<h3 style="font-size:13px;color:#44586e">分册</h3>';
+  h += '<table class="grid"><thead><tr><th style="width:90px">id</th><th>书名</th><th style="width:104px">状态</th>'
+     + '<th style="width:46px">R18</th><th style="width:66px">排序</th><th>简介</th><th style="width:36px"></th></tr></thead><tbody id="tbBooks">';
+  books.forEach((b, i) => {
+    h += `<tr>
+      <td><input data-bf="id" data-i="${i}" value="${esc(b.id || '')}" style="width:80px"></td>
+      <td><input data-bf="title" data-i="${i}" value="${esc(b.title || '')}"></td>
+      <td><input data-bf="status" data-i="${i}" value="${esc(b.status || '')}" list="collStatus" style="width:96px"></td>
+      <td style="text-align:center"><input type="checkbox" data-bf="r18" data-i="${i}"${b.r18 ? ' checked' : ''}></td>
+      <td><input data-bf="order" data-i="${i}" value="${esc(b.order === undefined ? '' : String(b.order))}" style="width:56px"></td>
+      <td><input data-bf="desc" data-i="${i}" value="${esc(b.desc || '')}"></td>
+      <td style="text-align:center"><button class="danger" data-bdel="${i}">×</button></td></tr>`;
+  });
+  h += '</tbody></table>';
+  h += '<datalist id="collStatus"><option value="连载中"></option><option value="已完结"></option><option value="停止更新"></option></datalist>';
+  h += '<button id="btnAddBook">＋ 加一册</button>';
+
+  h += '<h3 style="font-size:13px;color:#44586e;margin-top:22px">文章归属</h3>';
+  if (!articles.length) {
+    h += '<p class="hint">文集里还没有文章。先用「➕ 新建页面」建一篇，类型选「文集」。</p>';
+  } else {
+    h += '<table class="grid"><thead><tr><th>文章</th><th style="width:180px">属于哪一册</th>'
+       + '<th style="width:56px">随感</th><th style="width:46px">R18</th><th style="width:70px">weight</th>'
+       + '<th style="width:190px">标签（逗号分隔）</th></tr></thead><tbody id="tbArts">';
+    articles.forEach((a, i) => {
+      let opts = `<option value=""${a.book ? '' : ' selected'}>（未归类）</option>`;
+      for (const b of books) {
+        opts += `<option value="${esc(b.id || '')}"${a.book === b.id ? ' selected' : ''}>${esc(b.title || b.id || '（没书名）')}</option>`;
+      }
+      h += `<tr>
+        <td><b>${esc(a.title)}</b>${a.draft ? ' <span style="color:#b45309">[草稿]</span>' : ''}
+            <br><span style="color:#7b8794;font-size:11px">${esc(a.file)}</span></td>
+        <td><select data-af="book" data-i="${i}">${opts}</select></td>
+        <td style="text-align:center"><input type="checkbox" data-af="essay" data-i="${i}"${a.essay ? ' checked' : ''}></td>
+        <td style="text-align:center"><input type="checkbox" data-af="r18" data-i="${i}"${a.r18 ? ' checked' : ''}></td>
+        <td><input data-af="weight" data-i="${i}" value="${esc(a.weight)}" style="width:56px"></td>
+        <td><input data-af="tags" data-i="${i}" value="${esc((a.tags || []).join(', '))}"></td></tr>`;
+    });
+    h += '</tbody></table>';
+  }
+  h += '<div style="margin-top:14px"><button class="primary" id="btnSaveCollection">保存</button></div>';
+  showPanel(h);
+
+  const collectBooks = () => {
+    document.querySelectorAll('#tbBooks [data-bf]').forEach((el) => {
+      const i = +el.dataset.i, f = el.dataset.bf;
+      books[i][f] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    return books;
+  };
+  const collectArticles = () => {
+    document.querySelectorAll('#tbArts [data-af]').forEach((el) => {
+      const i = +el.dataset.i, f = el.dataset.af;
+      const v = el.type === 'checkbox' ? el.checked : el.value;
+      if (f === 'tags') articles[i].tags = String(v).split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+      else articles[i][f] = v;
+    });
+    return articles;
+  };
+
+  document.querySelectorAll('#tbBooks [data-bdel]').forEach((btn) => btn.addEventListener('click', () => {
+    collectBooks(); books.splice(+btn.dataset.bdel, 1); renderCollectionWith(books, articles);
+  }));
+  const addBtn = $('#btnAddBook');
+  if (addBtn) addBtn.addEventListener('click', () => {
+    collectBooks();
+    books.push({ id: '', title: '', status: '连载中', r18: false, order: (books.length + 1) * 10, desc: '' });
+    renderCollectionWith(books, articles);
+  });
+  const saveBtn = $('#btnSaveCollection');
+  if (saveBtn) saveBtn.addEventListener('click', async () => {
+    try {
+      await apiPost('/api/collection/books', { books: collectBooks() });
+      await apiPost('/api/collection/articles', { articles: collectArticles() });
+      toast('文集已保存', 'ok');
+      await renderCollection();
+    } catch (e) { toast('保存失败: ' + e.message, 'err'); }
+  });
+}
+
 /* ---------- 启动 ---------- */
 let BOOTED = false;
-const PANELS = ['settings', 'links', 'buttons', 'scripts', 'nav', 'pkmn'];
+const PANELS = ['settings', 'collection', 'links', 'buttons', 'scripts', 'nav', 'pkmn'];
 
 /** 恢复上次用的图片宽度、给顶栏的新建按钮接线 */
 function initToolbar() {

@@ -542,8 +542,8 @@ function parseItems(text) {
   let arr = null;                 // 正在读的字符串数组
   for (const line of text.split(/\r?\n/)) {
     const t = line.trim();
-    // 大多数列表用 [[items]]；音乐那份用语义更清楚的 [[tracks]]，两者都认
-    if (t === '[[items]]' || t === '[[tracks]]') { cur = {}; items.push(cur); inSection = true; arr = null; continue; }
+    // 大多数列表用 [[items]]；音乐那份用语义更清楚的 [[tracks]]，文集的分册用 [[books]]
+    if (t === '[[items]]' || t === '[[tracks]]' || t === '[[books]]') { cur = {}; items.push(cur); inSection = true; arr = null; continue; }
     if (!inSection) continue;
 
     // 数组续行：一句一行，到 ] 结束（更新日志里「同一日期多条」就是这种）
@@ -573,7 +573,10 @@ function parseItems(text) {
     if (m) { cur[m[1]] = m[2].replace(/\\"/g, '"'); continue; }
     // 布尔值（更新日志里标「子条目」用的 indent = true）
     const b = t.match(/^([A-Za-z0-9_]+)\s*=\s*(true|false)\s*$/);
-    if (b) cur[b[1]] = b[2] === 'true';
+    if (b) { cur[b[1]] = b[2] === 'true'; continue; }
+    // 不带引号的数字（文集分册的 order = 10）。放在最后，免得抢走别的写法。
+    const num = t.match(/^([A-Za-z0-9_]+)\s*=\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (num) cur[num[1]] = Number(num[2]);
   }
   return items;
 }
@@ -585,10 +588,10 @@ function parseItems(text) {
    只有 date 例外：它是必填，空着也要留个位置，免得整段少一个字段。 */
 const KEEP_EMPTY_KEYS = new Set(['date']);
 
-function writeItems(header, items, keys) {
+function writeItems(header, items, keys, section = 'items') {
   const out = [header.trimEnd(), ''];
   for (const it of items) {
-    out.push('[[items]]');
+    out.push(`[[${section}]]`);
     for (const k of keys) {
       const raw = it[k];
       if (typeof raw === 'boolean') {
@@ -611,6 +614,157 @@ function writeItems(header, items, keys) {
     out.push('');
   }
   return out.join('\n');
+}
+
+/* ============================================================
+   文集：分册表 + 文章的归属
+   ------------------------------------------------------------
+   分册表在 data/collection_books.toml（段落名 [[books]]），
+   文章的归属写在各自的 front matter 里：
+     book  = "ktt"        属于哪一册
+     weight = 10          册内章节顺序（不写就按日期）
+     essay = true         随感（不进册，目录页单独一组）
+     r18   = true         单篇标红（整册标红在分册表里）
+     collection_tags = ["…"]   文集标签（独立 taxonomy）
+   ============================================================ */
+
+const COLLECTION_BOOKS_FILE = 'data/collection_books.toml';
+
+const COLLECTION_BOOKS_HEADER = `# ============================================================
+#  文集的分册表 —— /collection/ 按 order 一册渲染成一个框
+#
+#  这份文件由编辑器左侧「文集」面板管理（手改也行，注释会自动保留）。
+#  段落名必须是 [[books]]，编辑器认这个。
+#
+#  字段：
+#    id     = "ktt"       必填 —— 唯一标识；文章的 front matter 里写 book = "ktt"
+#    title  = "…"         必填 —— 书名（框的标题条）
+#    status = "连载中"    选填 —— 连载中 / 已完结 / 停止更新（做成徽标）
+#    r18    = true        选填 —— 整册标红，并在目录页顶部出一条提示
+#    order  = 10          选填 —— 框的先后，小的在前（写数字，不要加引号）
+#    desc   = "…"         选填 —— 一句话简介，显示在书名下面
+#
+#  一册里还没有章节时，目录页会跳过它（不显示空框）。
+# ============================================================`;
+
+const BOOK_KEYS = ['id', 'title', 'status', 'r18', 'order', 'desc'];
+
+async function readCollectionBooks() {
+  let raw = '';
+  try { raw = await readText(COLLECTION_BOOKS_FILE); } catch { raw = ''; }
+  return parseItems(raw);
+}
+
+/** 分册表写盘：order 要写成不带引号的数字，Hugo 那边才能按数值排序 */
+async function writeCollectionBooks(books) {
+  const clean = books.map((b) => ({
+    id: String(b.id ?? '').trim(),
+    title: String(b.title ?? '').trim(),
+    status: String(b.status ?? '').trim(),
+    r18: b.r18 === true,
+    order: String(b.order ?? '').trim(),
+    desc: String(b.desc ?? '').trim(),
+  })).filter((b) => b.id || b.title);
+
+  for (const b of clean) {
+    if (!b.id) throw new Error(`「${b.title || '没写书名的那一册'}」还没有 id`);
+    if (!b.title) throw new Error(`id 为 ${b.id} 的那一册还没有书名`);
+    if (!/^[A-Za-z0-9_-]+$/.test(b.id)) throw new Error(`id 只能用字母、数字、下划线、短横线：${b.id}`);
+  }
+  const dup = clean.map((b) => b.id).find((x, i, arr) => arr.indexOf(x) !== i);
+  if (dup) throw new Error(`id 重复了：${dup}`);
+
+  const out = [COLLECTION_BOOKS_HEADER.trimEnd(), ''];
+  for (const b of clean) {
+    out.push('[[books]]');
+    out.push(`  id = "${b.id}"`);
+    out.push(`  title = "${b.title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
+    if (b.status) out.push(`  status = "${b.status.replace(/"/g, '\\"')}"`);
+    if (b.r18) out.push('  r18 = true');
+    out.push(`  order = ${Number.isFinite(Number(b.order)) && b.order !== '' ? Math.trunc(Number(b.order)) : 0}`);
+    if (b.desc) out.push(`  desc = "${b.desc.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
+    out.push('');
+  }
+  await writeText(COLLECTION_BOOKS_FILE, out.join('\n'));
+  return clean;
+}
+
+/** 读一篇文章的 front matter（只认简单的 `key: value`，够文集用） */
+function parseFrontMatter(text) {
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!m) return {};
+  const fm = {};
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = line.match(/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
+    if (!kv) continue;
+    let v = kv[2].trim();
+    if (/^".*"$/.test(v) || /^'.*'$/.test(v)) v = v.slice(1, -1);
+    else if (v === 'true') v = true;
+    else if (v === 'false') v = false;
+    else if (/^\[.*\]$/.test(v)) {
+      v = v.slice(1, -1).split(',').map((x) => x.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+    }
+    fm[kv[1]] = v;
+  }
+  return fm;
+}
+
+function serializeFrontValue(v) {
+  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
+  if (Array.isArray(v)) {
+    return '[' + v.map((x) => '"' + String(x).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"').join(', ') + ']';
+  }
+  return '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
+/** 只动 front matter：值为 null / 空串 / 空数组 就把那一行删掉，其余就地替换或补在末尾 */
+function setFrontMatter(text, updates) {
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!m) throw new Error('这个文件没有 front matter（开头应当是 ---）');
+  const blank = (v) => v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length);
+  const kept = [];
+  const seen = new Set();
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = line.match(/^([A-Za-z0-9_-]+)\s*:/);
+    if (kv && Object.prototype.hasOwnProperty.call(updates, kv[1])) {
+      seen.add(kv[1]);
+      if (blank(updates[kv[1]])) continue;      // 清空 = 删掉这一行，别留 book: "" 这种噪音
+      kept.push(`${kv[1]}: ${serializeFrontValue(updates[kv[1]])}`);
+      continue;
+    }
+    kept.push(line);
+  }
+  for (const k of Object.keys(updates)) {
+    if (!seen.has(k) && !blank(updates[k])) kept.push(`${k}: ${serializeFrontValue(updates[k])}`);
+  }
+  return `---\n${kept.join('\n')}\n---${text.slice(m[0].length)}`;
+}
+
+/** 文集里的所有文章（不含 _index.md），带上归属信息给面板用 */
+async function listCollectionArticles() {
+  const files = (await listDir('content/collection')).filter(isMd).filter((f) => !/_index\.md$/.test(f));
+  const out = [];
+  for (const rel of files) {
+    let fm = {};
+    try { fm = parseFrontMatter(await readText(rel)); } catch { /* 读不了就只报个文件名 */ }
+    const tags = Array.isArray(fm.collection_tags)
+      ? fm.collection_tags
+      : (fm.collection_tags ? [String(fm.collection_tags)] : []);
+    out.push({
+      file: rel,
+      title: String(fm.title || rel.split('/').pop().replace(/\.md$/, '')),
+      book: fm.book ? String(fm.book) : '',
+      essay: fm.essay === true,
+      r18: fm.r18 === true,
+      draft: fm.draft === true,
+      weight: fm.weight === undefined || fm.weight === null ? '' : String(fm.weight),
+      date: String(fm.date || ''),
+      tags,
+    });
+  }
+  // 面板里按日期倒序，新建的稿子在最上面
+  out.sort((a, b) => (a.date === b.date ? String(a.title).localeCompare(String(b.title)) : (a.date < b.date ? 1 : -1)));
+  return out;
 }
 
 const LINKS_HEADER = `# ============================================================
@@ -1770,6 +1924,49 @@ async function handle(req, res, url) {
     const next = writeMenu(await readText('hugo.toml'), clean);
     await writeText('hugo.toml', next);
     return json(res, 200, { ok: true, count: clean.length, items: parseMenu(next) });
+  }
+
+  /* ---------- 文集：分册 + 文章归属 + 标签 ---------- */
+  if (p === '/api/collection' && req.method === 'GET') {
+    return json(res, 200, {
+      books: await readCollectionBooks(),
+      articles: await listCollectionArticles(),
+      booksFile: COLLECTION_BOOKS_FILE,
+    });
+  }
+
+  if (p === '/api/collection/books' && req.method === 'POST') {
+    const { books } = await readBody(req);
+    if (!Array.isArray(books)) throw new Error('参数不对：需要 books 数组');
+    const clean = await writeCollectionBooks(books);
+    return json(res, 200, { ok: true, count: clean.length, books: clean });
+  }
+
+  if (p === '/api/collection/articles' && req.method === 'POST') {
+    const { articles } = await readBody(req);
+    if (!Array.isArray(articles)) throw new Error('参数不对：需要 articles 数组');
+    const saved = [];
+    for (const a of articles) {
+      const rel = String(a.file || '');
+      // 只允许改文集目录里的文章，别的一个都不碰
+      if (!rel.startsWith('content/collection/') || /_index\.md$/.test(rel)) {
+        throw new Error('只能改 content/collection/ 里的文章：' + rel);
+      }
+      const text = await readText(rel);
+      const weight = String(a.weight ?? '').trim();
+      const next = setFrontMatter(text, {
+        book: a.book ? String(a.book) : null,
+        weight: weight === '' ? null : Number(weight),
+        essay: a.essay === true ? true : null,
+        r18: a.r18 === true ? true : null,
+        collection_tags: Array.isArray(a.tags)
+          ? a.tags.map((t) => String(t).trim()).filter(Boolean)
+          : String(a.tags || '').split(/[,，]/).map((t) => t.trim()).filter(Boolean),
+      });
+      if (next !== text) await writeText(rel, next);
+      saved.push(rel);
+    }
+    return json(res, 200, { ok: true, count: saved.length, saved });
   }
 
   if (p.startsWith('/api/list/')) {

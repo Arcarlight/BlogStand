@@ -251,3 +251,7 @@ timeZone = "Asia/Shanghai"
 
 [taxonomies]
   tag = "tags"
+  # 文集标签：**独立一套**，不跟博客的 tags 混在一起 ——
+  # 文集是用另一个马甲写的，标签跑到主站的 /tags/ 和侧栏「标签」挂件里不合适。
+  # 文章的 front matter 里写 collection_tags = ["…"]，term 页在 /collection-tags/。
+  collection_tag = "collection_tags"

@@ -1,0 +1,169 @@
+{{/* ==========================================================================
+     文集目录（/collection/）—— 一册书一个框
+
+     数据来源：
+       · 分册表      data/collection_books.toml 里的 [[books]]（书名/状态/R18/排序/简介）
+       · 文章的归属  文章 front matter 的 book = "ktt"（不写就是「未归类」）
+       · 随感        文章 front matter 的 essay = true（不进册，单独一组）
+
+     几个刻意的选择：
+       1. 复用站里现成的 .box / .box-title 外观，只是换成 <details>/<summary>，
+          所以每一册看起来就是站里那种框，标题条本身可以点。
+       2. 只显示「有章节的册」。空册在目录页是噪音，但它仍留在数据文件里，
+          编辑器面板里看得见、随时能往里面放文章。
+       3. 「未归类」只在真有没收进去的文章时才出现 —— 避免内容悄悄从目录页消失。
+       4. 一册都没有（还没分册）时退回成平铺的篇目表，页面不会是空的。
+       5. R18 有三处：目录页顶部提示条、册标题上的红徽标、单篇条目上的红徽标。
+     ========================================================================== */}}
+{{- $pages := .RegularPages -}}
+{{- $books := slice -}}
+{{- with site.Data.collection_books -}}{{- with .books -}}{{- $books = . -}}{{- end -}}{{- end -}}
+{{- /* order 可能是数字、也可能是带引号的字符串（手写的），统一取整 + 补成定宽
+       字符串再排；缺 order 的当 0。这样类型不一致也不会让模板报错。 */ -}}
+{{- $ordered := slice -}}
+{{- range $books -}}
+  {{- $ordered = $ordered | append (dict "k" (printf "%06d" (int (.order | default 0))) "b" .) -}}
+{{- end -}}
+{{- $ordered = sort $ordered "k" "asc" -}}
+
+{{- /* 只留有章节的册 */ -}}
+{{- $used := slice -}}
+{{- range $ordered -}}
+  {{- if where $pages "Params.book" .b.id -}}{{- $used = $used | append .b -}}{{- end -}}
+{{- end -}}
+
+{{- $essays := where $pages "Params.essay" true -}}
+{{- $loose := slice -}}
+{{- range $pages -}}
+  {{- if and (not .Params.essay) (not .Params.book) -}}{{- $loose = $loose | append . -}}{{- end -}}
+{{- end -}}
+
+{{- /* 有没有 R18：整册标红 或 单篇标红 */ -}}
+{{- $r18 := false -}}
+{{- range $used -}}{{- if .r18 -}}{{- $r18 = true -}}{{- end -}}{{- end -}}
+{{- range $pages -}}{{- if .Params.r18 -}}{{- $r18 = true -}}{{- end -}}{{- end -}}
+
+<div class="box">
+  <div class="box-title">
+    {{ .Title }}
+    <span class="box-subtitle">共 {{ len $pages }} 篇{{ with $used }} · {{ len . }} 册{{ end }}</span>
+  </div>
+  <div class="box-body">
+
+    {{ with .Content }}<div class="list-intro">{{ . }}</div>{{ end }}
+
+    {{ if $r18 }}
+    <div class="r18-bar"><span class="r18-tag">R18</span>本页含有成人向内容，请自行斟酌是否继续阅读。</div>
+    {{ end }}
+
+    {{ if not $used }}
+    <ul class="collection-list">
+      {{ range sort $pages "Date" "desc" }}
+      <li class="collection-item">
+        <span class="ci-date">{{ .Date.Format "2006-01-02" }}</span>
+        <a class="ci-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
+        {{ if .Params.r18 }}<span class="badge badge-r18">R18</span>{{ end }}
+        {{ with .Description }}<span class="ci-desc">{{ . }}</span>{{ end }}
+      </li>
+      {{ end }}
+    </ul>
+    <p class="collection-empty">还没有分册。在编辑器「文集」面板里建一册，再把文章分进去。</p>
+    {{ end }}
+
+  </div>
+</div>
+
+{{- /* ---------- 一册一个框 ---------- */}}
+{{- range $used }}
+{{- $ch := where $pages "Params.book" .id }}
+<details class="box book-box" id="book-{{ .id }}">
+  <summary class="box-title book-head">
+    <span class="book-caret" aria-hidden="true"></span>
+    <span class="book-name">{{ .title }}</span>
+    {{ with .status }}<span class="badge badge-status">{{ . }}</span>{{ end }}
+    {{ if .r18 }}<span class="badge badge-r18">R18</span>{{ end }}
+    <span class="book-count">{{ len $ch }} 章</span>
+  </summary>
+  <div class="box-body book-body">
+    {{ with .desc }}<p class="book-desc">{{ . }}</p>{{ end }}
+    <ul class="collection-list">
+      {{ range $ch.ByWeight }}
+      <li class="collection-item">
+        <span class="ci-date">{{ .Date.Format "2006-01-02" }}</span>
+        <a class="ci-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
+        {{ if .Params.r18 }}<span class="badge badge-r18">R18</span>{{ end }}
+        {{ with .Description }}<span class="ci-desc">{{ . }}</span>{{ end }}
+      </li>
+      {{ end }}
+    </ul>
+  </div>
+</details>
+{{- end }}
+
+{{- /* ---------- 随感：不成册，单独一组 ----------
+       注意整段包在 if $used 里：一册都还没建的时候，上面那张平铺列表
+       已经把随感和未归类的篇目都列了，再渲染这两个框就会重复。 */ -}}
+{{- if $used }}
+{{- with $essays }}
+<details class="box book-box essay-box" id="essays">
+  <summary class="box-title book-head">
+    <span class="book-caret" aria-hidden="true"></span>
+    <span class="book-name">随感</span>
+    <span class="badge badge-essay">随感</span>
+    <span class="book-count">{{ len . }} 篇</span>
+  </summary>
+  <div class="box-body book-body">
+    <p class="book-desc">不成册的短篇 —— 想到什么写什么，不赶时间。</p>
+    <ul class="collection-list">
+      {{ range sort . "Date" "desc" }}
+      <li class="collection-item">
+        <span class="ci-date">{{ .Date.Format "2006-01-02" }}</span>
+        <a class="ci-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
+        {{ if .Params.r18 }}<span class="badge badge-r18">R18</span>{{ end }}
+        {{ with .Description }}<span class="ci-desc">{{ . }}</span>{{ end }}
+      </li>
+      {{ end }}
+    </ul>
+  </div>
+</details>
+{{- end }}
+
+{{- /* ---------- 未归类：不写 book、也不是 essay 的篇目 ---------- */}}
+{{- with $loose }}
+<details class="box book-box loose-box" id="unassigned">
+  <summary class="box-title book-head">
+    <span class="book-caret" aria-hidden="true"></span>
+    <span class="book-name">未归类</span>
+    <span class="badge badge-status">待分册</span>
+    <span class="book-count">{{ len . }} 篇</span>
+  </summary>
+  <div class="box-body book-body">
+    <p class="book-desc">这些还没分到任何一册里（在编辑器「文集」面板里选一册即可）。</p>
+    <ul class="collection-list">
+      {{ range sort . "Date" "desc" }}
+      <li class="collection-item">
+        <span class="ci-date">{{ .Date.Format "2006-01-02" }}</span>
+        <a class="ci-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
+        {{ if .Params.r18 }}<span class="badge badge-r18">R18</span>{{ end }}
+        {{ with .Description }}<span class="ci-desc">{{ . }}</span>{{ end }}
+      </li>
+      {{ end }}
+    </ul>
+  </div>
+</details>
+{{- end }}
+{{- end }}
+
+<script>
+  /* 从文章页的《书名》链接跳回来时（/collection/#book-ktt），把那一册展开 */
+  (function () {
+    function openTarget() {
+      var id = location.hash.replace(/^#/, '');
+      if (!id) return;
+      var el = document.getElementById(id);
+      if (el && el.tagName === 'DETAILS') el.open = true;
+    }
+    openTarget();
+    window.addEventListener('hashchange', openTarget);
+  })();
+</script>

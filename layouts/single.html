@@ -8,6 +8,9 @@
 
     <h1 class="entry-title">{{ .Title }}</h1>
 
+    {{/* 文集：书名 / 随感 / R18 徽标（书的信息在 data/collection_books.toml） */}}
+    {{ if $isCollection }}{{ partial "collection-bookline.html" . }}{{ end }}
+
     {{/* 文集：作者永远是同一个马甲，署名是噪音 —— 只显示字数 / 阅读时间，
          「写作时间」挪到文末（需求指定的版式）。
          主站其它页面保持原样（日期 + 作者 + 字数）。 */}}
@@ -25,7 +28,8 @@
          标签会拼成 /tags/#sokuzai/ —— 浏览器把 # 后面当片段，
          点了只会停在标签列表页，跳不到具体标签页。
          term 的 RelPermalink 会正确编码成 /tags/%23sokuzai/。 */}}
-    {{ with .GetTerms "tags" }}
+    {{ $taxo := "tags" }}{{ if $isCollection }}{{ $taxo = "collection_tags" }}{{ end }}
+    {{ with .GetTerms $taxo }}
     <div class="entry-tags">
       <span class="tag-label">标签：</span>
       {{ range . }}<a class="tag-item" href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>{{ end }}

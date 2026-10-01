@@ -1,0 +1,31 @@
+{{/* ==========================================================================
+     文集文章标题下的那一行：书名 + 状态 / R18 徽标
+
+     · book  = "ktt"   → 显示《书名》（链回目录页那一册，跳过去会自动展开）
+     · essay = true    → 显示「随感」徽标（不进册）
+     · r18   = true    → 单篇标红；整册的 r18 在 data/collection_books.toml 里
+     ========================================================================== */}}
+{{- $bookID := .Params.book -}}
+{{- $book := false -}}
+{{- range site.Data.collection_books.books -}}
+  {{- if and $bookID (eq .id $bookID) -}}{{- $book = . -}}{{- end -}}
+{{- end -}}
+{{- $bookR18 := and $book $book.r18 -}}
+{{- $anyR18 := or .Params.r18 $bookR18 -}}
+
+{{- if or .Params.essay $book .Params.r18 }}
+<div class="entry-bookline">
+  {{- if .Params.essay }}
+  <span class="badge badge-essay">随感</span>
+  {{- else if $book }}
+  <a class="book-link" href="{{ $.Parent.RelPermalink }}#book-{{ $book.id }}">《{{ $book.title }}》</a>
+  {{ with $book.status }}<span class="badge badge-status">{{ . }}</span>{{ end }}
+  {{ if $book.r18 }}<span class="badge badge-r18">R18</span>{{ end }}
+  {{- end }}
+  {{- if and .Params.r18 (not $bookR18) }}<span class="badge badge-r18">R18</span>{{ end }}
+</div>
+{{- end }}
+
+{{- if $anyR18 }}
+<div class="r18-bar r18-bar-inline"><span class="r18-tag">R18</span>本篇含成人向内容，请自行斟酌。</div>
+{{- end }}

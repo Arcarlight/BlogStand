@@ -15,7 +15,11 @@
 {{- else if eq $bn "tobitaiaaken" }}{{ $pctx = "tbtak" }}
 {{- else if eq .Kind "page" }}{{ $pctx = "blog" }}
 {{- end -}}
-<body{{ if .Params.dayReplies }} data-day-replies="1"{{ end }} class="theme-{{ .Params.theme | default "default" }}" data-pkmn-ctx="{{ $pctx }}">
+{{/* 文集标签的 term 页 / 分类页（/collection-tags/…）没有 front matter，
+     按 taxonomy 的名字给它们套上绿色主题与文集的窄侧栏。 */}}
+{{- $theme := .Params.theme | default "default" -}}
+{{- with .Data -}}{{- with .Plural -}}{{- if eq . "collection_tags" -}}{{- $theme = "collection" -}}{{- end -}}{{- end -}}{{- end -}}
+<body{{ if .Params.dayReplies }} data-day-replies="1"{{ end }} class="theme-{{ $theme }}" data-pkmn-ctx="{{ $pctx }}">
 {{ if site.Params.comments }}
 <script>
   window.SITE_REPLY = {

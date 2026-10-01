@@ -1,6 +1,13 @@
 {{ define "main" }}
-{{ if eq .Params.theme "collection" }}{{ partial "collection-css.html" . }}{{ end }}
+{{ $isCollection := eq .Params.theme "collection" }}
+{{ if $isCollection }}{{ partial "collection-css.html" . }}{{ end }}
 
+{{ if $isCollection }}
+{{/* 文集目录页：一册书一个可点开的框。
+     分册表在 data/collection_books.toml，文章的归属看 front matter 的 book / essay，
+     渲染逻辑（册、随感、未归类、R18 提示条）都在这个 partial 里。 */}}
+{{ partial "collection-list.html" . }}
+{{ else }}
 <div class="box">
   <div class="box-title">
     {{ .Title }}
@@ -12,23 +19,6 @@
     <div class="list-intro">{{ . }}</div>
     {{ end }}
 
-    {{ if eq .Params.theme "collection" }}
-    {{/* 文集的篇目：日期 + 标题 + 一句简介，比博客列表更安静一点 */}}
-    {{ $items := .Pages.ByDate.Reverse }}
-    {{ if $items }}
-    <ul class="collection-list">
-      {{ range $items }}
-      <li class="collection-item">
-        <span class="ci-date">{{ .Date.Format "2006-01-02" }}</span>
-        <a class="ci-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
-        {{ with .Description }}<span class="ci-desc">{{ . }}</span>{{ end }}
-      </li>
-      {{ end }}
-    </ul>
-    {{ else }}
-    <p class="collection-empty">还什么都没放进来。在编辑器里新建一篇、放进 <code>content/collection/</code> 就会出现在这里。</p>
-    {{ end }}
-    {{ else }}
     <ul class="post-list">
       {{ range .Paginator.Pages }}
       {{- $st := partial "stats.html" . }}
@@ -47,15 +37,11 @@
     </ul>
 
     {{ partial "pager.html" . }}
-    {{ end }}
 
   </div>
 </div>
+{{ end }}
 
-{{/* ============ 文集目录页底部也放一块「作者简介」 ============
-     文章页是放在文末（写作时间 → 作者简介 → 点评）；
-     目录页没有文章正文，所以在篇目列表下面单独来一块，
-     免得进这一页看不到作者是谁。 */}}
-{{ if eq .Params.theme "collection" }}{{ partial "blizzer-box.html" . }}{{ end }}
+{{ if $isCollection }}{{ partial "blizzer-box.html" . }}{{ end }}
 
 {{ end }}

@@ -292,4 +292,97 @@ body.theme-collection .ci-desc {
 }
 
 body.theme-collection .collection-empty { color: #7d9579; }
+
+/* ---------- 7. 分册：一册一个框 ---------- */
+/* 每一册就是一个 <details class="box">，标题条借用站里现成的 .box-title 外观，
+   所以看起来和「作者简介」那些框是一套；只是标题条本身可点。 */
+body.theme-collection .book-box { margin-bottom: 8px; }
+
+body.theme-collection .book-head {
+  cursor: pointer;
+  list-style: none;              /* 去掉 <summary> 自带的三角 */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+body.theme-collection .book-head::-webkit-details-marker { display: none; }
+
+/* 自己画一个小三角：关着朝右、展开转成朝下 */
+body.theme-collection .book-caret {
+  flex: 0 0 auto;
+  width: 0;
+  height: 0;
+  border-left: 5px solid #2f6b3a;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform .12s linear;
+}
+
+body.theme-collection details[open] > .book-head .book-caret { transform: rotate(90deg); }
+
+body.theme-collection .book-count {
+  margin-left: auto;             /* 章数推到最右 */
+  flex: 0 0 auto;
+  color: #5b7358;
+  font-size: var(--px-sm, 11px) !important;
+}
+
+body.theme-collection .book-desc { margin: 0 0 8px; color: #5b7358; }
+body.theme-collection .book-body { padding-top: 10px; }
+body.theme-collection .book-body .collection-list { margin-top: 0; }
+
+/* 随感 / 未归类 两个框换个标题条配色，好和「书」区分开 */
+body.theme-collection .essay-box > .book-head { background: linear-gradient(#e8f3dc, #cde4bd) !important; }
+body.theme-collection .loose-box > .book-head { background: linear-gradient(#eef1e6, #dde3d2) !important; }
+
+/* ---------- 8. 徽标：状态 / R18 / 随感 ---------- */
+body.theme-collection .badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid #9dc294;
+  background: #eef6e9;
+  color: #3c6b3a;
+  font-size: var(--px-sm, 11px) !important;
+  line-height: 1.7;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+body.theme-collection .badge-r18 {
+  border-color: #c0392b;
+  background: #c0392b;
+  color: #ffffff !important;
+  letter-spacing: 1px;
+}
+
+body.theme-collection .badge-essay { border-color: #8fb46a; background: #e9f4d9; color: #4a6b2a !important; }
+
+/* ---------- 9. R18 提示条（目录页顶部 / 文章页标题下）---------- */
+body.theme-collection .r18-bar {
+  margin: 10px 0 12px;
+  padding: 7px 10px;
+  border: 1px solid #e0b0aa;
+  border-left: 4px solid #c0392b;
+  background: #fdf3f2;
+  color: #8e2f24;
+}
+
+body.theme-collection .r18-bar-inline { margin: 8px 0 14px; }
+
+body.theme-collection .r18-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 4px;
+  background: #c0392b;
+  color: #ffffff !important;
+  font-size: var(--px-sm, 11px) !important;
+  letter-spacing: 1px;
+}
+
+/* ---------- 10. 文章标题下那一行：书名 + 徽标 ---------- */
+body.theme-collection .entry-bookline { margin: 2px 0 10px; color: #5b7358; }
+body.theme-collection .entry-bookline .book-link { font-size: var(--px-lg, 15px) !important; }
 </style>
