@@ -161,8 +161,14 @@ body.theme-collection #footer {
 /* 侧栏窄了，时钟和播放器跟着收一点，别撑破 */
 body.theme-collection #sidebar .retro-clock { font-size: 20px !important; }
 
-body.theme-collection .entry-content { line-height: 1.85 !important; }
-body.theme-collection .entry-content p { margin-bottom: 1.05em !important; }
+/* 正文行高取**整数 px**（这里是基础字号的两倍 = 24px）。
+   站里的硬规矩是「字号 × DPR = 12 的整数倍」（见 retro.css 的 pxfont 那一段），
+   字号和 letter-spacing 都受这条约束。行高虽然没写进规矩，但非整数行高会把
+   基线推到半个设备像素上、让整行字发灰 —— 原来写的 1.85（12px → 22.2px）就是
+   这种情况；而 calc(--px * 1.9) 算出来 22.8px 也不是整数，别被它骗了。
+   干脆写 2 倍：24px，整数，且阅读上更松快（这个 section 是给人读小说的）。 */
+body.theme-collection .entry-content { line-height: 2 !important; }
+body.theme-collection .entry-content p { margin-bottom: 0.8em !important; }
 
 /* ---------- 3. 文末：写作时间 / 作者简介 / 点评 ---------- */
 body.theme-collection .entry-foot {
