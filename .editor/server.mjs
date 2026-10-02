@@ -26,6 +26,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const PORT = Number(process.env.EDITOR_PORT || 4321);
 const TOKEN = crypto.randomBytes(16).toString('hex');
+/* 本进程的启动时间。前端拿它和磁盘上 server.mjs 的修改时间比：
+   如果文件比进程新，说明 pull 过新代码但没重启，跑的还是旧逻辑。 */
+const STARTED_AT = Date.now();
 const TRASH = path.join(__dirname, 'trash');
 const HUGO_PORT = 1313;
 const MARK_BEGIN = '{{/* ==== EDITOR:SCRIPTS 开始（由编辑器管理，请勿手动改）==== */}}';
@@ -1597,6 +1600,36 @@ function json(res, code, data) {
 
 async function handle(req, res, url) {
   const p = url.pathname;
+
+  /* ---------- 编辑器自身的版本 / 重启 ----------
+     站长反馈过：「pull 下来编辑器也不会更新新功能」。
+     原因是 —— ui.html 每次请求都现读（刷新页面就拿到新的），
+     但 **server.mjs 是进程启动时加载的**，不重启就永远是旧代码。
+     所以这里给出「当前跑的是哪一版」，前端发现落后就提示重启。 */
+  if (p === '/api/version' && req.method === 'GET') {
+    const st = async (rel) => {
+      try { return Math.round((await fsp.stat(path.join(__dirname, rel))).mtimeMs); }
+      catch { return 0; }
+    };
+    return json(res, 200, {
+      startedAt: STARTED_AT,                       // 本进程启动时间
+      serverFileAt: await st('server.mjs'),        // 磁盘上 server.mjs 的修改时间
+      uiFileAt: await st('ui.html'),
+    });
+  }
+
+  if (p === '/api/restart' && req.method === 'POST') {
+    /* 留个标记再退出：start.cmd / start.command 看到标记会把进程重新拉起来。
+       不写标记直接退，等于把编辑器关掉了。 */
+    try {
+      await fsp.writeFile(path.join(__dirname, 'restart-needed'), String(Date.now()), 'utf8');
+    } catch (e) {
+      return json(res, 500, { error: '写重启标记失败：' + e.message });
+    }
+    json(res, 200, { ok: true, restarting: true });
+    setTimeout(() => process.exit(0), 120);
+    return;
+  }
 
   /* ---------- 静态页面 ---------- */
   if (req.method === 'GET' && (p === '/' || p === '/index.html')) {

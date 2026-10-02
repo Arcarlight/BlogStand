@@ -175,6 +175,16 @@
   .row.create{color:var(--accent);font-weight:bold}
   .row.create:hover{background:#e3f0ff}
 
+  /* ---------- 编辑器自身有新版本的提示条 ---------- */
+  #staleBar{
+    display:flex;align-items:center;gap:10px;padding:7px 12px;flex:none;
+    background:#fff4d6;border-bottom:1px solid #e5c76b;color:#6b4e00;font-size:12.5px;
+  }
+  #staleBar[hidden]{display:none}
+  #staleBar #staleText{flex:1;line-height:1.5}
+  #staleBar button{padding:3px 10px;font-size:12px}
+  #staleBar #btnStaleClose{padding:3px 8px;background:transparent;border-color:#e5c76b;color:#6b4e00}
+
   /* ---------- 工具栏的格式按钮 ---------- */
   .grp-label{color:var(--dim);font-size:12px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
   #toolbar .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
@@ -301,6 +311,12 @@
     </div>
   </aside>
   <section id="work">
+    <!-- 编辑器自身有新版本时的提示条（pull 到新代码但没重启 / 页面没刷新） -->
+    <div id="staleBar" hidden>
+      <span id="staleText"></span>
+      <button id="btnStaleAct" class="primary">刷新页面</button>
+      <button id="btnStaleClose" class="ghost" title="先不管">×</button>
+    </div>
     <div id="toolbar">
       <span id="curPath">← 从左边选一个文件</span>
       <span class="spacer"></span>
@@ -717,6 +733,9 @@ async function syncPull(auto) {
     toast(`已从线上同步 ${g.behind} 个提交`, 'ok');
     await bootstrap();
     if (CUR) loadFile(CUR).catch(() => {});
+    /* 拉下来的代码里可能带着新的 server.mjs —— 那样跑着的还是旧后端，
+       提示用户重启（不然「pull 了但没反应」）。 */
+    checkEditorVersion();
     return true;
   }
   toast('拉取失败：\n' + gitBad(r), 'err');
@@ -2719,8 +2738,85 @@ async function bootstrap() {
     }
   }
 }
+/* 页面自身的载入时间：用来判断磁盘上的 ui.html 是不是比这个页面新 */
+const PAGE_LOADED_AT = Date.now();
+
+function fmtClock(ms) {
+  const d = new Date(ms);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/* 编辑器自己有没有新版本可用。
+
+   背景（站长反馈「pull 下来编辑器也不会更新新功能」）：
+     · ui.html  每次请求现读 -> 刷新页面就能拿到新的
+     · server.mjs 是**进程启动时加载的** -> 不重启就永远是旧代码
+   所以这里同时看两件事，分别给不同的按钮：
+     磁盘上的 server.mjs 比进程新 -> 需要「重启编辑器」
+     磁盘上的 ui.html 比本页面新   -> 只需要「刷新页面」 */
+function showStaleBar(kind) {
+  const bar = $('#staleBar');
+  if (!bar) return;
+  const txt = $('#staleText');
+  const btn = $('#btnStaleAct');
+  if (kind === 'server') {
+    txt.textContent = '编辑器后端已更新（拉到了新代码）—— 现在跑的还是旧的，点右边重启一下就生效。';
+    btn.textContent = '重启编辑器';
+    btn.dataset.act = 'restart';
+  } else {
+    txt.textContent = '编辑器界面已更新 —— 刷新一下页面就能用上新功能。';
+    btn.textContent = '刷新页面';
+    btn.dataset.act = 'reload';
+  }
+  bar.hidden = false;
+}
+
+async function checkEditorVersion() {
+  let v;
+  try { v = await apiGet('/api/version'); } catch { return; }
+  if (!v || !v.startedAt) return;
+  // 容 2 秒的误差（同一次 pull 里两个文件的时间戳会很接近）
+  if (v.serverFileAt && v.serverFileAt > v.startedAt + 2000) return showStaleBar('server');
+  if (v.uiFileAt && v.uiFileAt > PAGE_LOADED_AT + 2000) return showStaleBar('ui');
+}
+
+$('#btnStaleClose').addEventListener('click', () => { $('#staleBar').hidden = true; });
+
+$('#btnStaleAct').addEventListener('click', async () => {
+  const btn = $('#btnStaleAct');
+  if (btn.dataset.act !== 'restart') { location.reload(); return; }
+  const txt = $('#staleText');
+  btn.disabled = true;
+  txt.textContent = '正在重启编辑器…（start.cmd / start.command 会把它重新拉起来）';
+  try { await apiPost('/api/restart', {}); } catch (e) { /* 进程要退了，请求可能直接断，正常 */ }
+  // 轮询到它重新起来为止，然后刷新页面（这样拿到的 ui.html 也是新的）
+  let tries = 0;
+  const tick = async () => {
+    tries += 1;
+    try {
+      await apiGet('/api/version');
+      location.reload();
+      return;
+    } catch (e) { /* 还没起来 */ }
+    if (tries > 40) {
+      txt.textContent = '等不到编辑器重新启动 —— 请关掉这个窗口，重新运行 .editor\\start.cmd（macOS/Linux 是 start.command）。';
+      btn.disabled = false;
+      return;
+    }
+    setTimeout(tick, 500);
+  };
+  setTimeout(tick, 700);
+});
+
+/* 从别的窗口 pull 完回来时也检查一次 */
+window.addEventListener('focus', () => {
+  if ($('#staleBar') && $('#staleBar').hidden) checkEditorVersion();
+});
+
 initToolbar();
 bootstrap().catch((e) => toast('初始化失败: ' + e.message, 'err'));
+checkEditorVersion();
 
 /* 开机先跟线上对一次账：
    · 本机干净、也没欠着没推的提交 → 自动把线上的改动拉下来（换电脑编辑就不用管了）

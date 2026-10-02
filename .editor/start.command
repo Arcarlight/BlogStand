@@ -45,7 +45,16 @@ else
 fi
 echo ""
 
-node .editor/server.mjs
+# 「重启编辑器」会在退出前留下 .editor/restart-needed 标记，这里循环把它拉起来。
+# 没有这个循环的话，点重启之后编辑器就直接关掉了、还得手动开一次。
+while :; do
+  rm -f .editor/restart-needed 2>/dev/null
+  node .editor/server.mjs
+  [ -f .editor/restart-needed ] || break
+  echo ""
+  echo "  检测到重启请求，正在重新启动编辑器..."
+  sleep 1
+done
 
 echo ""
 printf "  编辑器已停止，按回车关闭窗口…"
