@@ -1026,7 +1026,9 @@ function parseTbtakTalk(text) {
 function writeTbtakTalk(id, data) {
   const q = (s) => '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
   const out = [];
-  if (data.header) out.push(data.header, '');
+  // 注释块紧贴 name（不插空行）—— 和仓库里现有文件的写法保持一致，
+  // 这样「原样打开 → 保存」不会凭空多出一个空行、每次保存都留个没意义的 diff。
+  if (data.header) out.push(data.header);
   out.push(`name = ${q(data.name)}`, '');
   for (const [k] of TBTAK_POOLS) {
     const arr = (data.pools[k] || [])
