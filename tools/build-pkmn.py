@@ -157,6 +157,7 @@ BAD_CODEPOINTS = {0xFE0F}
 PIXEL_FONTS = ["simsun12-pixel.woff2", "msgothic12-jp-pixel.woff2", "mona12emoji.woff2"]
 CSS_FILE = ROOT / "assets" / "css" / "retro.css"
 _CHARSET: set | None = None
+_FONTTOOLS_WARNED = False          # 「没装 fontTools」只提醒一次，别刷屏
 
 
 def _font_unicode_ranges(css_text: str) -> dict:
@@ -186,14 +187,18 @@ def _font_unicode_ranges(css_text: str) -> dict:
 
 def pixel_charset() -> set | None:
     """三份点阵字体合起来能渲染的字符集合；判断不了就返回 None（那就不检查）"""
-    global _CHARSET
+    global _CHARSET, _FONTTOOLS_WARNED
     if _CHARSET is not None:
         return _CHARSET
     try:
         from fontTools.ttLib import TTFont
     except ImportError:
-        print("  ⚠ 没装 fontTools，跳过「这个字有没有点阵字形」的检查"
-              "（pip install fonttools 之后就会检查）")
+        # 只提醒一次：这个函数是逐句/逐字调的，每次都打一行会把
+        # 编辑器面板里真正有用的报错（超字数、重复句）顶到看不见。
+        if not _FONTTOOLS_WARNED:
+            _FONTTOOLS_WARNED = True
+            print("  ⚠ 没装 fontTools，跳过「这个字有没有点阵字形」的检查"
+                  "（pip install fonttools 之后就会检查）")
         return None
     try:
         ranges = _font_unicode_ranges(CSS_FILE.read_text(encoding="utf-8"))

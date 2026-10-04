@@ -1894,8 +1894,10 @@ function pkmnPayload() {
   };
 }
 
-function pkmnTable(groupKey, title, hint, keys) {
-  const arr = PK[groupKey];
+/** 台词表：侧栏放养区那套和始祖小鸟页那套共用。
+    st 是状态对象（PK / TBT），groupKey 是它上面那一层（都是 'pools' 之外还可能有 page/weather） */
+function talkTable(st, groupKey, title, hint, keys, optional) {
+  const arr = st[groupKey];
   let h = `<h3 class="pk-h">${esc(title)}`;
   if (hint) h += ` <span class="pk-sub">${esc(hint)}</span>`;
   h += '</h3>';
@@ -1909,20 +1911,45 @@ function pkmnTable(groupKey, title, hint, keys) {
          + `<td class="pk-n${n > 40 ? ' bad' : ''}">${n}</td>`
          + `<td style="text-align:center"><button class="danger" data-del="${groupKey}:${esc(k)}:${i}">×</button></td></tr>`;
     });
-    h += `<tr><td colspan="3" class="pk-add"><span class="pk-sub">${esc(k)}`
-       + `${min ? '（至少留 ' + min + ' 句）' : ''}</span> `
+    const opt = !!(optional && optional.has && optional.has(k));
+    const rule = min ? (opt ? `可空；写了至少 ${min} 句` : `至少留 ${min} 句`) : '';
+    h += `<tr><td colspan="3" class="pk-add"><span class="pk-sub">${esc(label)} · ${esc(k)}`
+       + `${rule ? '：' + rule : ''}</span> `
        + `<button data-add="${groupKey}:${esc(k)}">＋ 加一条</button></td></tr>`;
   });
   h += '</tbody></table>';
   return h;
 }
 
+/** 「宝可梦台词」面板顶上的来源切换：侧栏放养区 / 始祖小鸟页 */
+function talkSourceBar(cur) {
+  return '<div style="margin:0 0 12px">'
+    + `<button class="${cur === 'pkmn' ? 'primary' : ''}" id="srcPkmn">侧栏放养区</button> `
+    + `<button class="${cur === 'tbtak' ? 'primary' : ''}" id="srcTbtak">始祖小鸟页</button></div>`;
+}
+
+/** 保存按钮旁边那句：生成脚本能不能跑（python 太老 / 没装都会说清楚） */
+function pythonHint(meta) {
+  return meta && meta.pythonOk
+    ? '（保存后会自动重跑生成脚本）'
+    : '⚠ ' + esc((meta && meta.pythonNote) || '没找到 python：保存后不会重新生成 JSON');
+}
+
+function bindTalkSourceBar() {
+  const a = document.getElementById('srcPkmn');
+  if (a) a.addEventListener('click', () => renderPkmn());
+  const b = document.getElementById('srcTbtak');
+  if (b) b.addEventListener('click', () => renderTbtak());
+}
+
 function paintPkmn() {
   const it = PK.meta.items.find((x) => x.dex === PK.dex) || {};
   let h = '<h2 class="sec">宝可梦台词</h2>';
+  h += talkSourceBar('pkmn');
   h += `<div class="note">这里是侧栏「宝可梦放养区」里每只宝可梦说的话，一只一个文件
     （<code>data/pkmn-talk/${PK.dex}.toml</code>）。改完点最下面的<b>保存并生成</b> ——
     编辑器会顺手重新生成页面真正读取的 JSON，刷新预览页就能看到。<br>
+    顶上那个「<b>始祖小鸟页</b>」按钮切到 /tobitaiaaken/ 底部那一格的台词（另一份文件）。<br>
     规矩：每句<b>不超过 40 个字</b>（对话框只有三行），不要用引号、书名号、括号，
     也不用写「${esc(PK.name)}：」这种前缀；同一只里面别出现重复的句子。<br>
     符号：<b>♪ ♫ ★ ☆ ♥ ■ □ ● ○ ← → ☀ ☁</b> 这些站里的点阵字体都有，随便用；
@@ -1935,12 +1962,12 @@ function paintPkmn() {
   }
   h += `</select><span class="cmt">${it.total != null ? '现在共 ' + it.total + ' 句' : ''}</span></div>`;
 
-  h += pkmnTable('pools', '它自己的话', '（按什么时候说分）', PK.groups.pools);
-  h += pkmnTable('page', '看着某一页时说的', '（它正在陪你看这一页）', PK.groups.page);
-  h += pkmnTable('weather', '外面什么天气时说的', '（按访客当地天气）', PK.groups.weather);
+  h += talkTable(PK, 'pools', '它自己的话', '（按什么时候说分）', PK.groups.pools);
+  h += talkTable(PK, 'page', '看着某一页时说的', '（它正在陪你看这一页）', PK.groups.page);
+  h += talkTable(PK, 'weather', '外面什么天气时说的', '（按访客当地天气）', PK.groups.weather);
 
   h += '<div style="margin-top:18px"><button class="primary" id="btnSavePkmn">保存并生成</button> '
-     + `<span class="cmt">${PK.meta.pythonOk ? '（保存后会自动重跑生成脚本）' : '⚠ 没找到 python：保存后不会重新生成 JSON'}</span></div>`;
+     + `<span class="cmt">${pythonHint(PK.meta)}</span></div>`;
   h += '<pre id="pkLog" class="pk-log" hidden></pre>';
   showPanel(h);
   bindPkmn();
@@ -2010,6 +2037,139 @@ function bindPkmn() {
       const d = await apiGet('/api/pkmn/' + PK.dex);
       PK.pools = d.pools || {}; PK.page = d.page || {}; PK.weather = d.weather || {};
       PK.loaded = JSON.stringify(pkmnPayload());
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '保存并生成';
+    }
+  });
+  bindTalkSourceBar();
+}
+
+/* --- 始祖小鸟页放养区的台词（data/tbtak-talk/<id>.toml） ---
+   和侧栏那套共用同一个面板，只是换一份数据：没有 [page] / [weather]，
+   只有 greet / pet / pet_more / idle / night 五个池子。
+   生成物是 static/tbtak/talk/<id>.json，靠 tools/build-tbtak.py --talk 重生成。 */
+const TBT = {};
+
+async function renderTbtak() {
+  let meta;
+  try {
+    meta = await apiGet('/api/tbtak');
+  } catch (e) {
+    return showPanel('<h2 class="sec">宝可梦台词</h2><p class="hint">读不到始祖小鸟页的台词：' + esc(e.message) + '</p>');
+  }
+  if (!meta.items.length) {
+    return showPanel('<h2 class="sec">宝可梦台词</h2>'
+      + '<p class="hint">没读到 <code>data/tbtak-talk/*.toml</code>。</p>');
+  }
+  const id = (TBT.id && meta.items.some((x) => x.id === TBT.id)) ? TBT.id : meta.items[0].id;
+  const d = await apiGet('/api/tbtak/' + encodeURIComponent(id));
+  TBT.meta = meta;
+  TBT.id = id;
+  TBT.name = d.name || String(id);
+  TBT.header = d.header || '';
+  TBT.pools = d.pools || {};
+  TBT.groups = meta.groups;
+  TBT.optional = new Set(meta.optional || []);
+  TBT.loaded = JSON.stringify(tbtPayload());
+  paintTbtak();
+}
+
+function tbtPayload() {
+  const out = {};
+  for (const [k] of TBT.groups) out[k] = (TBT.pools[k] || []).map((s) => String(s).trim()).filter(Boolean);
+  return { id: TBT.id, name: TBT.name, header: TBT.header, pools: out };
+}
+
+function paintTbtak() {
+  const it = (TBT.meta.items || []).find((x) => x.id === TBT.id) || {};
+  let h = '<h2 class="sec">宝可梦台词</h2>';
+  h += talkSourceBar('tbtak');
+  h += `<div class="note">这里是「想要飞的始祖小鸟」页面最底下那一格放养区的台词，
+    一位一个文件（<code>data/tbtak-talk/${esc(TBT.id)}.toml</code>）。改完点<b>保存并生成</b> ——
+    会顺手重跑 <code>python tools/build-tbtak.py --talk</code>（不碰素材，也不需要游戏工程）。<br>
+    规矩和侧栏那套一样：每句<b>不超过 40 个字</b>、同一份里别出现重复句；
+    生成脚本还会查字是不是点阵字体里有的，报错会贴在下面。</div>`;
+
+  h += '<div class="field"><label>改哪一位</label><select id="tbtSel">';
+  for (const x of TBT.meta.items) {
+    h += `<option value="${esc(x.id)}"${x.id === TBT.id ? ' selected' : ''}>${esc(x.name)}（${esc(x.id)}）</option>`;
+  }
+  h += `</select><span class="cmt">${it.total != null ? '现在共 ' + it.total + ' 句' : ''}</span></div>`;
+
+  h += talkTable(TBT, 'pools', '它自己的话', '（按什么时候说分）', TBT.groups, TBT.optional);
+
+  h += '<div style="margin-top:18px"><button class="primary" id="btnSaveTbt">保存并生成</button> '
+     + `<span class="cmt">${pythonHint(TBT.meta)}</span></div>`;
+  h += '<pre id="tbtLog" class="pk-log" hidden></pre>';
+  showPanel(h);
+  bindTbtak();
+}
+
+function bindTbtak() {
+  bindTalkSourceBar();
+  const collect = () => {
+    const out = {};
+    document.querySelectorAll('#panel input[data-g]').forEach((el) => {
+      const g = el.dataset.g, k = el.dataset.k;
+      if (!out[g]) out[g] = {};
+      if (!out[g][k]) out[g][k] = [];
+      out[g][k].push(el.value);
+    });
+    TBT.pools = out.pools || {};
+  };
+  document.querySelectorAll('#panel .pk-in').forEach((el) => el.addEventListener('input', () => {
+    const td = el.closest('tr').querySelector('.pk-n');
+    const n = [...el.value].length;
+    td.textContent = n;
+    td.classList.toggle('bad', n > 40);
+  }));
+  document.querySelectorAll('#panel [data-del]').forEach((b) => b.addEventListener('click', () => {
+    collect();
+    const [g, k, i] = b.dataset.del.split(':');
+    TBT[g][k].splice(+i, 1);
+    paintTbtak();
+  }));
+  document.querySelectorAll('#panel [data-add]').forEach((b) => b.addEventListener('click', () => {
+    collect();
+    const [g, k] = b.dataset.add.split(':');
+    (TBT[g][k] = TBT[g][k] || []).push('');
+    paintTbtak();
+    const rows = document.querySelectorAll(`#panel input[data-k="${CSS.escape(k)}"]`);
+    const last = rows[rows.length - 1];
+    if (last) last.focus();
+  }));
+  document.getElementById('tbtSel').addEventListener('change', async (e) => {
+    collect();
+    if (JSON.stringify(tbtPayload()) !== TBT.loaded &&
+        !confirm('这一位还有没保存的改动，换过去就丢了。要继续吗？')) {
+      e.target.value = String(TBT.id);
+      return;
+    }
+    TBT.id = e.target.value;
+    const d = await apiGet('/api/tbtak/' + encodeURIComponent(TBT.id));
+    TBT.name = d.name || TBT.id;
+    TBT.header = d.header || '';
+    TBT.pools = d.pools || {};
+    TBT.loaded = JSON.stringify(tbtPayload());
+    paintTbtak();
+  });
+  document.getElementById('btnSaveTbt').addEventListener('click', async () => {
+    collect();
+    const btn = document.getElementById('btnSaveTbt');
+    btn.disabled = true;
+    btn.textContent = '正在生成…';
+    try {
+      const r = await apiPost('/api/tbtak/' + encodeURIComponent(TBT.id), tbtPayload());
+      const log = document.getElementById('tbtLog');
+      log.hidden = false;
+      log.textContent = (r.ok ? '✓ 已保存，并重新生成了页面用的 JSON\n\n'
+                              : '✗ 文件存下了，但生成时报错（页面上的台词还是旧的那份）\n\n') + (r.log || '');
+      log.style.color = r.ok ? '#1e8e3e' : '#c5221f';
+      toast(r.ok ? '台词已保存并生成' : '保存了，但生成失败 —— 看面板下面的报错', r.ok ? 'ok' : 'err');
+      const d = await apiGet('/api/tbtak/' + encodeURIComponent(TBT.id));
+      TBT.pools = d.pools || {};
+      TBT.loaded = JSON.stringify(tbtPayload());
     } finally {
       btn.disabled = false;
       btn.textContent = '保存并生成';

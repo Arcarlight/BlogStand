@@ -972,6 +972,75 @@ const PKMN_WEATHER = [
 ];
 const PKMN_POOL_KEYS = ['pools', 'page', 'weather'];
 
+/* ============================================================
+   始祖小鸟页放养区的台词（data/tbtak-talk/<id>.toml）
+   ------------------------------------------------------------
+   和侧栏那套是两份独立数据：这份没有 [page] / [weather] 两张表，
+   只有 name + 五个字符串数组。生成物是 static/tbtak/talk/<id>.json，
+   由 `python tools/build-tbtak.py --talk` 生成 —— 这条路径**不需要游戏工程**，
+   只有拼素材（不带 --talk）才需要。
+
+   至少几句要和 tools/build-tbtak.py 里的 TALK_REQ / TALK_OPT 对齐，
+   不然面板上会看着「没问题」、生成脚本却报错。
+   ============================================================ */
+const TBTAK_DIR = 'data/tbtak-talk';
+const TBTAK_POOLS = [
+  ['greet', '刚出现时打招呼', 2],
+  ['pet', '被摸时说的', 5],
+  ['pet_more', '连着摸太多次', 2],   // 可空；写了就至少要 2 句
+  ['idle', '平常自己嘟囔', 8],
+  ['night', '深夜说的', 2],          // 可空；写了就至少要 2 句
+];
+// 可空的池子（面板上标「可空」，生成脚本只在「写了但不够」时报错）
+const TBTAK_OPTIONAL = new Set(['pet_more', 'night']);
+
+function parseTbtakTalk(text) {
+  const res = { header: '', name: '', pools: {} };
+  const head = [];
+  let started = false;
+  let cur = null;
+  let buf = null;
+  for (const raw of String(text).split(/\r?\n/)) {
+    const t = raw.trim();
+    if (!started) {                              // 文件开头的注释原样留住
+      if (!t || t.startsWith('#')) { head.push(raw); continue; }
+      started = true;
+    }
+    if (buf) {                                   // 正在读多行数组
+      if (t.startsWith(']')) { res.pools[cur] = buf; buf = null; cur = null; continue; }
+      buf = buf.concat(quotedStrings(t));
+      continue;
+    }
+    if (!t || t.startsWith('#')) continue;
+    const nm = t.match(/^name\s*=\s*"(.*)"\s*$/);
+    if (nm) { res.name = nm[1].replace(/\\"/g, '"'); continue; }
+    const open = t.match(/^([A-Za-z0-9_]+)\s*=\s*\[\s*$/);
+    if (open) { cur = open[1]; buf = []; continue; }
+    const one = t.match(/^([A-Za-z0-9_]+)\s*=\s*\[(.*)\]\s*$/);   // key = ["a", "b"]
+    if (one) { res.pools[one[1]] = quotedStrings(one[2]); continue; }
+  }
+  res.header = head.join('\n').replace(/\s+$/, '');
+  return res;
+}
+
+function writeTbtakTalk(id, data) {
+  const q = (s) => '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  const out = [];
+  if (data.header) out.push(data.header, '');
+  out.push(`name = ${q(data.name)}`, '');
+  for (const [k] of TBTAK_POOLS) {
+    const arr = (data.pools[k] || [])
+      .map((s) => String(s).replace(/[\r\n]+/g, ' ').trim())
+      .filter(Boolean);
+    if (!arr.length) continue;                   // 空池子不写出来，省得生成脚本误判
+    out.push(`${k} = [`);
+    for (const s of arr) out.push(`  ${q(s)},`);
+    out.push(']', '');
+  }
+  return out.join('\n').replace(/\n+$/, '\n');
+}
+
+
 /** data/pkmn-pool.toml：[[items]] + dex/name/en/sleep */
 function parsePkmnPoolList(text) {
   const out = [];
@@ -1071,21 +1140,48 @@ function writePkmnTalk(dex, name, data) {
 
 /* python 在哪（Windows 上可能是 python，macOS 上通常是 python3） */
 function findPython() {
-  const guesses = IS_WIN ? ['python', 'py', 'python3'] : ['python3', 'python'];
+  /* 生成脚本要 `tomllib`（Python 3.11 才有）。所以不能只看「有没有 python3」：
+     macOS 上 /usr/bin/python3 长期是 3.9，而机器上另装了 3.12 时，
+     PATH 里的 python3 仍可能指向 3.9 —— 那样脚本会以 ModuleNotFoundError 收场
+     （台词存下来了，页面读的 JSON 却没更新，看着像「改了没反应」）。
+     这里按版本号从高到低试，并且**优先挑能 import tomllib 的那个**。 */
+  const guesses = IS_WIN
+    ? ['python', 'py', 'python3', 'python3.12', 'python3.11']
+    : ['python3.13', 'python3.12', 'python3.11', 'python3', 'python'];
+  let fallback = '';
   for (const g of guesses) {
     try {
       execFileSync(g, ['--version'], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    } catch { continue; }
+    if (!fallback) fallback = g;
+    try {
+      execFileSync(g, ['-c', 'import tomllib'], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
       return g;
-    } catch { /* 试下一个 */ }
+    } catch { /* 版本太老，试下一个 */ }
   }
-  return guesses[0];
+  return fallback || guesses[0];
 }
 const PYTHON = findPython();
+
+/** 能不能跑我们的生成脚本（= 能 import tomllib）。面板上据此给提示。 */
 let pythonOk = false;
+let pythonNote = '';
 try {
   execFileSync(PYTHON, ['--version'], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
-  pythonOk = true;
-} catch { /* 没装 python 也能编辑，只是生成不了 JSON */ }
+  try {
+    execFileSync(PYTHON, ['-c', 'import tomllib'], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    pythonOk = true;
+  } catch {
+    let ver = '';
+    try { ver = execFileSync(PYTHON, ['--version'], { encoding: 'utf8', windowsHide: true }).trim(); } catch { /* 拿不到就算了 */ }
+    pythonNote = `本机的 ${PYTHON} 是 ${ver || '未知版本'}，缺 tomllib（生成脚本要 Python 3.11 以上）：`
+      + '台词能存进 TOML，但页面真正读的 JSON 不会更新。装一个 3.11+ 再重启编辑器即可'
+      + '（macOS 上 `brew install python@3.12`，装完重开编辑器它会自己挑到新的）。';
+  }
+} catch {
+  pythonNote = `没找到 python（试过 ${PYTHON}）：台词能存进 TOML，但页面读的 JSON 不会更新。`
+    + '装好 python 3.11+ 之后重启编辑器，再点一次保存即可。';
+}
 
 /* 图片缩略图：调用 tools/make-thumb.py（只需要 Pillow）。
    失败不抛错 —— 缩略图是优化，不该拦住上传本身；
@@ -2246,6 +2342,7 @@ async function handle(req, res, url) {
       items,
       groups: { pools: PKMN_POOLS, page: PKMN_PAGE, weather: PKMN_WEATHER },
       pythonOk,
+      pythonNote,
       python: PYTHON,
     });
   }
@@ -2297,8 +2394,68 @@ async function handle(req, res, url) {
         log = (r.stdout + r.stderr).trim();
       } else {
         code = 1;
-        log = `没找到 python（试过 ${PYTHON}），台词文件已经存好，但 static/pkmn/talk/*.json 没有更新。\n` +
-              '装上 python 之后重启编辑器，再点一次保存即可。';
+        log = pythonNote + '\n（台词文件已经存好，但 static/pkmn/talk/*.json 没有更新。）';
+      }
+      return json(res, 200, { ok: code === 0, code, log: tail(log, 2000) });
+    }
+  }
+
+  /* ---------- 始祖小鸟页放养区的台词 ---------- */
+  if (p === '/api/tbtak' && req.method === 'GET') {
+    let files = [];
+    try { files = (await listDir(TBTAK_DIR)).filter((f) => f.endsWith('.toml')).sort(); } catch { files = []; }
+    const items = [];
+    for (const rel of files) {
+      const id = rel.split('/').pop().replace(/\.toml$/, '');
+      let name = id;
+      let total = 0;
+      let exists = false;
+      try {
+        const d = parseTbtakTalk(await readText(rel));
+        exists = !!d.name;
+        name = d.name || id;
+        total = TBTAK_POOLS.reduce((n, [k]) => n + ((d.pools[k] || []).length), 0);
+      } catch { /* 读不了就只报个 id */ }
+      items.push({ id, name, exists, total });
+    }
+    return json(res, 200, { items, groups: TBTAK_POOLS, optional: [...TBTAK_OPTIONAL], pythonOk, pythonNote, python: PYTHON });
+  }
+
+  if (p.startsWith('/api/tbtak/')) {
+    const id = String(p.split('/')[3] || '');
+    // 只允许 data/tbtak-talk/ 里的普通文件名，别的一个都不碰
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) return json(res, 400, { error: '角色 id 不对：' + p });
+
+    if (req.method === 'GET') {
+      const d = parseTbtakTalk(await readText(`${TBTAK_DIR}/${id}.toml`));
+      return json(res, 200, Object.assign({ id, exists: !!d.name }, d));
+    }
+
+    if (req.method === 'POST') {
+      const body = await readBody(req);
+      const name = String(body.name || '').trim();
+      if (!name) throw new Error('缺少 name，没法写回文件');
+      const pools = {};
+      for (const [k] of TBTAK_POOLS) {
+        const v = (body.pools && Array.isArray(body.pools[k])) ? body.pools[k] : [];
+        pools[k] = v.map((s) => String(s).replace(/[\r\n]+/g, ' ').trim());
+      }
+      await writeText(`${TBTAK_DIR}/${id}.toml`,
+        writeTbtakTalk(id, { header: String(body.header || ''), name, pools }));
+
+      // 页面读的是 static/tbtak/talk/<id>.json，所以顺手重新生成一次
+      // （--talk 不碰素材，也不需要本机有游戏工程）
+      let log = '';
+      let code = 0;
+      if (pythonOk) {
+        const r = await run(PYTHON, ['tools/build-tbtak.py', '--talk'], {
+          env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+        });
+        code = r.code;
+        log = (r.stdout + r.stderr).trim();
+      } else {
+        code = 1;
+        log = pythonNote + '\n（台词文件已经存好，但 static/tbtak/talk/*.json 没有更新。）';
       }
       return json(res, 200, { ok: code === 0, code, log: tail(log, 2000) });
     }
