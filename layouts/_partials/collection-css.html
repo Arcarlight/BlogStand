@@ -154,11 +154,13 @@ body.theme-collection #footer {
    （比视口宽一倍），整页横向溢出：标题、导航、正文、页脚右边全被截掉，
    侧栏又只剩 190px。断点与 retro.css 取同一处，补集就是 min-width:1005px。 */
 @media (min-width: 1005px) {
-  /* 210 而不是 190：文集侧栏里那个「蒂安希听到了」挂着矿洞，蒂安希加几只
-     小碎钻要横向铺开，190 只剩 145px、放不下（会挤成一堆）。
-     正文相应从 790 收到 770，仍远宽于主站的 656。 */
-  body.theme-collection #content { width: 770px !important; }
-  body.theme-collection #sidebar { width: 210px !important; }
+  /* 250 而不是 190/210：文集侧栏里那个「蒂安希听到了」挂着矿洞，
+     蒂安希 + 最多 4 只小碎钻要横向铺开。
+       190 -> 小碎钻只有 13px，太小（站长说「也太小了吧」）
+       250 -> 约 19px，看得出来是小石头
+     正文相应从 790 收到 730，仍远宽于主站的 656。 */
+  body.theme-collection #content { width: 730px !important; }
+  body.theme-collection #sidebar { width: 250px !important; }
 }
 
 /* 侧栏窄了，时钟和播放器跟着收一点，别撑破 */

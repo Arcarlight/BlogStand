@@ -100,10 +100,13 @@
 
   var ROW = { i: 0, wl: 1, wr: 2, face: 3, sh: 4, sl: 5 };
 
-  /* 小碎钻比蒂安希小一圈。按「美术像素 = 几个格子」算太绕，直接给相对系数：
-     0.5 -> 蒂安希 40 美术像素变成 20。侧栏矿洞只有 180 来像素宽，
-     除掉蒂安希之后要能并排放下 4 只，所以取得比较小。 */
-  var GEM_SCALE = 0.5;
+  /* 小碎钻比蒂安希小一圈。这是「相对蒂安希的比例」，最终尺寸还要受下面
+     MAX_GEMS 那笔空间账约束。 */
+  var GEM_SCALE = 0.6;
+  /* 算小碎钻尺寸时**按最多只数**留位置，而不是按这一轮实际抽到几只：
+     否则抽到 2 只时它们会明显比抽到 4 只时大一圈，每刷新一次大小都不一样。
+     尺寸只由「地形 + 这个上限」决定，抽到几只都长一样大。 */
+  var MAX_GEMS = 4;
 
   var dpr = window.devicePixelRatio || 1;
   var penW = 0, penH = 0;
@@ -252,15 +255,18 @@
     shadowCtx = fitCanvas(shadowCv, W, H);
     faceCtx = fitCanvas(faceCv, D_META.f.w * 2, D_META.f.h * 2);
 
-    /* 小碎钻的尺寸要同时满足两件事，所以是反推出来的：
-         ① 每只分到的格子宽度 >= 身位的 2 倍 —— 否则它只能钉在原地
-            （格子刚好等于身位时，可走范围是 0，实测就是三只一动都不动）
-         ② 身位又不能太大 —— DPR 低的时候格子会被放大到 40px，和蒂安希一样大
-       于是：格子宽 = 可走宽度 / 只数，身位 = 格子宽 / 2，再和 GEM_SCALE 取小的。 */
-    var nGems = Math.max(1, gems.length || 3);
+    /* 小碎钻的尺寸要同时满足三件事：
+         ① 按**最多只数**算，抽到几只都同样大（按实际只数算会导致
+            2 只时明显比 4 只时大一圈 —— 站长指出的就是这一点）
+         ② 身位 <= 格子宽的 4/5 —— 留出走动余量。取 1/2 时余量是一半、
+            但身位被压得太小（实测只有 13px，站长说「也太小了吧」）；
+            取 4/5 能让它尽量大，同时每只仍然在自己的格子来回走
+         ③ 身位不能大到和蒂安希一样 —— DPR 低的时候格子会被放大到 40px
+       于是：格子宽 = 可走宽度 / MAX_GEMS，身位 = 格子宽 * 4/5，
+       再和 GEM_SCALE（相对蒂安希的比例）取小的。 */
     var freeW = Math.max(36, penW - dw - 12);
     var byScale = G_META.cw * art2css * GEM_SCALE;
-    var byFit = (freeW / nGems) / 2;
+    var byFit = (freeW / MAX_GEMS) * 0.8;
     var gw = Math.max(12, Math.round(Math.min(byScale, byFit)));
     var gh = Math.max(12, Math.round(G_META.ch * gw / G_META.cw));
 
@@ -268,10 +274,9 @@
     var lo = Math.min(penW - gw - 2, diancie.x + dw + 6);
     var hi = Math.max(lo, penW - gw - 2);
 
-    /* 每只小碎钻分到自己的**一格子**，只在这一格里来回走。
-       为什么不给整片自由走：这样两只的活动区间一交叉就会撞到一起
-       （实测 24 次采样里 20 次有两只重叠），而「挤成一坨」正是要避免的。
-       分格的代价是它们不会彼此穿插 —— 但看起来仍然是各自在洞里溜达。 */
+    /* 实际抽到几只，就在这条带子上**均分**（尺寸已经按 MAX_GEMS 定死了，
+       所以只数只影响间距，不影响大小）。 */
+    var nGems = Math.max(1, gems.length);
     var cell = (hi - lo) / nGems;
 
     gems.forEach(function (g, i) {
