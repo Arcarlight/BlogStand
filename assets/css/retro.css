@@ -1975,7 +1975,7 @@ html.pxfont .entry-content { line-height: 1.55; }
    它把草地也在画布上重画了一遍（位置和下面那条 CSS 兜底背景完全对齐），
    于是夜里压暗、下雨变暗这些都能在画布里一次做完。
    ============================================================ */
-#pkmn-pasture .pasture-pen {
+.pkmn-pasture .pasture-pen {
   position: relative;
   height: 150px;
   overflow: hidden;
@@ -1990,7 +1990,7 @@ html.pxfont .entry-content { line-height: 1.55; }
 }
 
 /* 天空画布：铺满围栏，压在所有东西底下（宝可梦 z2/z3、图标 z4） */
-#pkmn-pasture .pasture-sky {
+.pkmn-pasture .pasture-sky {
   position: absolute;
   left: 0;
   top: 0;
@@ -2003,7 +2003,7 @@ html.pxfont .entry-content { line-height: 1.55; }
    filter 会先把这个盒子栅格化再处理，里面的点阵画布就被重采样了。
    天空画布画起来之后这层罩子就撤掉（白天黑夜的调色板在画布里），
    否则会压两次、糊成一片灰。 */
-#pkmn-pasture .pasture-pen::before {
+.pkmn-pasture .pasture-pen::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -2011,12 +2011,12 @@ html.pxfont .entry-content { line-height: 1.55; }
   pointer-events: none;
 }
 
-html.pkmn-night #pkmn-pasture .pasture-pen { background-color: #24365c; }
-html.pkmn-night #pkmn-pasture .pasture-pen::before { background: rgba(12, 22, 48, .34); }
-#pkmn-pasture .pasture-pen.pkmn-sky::before { background: none; }
+html.pkmn-night .pkmn-pasture .pasture-pen { background-color: #24365c; }
+html.pkmn-night .pkmn-pasture .pasture-pen::before { background: rgba(12, 22, 48, .34); }
+.pkmn-pasture .pasture-pen.pkmn-sky::before { background: none; }
 
-#pkmn-pasture .pasture-sprite,
-#pkmn-pasture .pasture-shadow {
+.pkmn-pasture .pasture-sprite,
+.pkmn-pasture .pasture-shadow {
   position: absolute;
   left: 0;
   top: 0;
@@ -2024,13 +2024,13 @@ html.pkmn-night #pkmn-pasture .pasture-pen::before { background: rgba(12, 22, 48
   image-rendering: pixelated;
 }
 
-#pkmn-pasture .pasture-shadow { z-index: 2; }
-#pkmn-pasture .pasture-sprite { z-index: 3; }
+.pkmn-pasture .pasture-shadow { z-index: 2; }
+.pkmn-pasture .pasture-sprite { z-index: 3; }
 
 /* 右上角的天气 / 时间图标：半透明、不吃鼠标事件。
    放在「上面的角」是有讲究的 —— 宝可梦是贴着地面站、而且水平居中的，
    所以两个上角它永远碰不到，不会挡到它。 */
-#pkmn-pasture .pasture-icons {
+.pkmn-pasture .pasture-icons {
   position: absolute;
   top: 3px;
   right: 3px;
@@ -2043,14 +2043,14 @@ html.pkmn-night #pkmn-pasture .pasture-pen::before { background: rgba(12, 22, 48
   opacity: .72;
 }
 
-#pkmn-pasture .pasture-icon {
+.pkmn-pasture .pasture-icon {
   display: block;
   image-rendering: pixelated;
 }
 
 /* 睡着时头顶飘的 Z。位移必须是整数个设备像素（用 --devpx），
    配 steps() 一跳一跳地走 —— 不然文字会落在半个设备像素上，点阵就糊了。 */
-#pkmn-pasture .pasture-zzz {
+.pkmn-pasture .pasture-zzz {
   position: absolute;
   z-index: 5;
   pointer-events: none;
@@ -2059,9 +2059,9 @@ html.pkmn-night #pkmn-pasture .pasture-pen::before { background: rgba(12, 22, 48
   animation: pkmn-zzz 2.8s steps(10) infinite;
 }
 
-#pkmn-pasture .pasture-zzz-b { animation-delay: 1.4s; }
+.pkmn-pasture .pasture-zzz-b { animation-delay: 1.4s; }
 
-html.pkmn-night #pkmn-pasture .pasture-zzz { color: #9fc4ea; }
+html.pkmn-night .pkmn-pasture .pasture-zzz { color: #9fc4ea; }
 
 @keyframes pkmn-zzz {
   0%   { opacity: 0; transform: translate(0, 0); }
@@ -2069,7 +2069,7 @@ html.pkmn-night #pkmn-pasture .pasture-zzz { color: #9fc4ea; }
   100% { opacity: 0; transform: translate(calc(var(--devpx, 0.6667px) * 5), calc(var(--devpx, 0.6667px) * -12)); }
 }
 
-#pkmn-pasture .pasture-hint {
+.pkmn-pasture .pasture-hint {
   margin: 4px 0 0;
   text-align: right;
   color: #7488a0;
@@ -2078,7 +2078,7 @@ html.pkmn-night #pkmn-pasture .pasture-zzz { color: #9fc4ea; }
 
 /* 「台词框」—— 上半行是脸图 + 名字/心情，下半行是台词。
    固定最小高度，换台词时下面的挂件不会被挤得跳来跳去。 */
-#pkmn-pasture .pkmn-box {
+.pkmn-pasture .pkmn-box {
   margin-top: 6px;
   padding: 6px;
   min-height: 118px;
@@ -2086,14 +2086,14 @@ html.pkmn-night #pkmn-pasture .pasture-zzz { color: #9fc4ea; }
   background: #fbfdff;
 }
 
-#pkmn-pasture .pkmn-head {
+.pkmn-pasture .pkmn-head {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 /* 脸图做成小相框，和侧栏头像一个语言 */
-#pkmn-pasture .pkmn-face {
+.pkmn-pasture .pkmn-face {
   display: block;
   padding: 1px;
   background: #ffffff;
@@ -2101,36 +2101,36 @@ html.pkmn-night #pkmn-pasture .pasture-zzz { color: #9fc4ea; }
   box-shadow: 1px 1px 0 #c3d9ef;
 }
 
-#pkmn-pasture .pkmn-who { min-width: 0; }
+.pkmn-pasture .pkmn-who { min-width: 0; }
 
-#pkmn-pasture .pkmn-name {
+.pkmn-pasture .pkmn-name {
   margin: 0;
   color: #123f70;
   white-space: nowrap;
 }
 
 /* 心情那行用小一号（--px-sm 也是 12 的整数倍设备像素，所以不会糊） */
-#pkmn-pasture .pkmn-mood {
+.pkmn-pasture .pkmn-mood {
   margin: 2px 0 0;
   color: #7488a0;
   white-space: nowrap;
   font-size: var(--px-sm, 11px) !important;
 }
 
-#pkmn-pasture .pkmn-line {
+.pkmn-pasture .pkmn-line {
   margin: 5px 0 0;
   color: #222222;
   word-break: break-word;
 }
 
-#pkmn-pasture .pkmn-credit {
+.pkmn-pasture .pkmn-credit {
   margin: 5px 0 0;
   text-align: right;
   color: #8a9aad;
   font-size: var(--px-sm, 11px) !important;
 }
 
-#pkmn-pasture .pkmn-credit a { color: #0033cc; }
+.pkmn-pasture .pkmn-credit a { color: #0033cc; }
 
 /* ============================================================
    28. 始祖小鸟页面的放养区（/tobitaiaaken/ 底部、留言板上面那一格）

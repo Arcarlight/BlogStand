@@ -20,6 +20,9 @@
 {{ if eq .Params.theme "collection" }}
 <div id="sidebar">
   {{ partial "sidebar/music.html" . }}
+  {{/* 「蒂安希听到了」：蒂安希把消息转述出来。内容在 data/diancie-heard.toml，
+       开关是 hugo.toml 的 diancieHeard。只在这个（文集）主题下出现。 */}}
+  {{ partial "sidebar/diancie.html" . }}
   {{ partial "sidebar/clock.html" . }}
 </div>
 {{ else }}

@@ -177,6 +177,13 @@ timeZone = "Asia/Shanghai"
   # 不想让访客被查 IP 的话把它关掉即可，关掉就完全不发这三个请求。
   pkmnWeather = true
 
+  # 「蒂安希听到了」——文集侧栏那个挂件：蒂安希站在矿洞里，隔一会儿把
+  # 小碎钻告诉它的消息转述出来。只出现在文集（theme = collection）的侧栏。
+  # 要转述的话在 data/diancie-heard.toml，用编辑器左侧「蒂安希听到了」面板改，
+  # 改完不用跑脚本。素材和「宝可梦放养区」共用一套（蒂安希 / 小碎钻在那份名单里
+  # 标了 hide = true，不会跑进放养区的随机池）；重新生成素材仍是 tools/build-pkmn.py。
+  diancieHeard = true
+
   # ---- 留言板（utterances）----
   # 留言存在仓库的 Issue 里，所以仓库得先装 utterances App：
   # https://github.com/apps/utterances → Install → Only select repositories → 选本站仓库

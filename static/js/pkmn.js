@@ -34,7 +34,10 @@
   var INDEX;
   try { INDEX = JSON.parse(idxEl.textContent || '{}'); } catch (e) { return; }
   var SHEET = INDEX.sheet || {};
-  var allDex = Object.keys(SHEET);
+  /* 名单里有几只不在这个挂件里抽（hide = true）—— 比如蒂安希和小碎钻，
+     它们只出现在文集侧栏的「蒂安希听到了」里。素材仍然下载、精灵表里也有，
+     只是这里不把它们的图鉴号放进随机池。 */
+  var allDex = Object.keys(SHEET).filter(function (d) { return !SHEET[d].hide; });
   if (!allDex.length) return;
 
   var pen = document.getElementById('pasture-pen');

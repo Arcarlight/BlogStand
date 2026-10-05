@@ -154,8 +154,11 @@ body.theme-collection #footer {
    （比视口宽一倍），整页横向溢出：标题、导航、正文、页脚右边全被截掉，
    侧栏又只剩 190px。断点与 retro.css 取同一处，补集就是 min-width:1005px。 */
 @media (min-width: 1005px) {
-  body.theme-collection #content { width: 790px !important; }
-  body.theme-collection #sidebar { width: 190px !important; }
+  /* 210 而不是 190：文集侧栏里那个「蒂安希听到了」挂着矿洞，蒂安希加几只
+     小碎钻要横向铺开，190 只剩 145px、放不下（会挤成一堆）。
+     正文相应从 790 收到 770，仍远宽于主站的 656。 */
+  body.theme-collection #content { width: 770px !important; }
+  body.theme-collection #sidebar { width: 210px !important; }
 }
 
 /* 侧栏窄了，时钟和播放器跟着收一点，别撑破 */
@@ -391,4 +394,51 @@ body.theme-collection .r18-tag {
 /* ---------- 10. 文章标题下那一行：书名 + 徽标 ---------- */
 body.theme-collection .entry-bookline { margin: 2px 0 10px; color: #5b7358; }
 body.theme-collection .entry-bookline .book-link { font-size: var(--px-lg, 15px) !important; }
+
+/* ---------- 11. 蒂安希听到了（侧栏挂件）----------
+   版式沿用放养区那一套类名（.pkmn-pasture / .pasture-*），
+   所以这里只写「和放养区不一样」的部分：矿洞 + 小碎钻 + 绿色配色。
+
+   矿洞的砖块、纵深、岩壁碎晶都由 js/diancie-heard.js 画在 #diancie-bg
+   画布上（按实际尺寸铺，只在排版时画一次）。这里只给一个兜底底色，
+   免得脚本没跑起来时那块是白的。 */
+body.theme-collection #diancie-heard .pasture-pen {
+  height: 132px;
+  background-color: #2b2620 !important;
+  background-image: none !important;
+  border-color: #4d4438 !important;
+}
+
+/* 小碎钻：每只一个画布、绝对定位；JS 只改 left/top，走路靠切格子 */
+body.theme-collection #diancie-heard .diancie-gems { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+body.theme-collection #diancie-heard .diancie-gems canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* 对话框：这个 .pkmn-line 要装下一整段话，配色也换成绿的 */
+body.theme-collection #diancie-heard .pkmn-box {
+  border-color: #b6d3ae !important;
+  background: #f6fbf4 !important;
+}
+body.theme-collection #diancie-heard .pkmn-name { color: #23491f !important; }
+body.theme-collection #diancie-heard .pkmn-mood { color: #6b8467 !important; }
+body.theme-collection #diancie-heard .pkmn-line {
+  color: #2f4a2c !important;
+  line-height: 2 !important;      /* 整数行高，点阵字才不糊 */
+  min-height: calc(var(--px, 12px) * 4);
+}
+body.theme-collection #diancie-heard .pkmn-face { border-color: #9dc294 !important; }
+body.theme-collection #diancie-heard .pkmn-credit { color: #7d9579 !important; }
+body.theme-collection #diancie-heard .pkmn-credit a { color: #2f6b33 !important; }
+body.theme-collection #diancie-heard .pasture-hint { color: #bdb3a2 !important; }
+
+/* 标题栏兼作「再听一条」的按钮：正在听的时候亮一下 */
+body.theme-collection #diancie-heard .widget-title { cursor: pointer; user-select: none; }
+body.theme-collection #diancie-heard .widget-title.is-listening {
+  background: linear-gradient(#8fbf72, #5f9a4c) !important;
+}
 </style>

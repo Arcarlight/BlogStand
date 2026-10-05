@@ -1,0 +1,73 @@
+{{/* ============================================================
+     蒂安希听到了（文集侧栏挂件）
+
+     蒂安希站在矿洞里，隔一会儿抬头听一下，然后把小碎钻告诉它的
+     话转述出来。写手在编辑器「蒂安希听到了」面板里写那些话。
+
+     版式沿用「宝可梦放养区」那一套（类名 .pkmn-pasture / .pasture-* 全站共用，
+     所以 CSS 不用复制一份）。差别只有三处：
+       · 背景是矿洞不是草地（.pasture-pen 的底图被主题 CSS 换成矿壁）
+       · 场上固定有一只蒂安希 + 随机几只小碎钻
+       · 对话框是三段式：开场语 → 嗯... → 随机抽到的那段话
+
+     素材来自 PMD Sprite Repository（PMDCollab SpriteCollab，CC BY-NC 4.0），
+     由 tools/build-pkmn.py 生成；蒂安希和小碎钻在 data/pkmn-pool.toml 里
+     标了 hide = true（不进侧栏放养区的随机池）和 emotions = true
+     （16 / 8 种表情各占精灵表一行，行号记在索引的 e.r 里）。
+
+     消息内容在 data/diancie-heard.toml，由页面直接读，不用重新生成素材。
+     开关在 hugo.toml：diancieHeard。
+     ============================================================ */}}
+{{ if site.Params.diancieHeard }}
+{{ $idx := "" }}
+{{ if fileExists "static/pkmn/index.json" }}{{ $idx = os.ReadFile "static/pkmn/index.json" }}{{ end }}
+{{/* 消息内容在 data/diancie-heard.toml，由 tools/build-pkmn.py --heard 导出成
+     下面这份 JSON（Hugo 模板不会解析 TOML）。编辑器保存消息时会自动重跑那一步，
+     所以写手改完不用管脚本。 */}}
+{{ $msgs := "" }}
+{{ if fileExists "static/pkmn/diancie-heard.json" }}{{ $msgs = os.ReadFile "static/pkmn/diancie-heard.json" }}{{ end }}
+{{ if and $idx $msgs }}
+{{/* data-* 上的地址必须是绝对的：canonifyURLs 不认 data-* 里的相对路径（同 pasture）。 */}}
+<div class="widget pkmn-pasture" id="diancie-heard"
+     data-base="{{ "pkmn/" | absURL }}"
+     data-diancie="719" data-carbink="703"
+     {{- if site.Params.pkmnWeather }} data-weather="1"{{ end }}>
+  <div class="widget-title" id="diancie-title" title="点一下马上再听一条">蒂安希听到了</div>
+  <div class="widget-body">
+    <div class="pasture">
+      <div class="pasture-pen" id="diancie-pen">
+        {{/* 矿洞背景：砖块、纵深、嵌在岩壁上的碎晶都画在这层画布上
+             （js/diancie-heard.js 的 paintCave），只排一次版、不占每帧开销。
+             刻意不接 pkmn-sky.js —— 矿洞里不该有云和天气。 */}}
+        <canvas class="pasture-sky" id="diancie-bg" width="1" height="1"></canvas>
+        {{/* 小碎钻：JS 按上场只数插进来的 canvas */}}
+        <div class="diancie-gems" id="diancie-gems"></div>
+        <canvas class="pasture-shadow" id="diancie-shadow" width="1" height="1"></canvas>
+        <canvas class="pasture-sprite" id="diancie-sprite" width="1" height="1"></canvas>
+        <div class="pasture-icons">
+          <canvas class="pasture-icon" id="diancie-icon-weather" width="1" height="1"></canvas>
+          <canvas class="pasture-icon" id="diancie-icon-time" width="1" height="1"></canvas>
+        </div>
+      </div>
+      <p class="pasture-hint" id="diancie-hint">点一下可以再听一条</p>
+    </div>
+    <div class="pkmn-box">
+      <div class="pkmn-head">
+        <canvas class="pkmn-face" id="diancie-face" width="1" height="1"></canvas>
+        <div class="pkmn-who">
+          <p class="pkmn-name" id="diancie-name">蒂安希</p>
+          <p class="pkmn-mood" id="diancie-mood">正在听</p>
+        </div>
+      </div>
+      <p class="pkmn-line" id="diancie-line">……</p>
+    </div>
+    <p class="pkmn-credit" id="diancie-credit">素材：<a href="https://sprites.pmdcollab.org/" target="_blank" rel="noopener">PMD Sprite Repository</a>（CC BY-NC 4.0）</p>
+  </div>
+</div>
+<script type="application/json" id="diancie-index">{{ $idx | safeJS }}</script>
+<script type="application/json" id="diancie-heard-data">{{ $msgs | safeJS }}</script>
+<script src="{{ "js/pkmn-weather.js" | relURL }}" defer></script>
+<script src="{{ "js/pkmn-sky.js" | relURL }}" defer></script>
+<script src="{{ "js/diancie-heard.js" | relURL }}" defer></script>
+{{ end }}
+{{ end }}

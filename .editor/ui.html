@@ -170,6 +170,15 @@
   .pk-log{margin-top:12px;padding:10px;background:#f7f9fc;border:1px solid var(--line);border-radius:4px;
     font-family:Consolas,monospace;font-size:11.5px;line-height:1.6;white-space:pre-wrap;max-height:240px;overflow:auto}
 
+  /* ---------- 「蒂安希听到了」面板 ---------- */
+  .dc-text{width:100%;font:12px/1.6 Consolas,monospace;padding:4px 6px;border:1px solid var(--line);
+    border-radius:3px;background:#fff;min-height:46px;resize:vertical}
+  .dc-text:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px #dcebfa}
+  .dc-sel{width:100%;font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);
+    border-radius:3px;background:#fff}
+  .dc-auto{color:#9db0c4;font-family:Consolas,monospace;font-size:11.5px;white-space:nowrap}
+  .dc-auto b{color:#1e8e3e}
+
   /* ---------- 拖拽上传 ---------- */
   #editor.dragover{background:#eef7ff;box-shadow:inset 0 0 0 3px #7fb8f0}
   .row.create{color:var(--accent);font-weight:bold}
@@ -280,6 +289,11 @@
   <symbol id="ico-trash" viewBox="0 0 24 24"><path d="m4,6v8h1v8h1v1h12v-1h1v-8h1V6H4Zm14,7h-1v8H7v-8h-1v-5h12v5Z"/><polygon points="21 3 21 5 3 5 3 3 4 3 4 2 9 2 9 1 15 1 15 2 20 2 20 3 21 3"/></symbol>
   <symbol id="ico-refresh" viewBox="0 0 24 24"><polygon points="23 14 23 15 22 15 22 17 21 17 21 19 20 19 20 20 19 20 19 21 17 21 17 22 15 22 15 23 9 23 9 22 7 22 7 21 5 21 5 20 3 20 3 21 2 21 2 22 1 22 1 15 8 15 8 16 7 16 7 17 6 17 6 19 7 19 7 20 9 20 9 21 15 21 15 20 17 20 17 19 19 19 19 17 20 17 20 14 23 14"/><polygon points="23 2 23 9 16 9 16 8 17 8 17 7 18 7 18 5 17 5 17 4 15 4 15 3 9 3 9 4 7 4 7 5 5 5 5 7 4 7 4 10 1 10 1 9 2 9 2 7 3 7 3 5 4 5 4 4 5 4 5 3 7 3 7 2 9 2 9 1 15 1 15 2 17 2 17 3 19 3 19 4 21 4 21 3 22 3 22 2 23 2"/></symbol>
   <symbol id="ico-message-dots" viewBox="0 0 24 24"><polygon points="19 9 19 11 18 11 18 12 16 12 16 11 15 11 15 9 16 9 16 8 18 8 18 9 19 9"/><polygon points="14 9 14 11 13 11 13 12 11 12 11 11 10 11 10 9 11 9 11 8 13 8 13 9 14 9"/><polygon points="9 9 9 11 8 11 8 12 6 12 6 11 5 11 5 9 6 9 6 8 8 8 8 9 9 9"/><path d="m22,2v-1H2v1h-1v16h1v1h6v4h1v-1h1v-1h1v-1h2v-1h9v-1h1V2h-1Zm-1,15H3V3h18v14Z"/></symbol>
+  <!-- 钻石：给「蒂安希听到了」用（蒂安希是钻石宝可梦）。
+       沿用上面「两个图标不能撞」的规矩：同一条侧栏里 message-dots 给了宝可梦台词，
+       所以这里新画一个空心菱形，不是 Pixel Icon Library 的现成文件。
+       fill-rule=evenodd 让中间那块掏空，颜色照样跟着 currentColor 走。 -->
+  <symbol id="ico-diamond" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 1 L23 12 L12 23 L1 12 Z M12 5 L18 12 L12 19 L6 12 Z"/></symbol>
   <!-- 音符：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/music.svg -->
   <symbol id="ico-music" viewBox="0 0 24 24"><path d="m21,1v1h-3v1h-3v1h-4v1h-3v1h-2v10h-3v1h-1v1h-1v3h1v1h1v1h4v-1h1v-1h1v-10h2v-1h4v-1h3v-1h2v5h-3v1h-1v1h-1v3h1v1h1v1h4v-1h1v-1h1V1h-2ZM3,21v-3h4v3H3Zm15-15v1h-3v1h-4v1h-3v-2h3v-1h4v-1h3v-1h3v2h-3Zm-1,12v-3h4v3h-4Z"/></symbol>
   <!-- 画笔：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/paint-brush.svg -->
@@ -431,6 +445,7 @@ function renderTree() {
   h += '<div class="row tool" data-panel="updates">' + ico('refresh') + '更新日志</div>';
   h += '<div class="row tool" data-panel="changelog">' + ico('notebook') + '更新历史</div>';
   h += '<div class="row tool" data-panel="notices">' + ico('comment-quote') + '公告栏</div>';
+  h += '<div class="row tool" data-panel="diancie">' + ico('diamond') + '蒂安希听到了</div>';
   h += '<div class="row tool" data-panel="pkmn">' + ico('message-dots') + '宝可梦台词</div>';
   h += '<div class="row tool" data-panel="sidebar">' + ico('pencil-ruler') + '侧栏排序</div>';
   h += '<div class="row tool" data-panel="scripts">' + ico('code') + '脚本管理</div>';
@@ -800,6 +815,7 @@ async function openPanel(which) {
     if (which === 'updates')  return await renderUpdates();
     if (which === 'changelog') return await renderChangelog();
     if (which === 'notices')  return await renderNotices();
+    if (which === 'diancie')  return await renderDiancie();
     if (which === 'sidebar')  return await renderSidebar();
     if (which === 'scripts')  return await renderScripts();
     if (which === 'pkmn')     return await renderPkmn();
@@ -1267,6 +1283,161 @@ async function renderNotices() {
     });
   };
   draw(d.items.map((x) => Object.assign({}, x)));
+}
+
+/* --- 蒂安希听到了（文集侧栏那个挂件要转述的话） ---
+   数据 data/diancie-heard.toml，只有 text / emotion 两个字段。
+   emotion 留空 = 页面上按文本关键词自动挑脸，面板右边那列就是这件事的预览。
+
+   ⚠️ 下面的 DIANCIE_WORDS 必须和 **两份** 同样的表一致：
+        · static/js/diancie-heard.js（页面上真正显示哪张脸，是那份算的）
+        · .editor/emotion-words.mjs（服务端那份，改关键词时以它和客户端为准）
+      三份是同一张表。**顺序也是优先级**，所以不能只加词、不排位置。
+      面板的预览要是和页面算的不一样，站长会照着一个错的预览去调 —— 比没有预览更糟。 */
+const DIANCIE_WORDS = [
+  ['Crying',      ['哭', '泪', '呜呜', '抽泣', '哽咽']],
+  ['Sad',         ['难过', '伤心', '低落', '失落', '寂寞', '孤单', '遗憾', '舍不得', '断了']],
+  ['Angry',       ['生气', '气死', '愤怒', '讨厌', '可恶', '烦人']],
+  ['Surprised',   ['吃惊', '惊讶', '居然', '竟然', '没想到', '吓了一跳', '有人来']],
+  ['Worried',     ['担心', '不安', '放心不下', '有事', '危险', '等它', '一直在等']],
+  ['Sigh',        ['叹气', '叹了', '唉', '无奈', '算了']],
+  ['Teary-Eyed',  ['眼眶', '含泪', '差点掉下']],
+  ['Shouting',    ['大声', '喊', '吼', '叫了']],
+  ['Pain',        ['疼', '痛', '受伤']],
+  ['Dizzy',       ['晕', '天旋地转', '晃']],
+  ['Stunned',     ['愣', '呆住', '说不出话']],
+  ['Joyous',      ['雀跃', '跳起来', '太好了', '真好', '欢呼']],
+  ['Happy',       ['开心', '高兴', '愉快', '笑', '喜欢', '好看', '温柔', '暖']],
+  ['Inspired',    ['想法', '灵感', '启发', '有意思', '像一小片', '很像']],
+  ['Determined',  ['一定', '决定', '坚持', '继续', '不会停']],
+];
+// 服务端拿不到时（比如旧进程）的兜底名单，顺序和 emotion-words.mjs 的 EMOTION_NAMES 一样
+const DIANCIE_EMOTIONS = [
+  'Normal', 'Happy', 'Joyous', 'Inspired', 'Determined', 'Angry', 'Sad', 'Crying',
+  'Teary-Eyed', 'Worried', 'Sigh', 'Shouting', 'Surprised', 'Stunned', 'Dizzy', 'Pain',
+];
+function diancieClassify(text) {
+  const s = String(text || '');
+  for (const [name, words] of DIANCIE_WORDS) {
+    for (const w of words) if (s.includes(w)) return name;
+  }
+  return 'Normal';
+}
+
+async function renderDiancie() {
+  const d = await apiGet('/api/diancie/heard');
+  const emotions = (d.emotions && d.emotions.length) ? d.emotions : DIANCIE_EMOTIONS;
+  let items = (d.items || []).map((x) => ({ text: x.text || '', emotion: x.emotion || '' }));
+
+  // 挂件开关就是 hugo.toml [params] 里的 diancieHeard，走「站点设置」那对接口改。
+  // 键还不存在时（只可能是第一次开）当关着 —— 和 layouts 那边 `if site.Params.diancieHeard` 一致。
+  let on = false;
+  try {
+    const p = await apiGet('/api/params');
+    on = !!(p.items && p.items.diancieHeard && p.items.diancieHeard.value);
+  } catch (e) { /* 读不到就按关着显示；保存开关时接口自己会报错 */ }
+
+  // 一条的「自动判断」预览：指定了表情就不预览，空着才算
+  const autoLabel = (it) => it.emotion
+    ? '<span class="dc-auto">手动指定</span>'
+    : `<span class="dc-auto">自动 → <b>${esc(diancieClassify(it.text))}</b></span>`;
+  const emotionOptions = (cur) => '<option value="">自动判断</option>'
+    + emotions.map((n) => `<option value="${esc(n)}"${n === cur ? ' selected' : ''}>${esc(n)}</option>`).join('');
+
+  const draw = () => {
+    let h = '<h2 class="sec">蒂安希听到了</h2>';
+    h += '<p class="hint">文集侧栏那个挂件要转述的话，对应 <code>data/diancie-heard.toml</code>。</p>';
+    h += '<div class="note">' +
+      '<b>改完不用跑任何脚本</b> —— 保存后到页面上<b>刷新一下</b>就能看到（这份文件是页面直接读的）。<br>' +
+      '表情选「自动判断」时，页面上按这句话里的关键词挑脸，右边那列显示<b>现在会挑到哪张</b>；' +
+      '想固定成某张脸就直接在下拉框里选。<br>' +
+      '换行写没关系，保存时会被压成一行（TOML 的字符串不能跨行，页面上也是一行一句地念）。</div>';
+
+    h += '<div class="field"><label for="chkDiancie" title="hugo.toml 的 [params].diancieHeard">显示蒂安希挂件</label>'
+      + `<input type="checkbox" id="chkDiancie" ${on ? 'checked' : ''}>`
+      + '<span class="cmt">hugo.toml 的 diancieHeard</span></div>';
+    h += '<p class="hint">关掉后侧栏那整块就不显示了。第一次打开时，编辑器会在 <code>hugo.toml</code> 的 ' +
+      '<code>[params]</code> 末尾补上一行 <code>diancieHeard = true</code>（「站点设置」面板补新键也是这么做的）。</p>';
+    h += '<div style="margin-bottom:18px"><button class="primary" id="btnSaveDiancieSw">保存开关</button></div>';
+
+    h += '<table class="grid"><thead><tr>'
+      + '<th>要转述的话</th><th style="width:150px">表情</th>'
+      + '<th style="width:118px">自动判断</th><th style="width:34px"></th>'
+      + '</tr></thead><tbody id="tbDiancie">';
+    items.forEach((it, i) => {
+      h += `<tr>
+        <td><textarea class="dc-text" data-f="text" data-i="${i}" placeholder="比如：它们说，光从上面漏下来的样子，和宝石里面的光很像。">${esc(it.text)}</textarea></td>
+        <td><select class="dc-sel" data-f="emotion" data-i="${i}">${emotionOptions(it.emotion)}</select></td>
+        <td data-auto="${i}">${autoLabel(it)}</td>
+        <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+    });
+    h += '</tbody></table>';
+    if (!items.length) {
+      h += '<p class="hint">还没有话。点下面的「加一条」写第一句 —— 一条都没有时，' +
+        '侧栏那块挂件会说「我还没听到什么」。</p>';
+    }
+    h += '<button id="btnAddDiancie">＋ 加一条</button> <button class="primary" id="btnSaveDiancie">保存</button>';
+    showPanel(h);
+
+    const collect = () => {
+      document.querySelectorAll('#tbDiancie [data-f]').forEach((el) => {
+        const i = +el.dataset.i;
+        if (!items[i]) return;
+        items[i][el.dataset.f] = el.value;
+      });
+    };
+    // 改了 text 或表情，只刷新那一行的预览，不整块重画（重画会把光标顶掉）
+    const refreshAuto = (i) => {
+      const cell = document.querySelector(`#tbDiancie [data-auto="${i}"]`);
+      if (cell && items[i]) cell.innerHTML = autoLabel(items[i]);
+    };
+    document.querySelectorAll('#tbDiancie textarea[data-f="text"]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const i = +el.dataset.i;
+        if (!items[i]) return;
+        items[i].text = el.value;
+        refreshAuto(i);
+      });
+    });
+    document.querySelectorAll('#tbDiancie select[data-f="emotion"]').forEach((el) => {
+      el.addEventListener('change', () => {
+        const i = +el.dataset.i;
+        if (!items[i]) return;
+        items[i].emotion = el.value;
+        refreshAuto(i);
+      });
+    });
+    document.querySelectorAll('#tbDiancie [data-del]').forEach((b) => b.addEventListener('click', () => {
+      collect(); items.splice(+b.dataset.del, 1); draw();
+    }));
+    $('#btnAddDiancie').addEventListener('click', () => {
+      collect(); items.push({ text: '', emotion: '' }); draw();
+    });
+    $('#btnSaveDiancie').addEventListener('click', async () => {
+      collect();
+      /* 全空的行（点了「加一条」还没写）服务端会丢掉，这里先自己清掉再画一遍，
+         免得保存成功之后面板上还挂着一个其实没落盘的空行。 */
+      const kept = items.filter((x) => String(x.text || '').trim() || String(x.emotion || '').trim());
+      if (kept.length !== items.length) { items = kept; draw(); }
+      try {
+        const r = await apiPost('/api/diancie/heard', { items });
+        toast('已保存（到页面上刷新一下就能看到）' + (r && r.count != null ? `，共 ${r.count} 条` : ''), 'ok');
+      } catch (e) {
+        toast('保存失败：' + e.message, 'err');
+      }
+    });
+    $('#btnSaveDiancieSw').addEventListener('click', async () => {
+      const checked = $('#chkDiancie').checked;
+      try {
+        await apiPost('/api/params', { updates: { diancieHeard: { type: 'bool', value: checked } } });
+        on = checked;
+        toast(checked ? '已打开：侧栏会显示「蒂安希听到了」' : '已关掉：侧栏不再显示「蒂安希听到了」', 'ok');
+      } catch (e) {
+        toast('开关保存失败：' + e.message, 'err');
+      }
+    });
+  };
+  draw();
 }
 
 /* --- 画廊（content/gallery.md 的 {{< gallery >}} + data/gallery.toml） ---
@@ -2841,7 +3012,7 @@ function renderCollectionWith(books, articles) {
 
 /* ---------- 启动 ---------- */
 let BOOTED = false;
-const PANELS = ['settings', 'collection', 'links', 'buttons', 'scripts', 'nav', 'pkmn'];
+const PANELS = ['settings', 'collection', 'links', 'buttons', 'scripts', 'nav', 'pkmn', 'diancie'];
 
 /** 恢复上次用的图片宽度、给顶栏的新建按钮接线 */
 function initToolbar() {

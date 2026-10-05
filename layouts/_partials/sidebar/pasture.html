@@ -22,7 +22,7 @@
      属性，自定义 data-* 上的相对路径不会被它补上 baseURL 的子目录 ——
      实测 relURL 在子目录部署时给出的是 /pkmn/（丢了 /BlogStand/），
      本地用根目录 baseURL 测的时候看不出来。 */}}
-<div class="widget" id="pkmn-pasture" data-base="{{ "pkmn/" | absURL }}"
+<div class="widget pkmn-pasture" id="pkmn-pasture" data-base="{{ "pkmn/" | absURL }}"
      {{- if site.Params.pkmnWeather }} data-weather="1"{{ end }}>
   <div class="widget-title">宝可梦放养区</div>
   <div class="widget-body">

@@ -21,6 +21,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn, execFile, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+// 「蒂安希听到了」的表情白名单。关键词表本身只在编辑器面板预览时用（前端自己
+// 有一份同样的），服务端只需要这份名单来校验 POST 上来的 emotion。
+import { EMOTION_NAMES } from './emotion-words.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -588,8 +591,10 @@ function parseItems(text) {
    更新日志里「同一日期下好几条」用的就是数组。
    空值默认不写 —— 少一堆 `url = ""` / `title = ""` 这种噪音，也让
    「读出来 -> 原样写回」的往返完全一致（有测试盯着这一点）。
-   只有 date 例外：它是必填，空着也要留个位置，免得整段少一个字段。 */
-const KEEP_EMPTY_KEYS = new Set(['date']);
+   只有 date 例外：它是必填，空着也要留个位置，免得整段少一个字段。
+   emotion 也例外：「蒂安希听到了」用空串表示「按文本自动判断」，文件里本来就
+   写着 emotion = ""，写盘时省掉它会让同一份文件来回保存两次长得不一样。 */
+const KEEP_EMPTY_KEYS = new Set(['date', 'emotion']);
 
 function writeItems(header, items, keys, section = 'items') {
   const out = [header.trimEnd(), ''];
@@ -1249,6 +1254,49 @@ const DATA_LISTS = {
   // 画廊：两份列表（分类 sections + 画作 items），走字符串直出，见 writeGalleryFile
   gallery: { file: 'data/gallery.toml', keys: ['title', 'file', 'cat', 'date', 'desc', 'cover'], header: GALLERY_HEADER, gallery: true },
 };
+
+
+/* ============================================================
+   「蒂安希听到了」—— data/diancie-heard.toml
+   ------------------------------------------------------------
+   文集侧栏那个挂件的消息，只有两个字段（text / emotion）。和其它列表一样
+   走 writeItems，所以没单开一份写盘逻辑；单开一对接口的理由只有两点：
+   要把 16 个表情名带给面板做下拉框，以及写完必须核对条数（见下面的路由）。
+
+   ⚠️ 抬头必须和 data/diancie-heard.toml 里那段注释**逐字一致**：
+   编辑器保存时整段重写这个抬头，写短了就等于把文件里的说明「降级」掉。
+   （和 CHANGELOG_HEADER 同一个道理，那边还踩过一次坑。）
+
+   抬头里「想改关键词表就改 .editor/server.mjs 里的 DIANCIE_EMOTION_WORDS」
+   这句现在指的是 .editor/emotion-words.mjs —— 属于历史措辞，按「逐字保留」
+   的要求没动它。
+   ============================================================ */
+const DIANCIE_FILE = 'data/diancie-heard.toml';
+const DIANCIE_KEYS = ['text', 'emotion'];
+
+const DIANCIE_HEADER = `# ============================================================
+#  「蒂安希听到了」—— 文集侧边栏那个挂件的内容
+#  ------------------------------------------------------------
+#  蒂安希站在矿洞里，隔一会儿就抬头听一下，然后把小碎钻告诉它的
+#  话转述出来。这里写的就是它要转述的那些话。
+#
+#  ★ 改完直接保存就行 —— 不用重新跑任何脚本（这份文件是给页面直接读的）。
+#    在编辑器左侧「蒂安希听到了」面板里改最省事。
+#
+#  每一段的字段：
+#    text = "…"     必填 —— 要转述的那句话（一段话，可以长一点）
+#    emotion = "…"  选填 —— 用哪张脸。留空/不写就**按文本自动判断**
+#                           （写了「哭」就用哭脸、写了「开心」就用笑脸，见下）
+#
+#  可以填的表情（就是素材里真实有的那些）：
+#    Normal 平静 / Happy 开心 / Joyous 雀跃 / Inspired 受到启发 /
+#    Determined 坚定 / Angry 生气 / Sad 难过 / Crying 哭 /
+#    Teary-Eyed 含泪 / Worried 担心 / Sigh 叹气 / Shouting 大声 /
+#    Surprised 吃惊 / Stunned 愣住 / Dizzy 晕 / Pain 疼
+#
+#  自动判断靠关键词表，在编辑器那个面板里能试（输入一句话看判成什么表情）。
+#  想改关键词表就改 .editor/server.mjs 里的 DIANCIE_EMOTION_WORDS。
+# ============================================================`;
 
 
 
@@ -2294,6 +2342,57 @@ async function handle(req, res, url) {
 
     await writeText(spec.file, writeItems(spec.header, items, spec.keys));
     return json(res, 200, { ok: true, count: items.length });
+  }
+
+  /* ---------- 「蒂安希听到了」的消息 ----------
+     单独一对接口（没并进 /api/list/*）：它还要把 16 个表情名带给面板做下拉框，
+     写盘后也必须核对条数。文件不存在时 GET 就当空的 —— 站长第一次用这个面板
+     之前，data/diancie-heard.toml 可能还没建。 */
+  if (p === '/api/diancie/heard' && req.method === 'GET') {
+    const raw = await readText(DIANCIE_FILE).catch(() => '');
+    const items = parseItems(raw).map((it) => ({
+      text: String(it.text ?? ''),
+      emotion: String(it.emotion ?? ''),
+    }));
+    return json(res, 200, { items, emotions: EMOTION_NAMES });
+  }
+
+  if (p === '/api/diancie/heard' && req.method === 'POST') {
+    const body = await readBody(req);
+    if (!Array.isArray(body.items)) return json(res, 400, { error: '参数不对：需要 items 数组' });
+
+    /* 收进来先过一遍：
+       · 完全空白的行（编辑面板里点了「加一条」还没写）直接丢掉，不算数据
+       · 多行文字里的换行压成空格 —— TOML 的基本字符串不能跨行，真写进去
+         Hugo 构建会直接报错；页面上本来也是一行一句地念
+       · emotion 只认空串（= 自动判断）和白名单里的 16 个名字 */
+    const clean = [];
+    for (const it of body.items) {
+      const text = String(it?.text ?? '').replace(/[\r\n]+/g, ' ').trim();
+      const emotion = String(it?.emotion ?? '').trim();
+      if (!text) {
+        if (!emotion) continue;
+        return json(res, 400, { error: `第 ${clean.length + 1} 条还没写要转述的话` });
+      }
+      if (emotion && !EMOTION_NAMES.includes(emotion)) {
+        return json(res, 400, { error: `第 ${clean.length + 1} 条的表情不认识：「${emotion}」` });
+      }
+      clean.push({ text, emotion });
+    }
+
+    await writeText(DIANCIE_FILE, writeItems(DIANCIE_HEADER, clean, DIANCIE_KEYS));
+
+    /* 写完再数一遍：条数对不上就报错，别返回一个 200 把话悄悄吞掉。
+       （画廊那边出过真事故：请求体被读了两次变成空数组，清空了数据还报成功。）
+       这里条数只会少不会多（writeItems 遇到空值会跳过），但两种都算不对。 */
+    const written = parseItems(await readText(DIANCIE_FILE));
+    if (written.length !== clean.length) {
+      return json(res, 500, {
+        error: `保存后条数不对：打算写 ${clean.length} 条，实际落盘 ${written.length} 条` +
+          '（文件没有被别的程序同时改过的话，这算编辑器的 bug，请把这条报上来）',
+      });
+    }
+    return json(res, 200, { ok: true, count: clean.length, emotions: EMOTION_NAMES });
   }
 
   /* ---------- 侧栏挂件顺序 ---------- */

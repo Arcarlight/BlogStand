@@ -75,6 +75,10 @@ OUT_TALK = OUT_DIR / "talk"
 OUT_INDEX = OUT_DIR / "index.json"
 OUT_TILE = OUT_DIR / "pen-tile.png"
 OUT_ICONS = OUT_DIR / "icon-sheet.png"
+# 「蒂安希听到了」的消息：写手改的是 data/diancie-heard.toml，
+# 页面读的是这里生成的 JSON（Hugo 模板不会解析 TOML）。
+HEARD_TOML = ROOT / "data" / "diancie-heard.toml"
+OUT_HEARD = OUT_DIR / "diancie-heard.json"
 
 BASE = "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master"
 UA = "BlogStand-pkmn-pipeline/1.0 (+https://arcarlight.github.io/BlogStand/)"
@@ -319,7 +323,12 @@ def load_pool() -> list[dict]:
         sleep = str(it.get("sleep", "night")).strip().lower()
         if sleep not in ("night", "day"):
             raise SystemExit(f"{POOL_FILE}：{dex} 的 sleep 只能是 \"night\"（夜里睡）或 \"day\"（白天睡）")
-        out.append({"dex": dex, "name": str(it["name"]), "en": str(it.get("en", "")), "sleep": sleep})
+        out.append({"dex": dex, "name": str(it["name"]), "en": str(it.get("en", "")), "sleep": sleep,
+                    # hide       = 不在侧栏放养区里随机抽到它
+                    # emotions   = 把全部表情各占一行导出到精灵表末尾
+                    # 这两个是 bool，不用做类型校验，写错了 tomllib 直接报。
+                    "hide": bool(it.get("hide", False)),
+                    "emotions": bool(it.get("emotions", False))})
     return out
 
 
@@ -416,6 +425,75 @@ def pick_face(dex: int, slot: str, faces_cache: dict, force: bool) -> str:
     raise SystemExit(f"{dd} 连 Normal 脸图都没有？")
 
 
+# 全表情导出（给「蒂安希听到了」这类挂件用）。
+# 和上面那四个槽是两个用途：
+#   四个槽 = 放养区按「被摸 / 被摸烦了 / 被戳醒」自动换脸，固定 4 张
+#   全表情 = 挂件按写手选的表情精确换脸，能有多少张就导出多少张
+# 两边互不干扰：全表情是**追加的行**，不动 ROW_FACE，所以老的挂件读法不变。
+#
+# 顺序固定成下面这个列表，保证每次生成的行号一致（不然重新生成素材后，
+# 写手在编辑器里选的表情会集体错位）。列表外的文件按名字追加在后面。
+EMOTION_ORDER = [
+    "Normal", "Happy", "Joyous", "Inspired", "Delighted", "Determined",
+    "Angry", "Sad", "Crying", "Teary-Eyed", "Worried", "Sigh",
+    "Shouting", "Surprised", "Stunned", "Dizzy", "Pain", "Special0",
+]
+
+# 「蒂安希听到了」允许用的表情名。**只接受素材里真的有的那些** ——
+# 写手在 TOML 里写错一个名字，如果不管，页面上会静默退回普通脸，
+# 很难发现。所以这里列一份白名单，读消息时校验。
+HEARD_EMOTIONS = [
+    "Normal", "Happy", "Joyous", "Inspired", "Determined",
+    "Angry", "Sad", "Crying", "Teary-Eyed", "Worried", "Sigh",
+    "Shouting", "Surprised", "Stunned", "Dizzy", "Pain",
+]
+
+
+def list_portraits(dex: int, cache: dict, force: bool) -> list[str]:
+    """列出这只在 PMD 仓库里实际有的表情图（不含 '<名字>^.png' 那种变体）。
+
+    走 GitHub API 一次拿全，而不是把 EMOTION_ORDER 挨个探测一遍：
+    探测要发几十个请求，其中大部分是 404 —— 而 404 不会被写进缓存，
+    每跑一次都会重来一遍。API 的结果缓存到本地，之后完全离线。
+    """
+    dd = f"{dex:04d}"
+    key = "_portraits"
+    cached = cache.setdefault(key, {})
+    if dd in cached and not force:
+        return cached[dd]
+
+    names: list[str] | None = None
+    url = f"https://api.github.com/repos/PMDCollab/SpriteCollab/contents/portrait/{dd}"
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/vnd.github+json"})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                items = json.loads(resp.read().decode("utf-8"))
+            names = [x["name"][:-4] for x in items
+                     if x.get("type") == "file" and x["name"].endswith(".png")]
+            break
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                names = []
+                break
+            time.sleep(1.0 + 2.0 * attempt)
+        except Exception:
+            time.sleep(1.0 + 2.0 * attempt)
+    if names is None:
+        raise SystemExit(
+            f"列表情失败：{url}\n"
+            "  国内直连 github API 基本不通，先开代理再跑：\n"
+            r"  $env:HTTPS_PROXY='http://127.0.0.1:7897'"
+        )
+
+    # 去掉 '<名字>^.png' 这种变体（^ 是另一个朝向的版本，挂件用不上）
+    names = [n for n in names if "^" not in n]
+    rank = {n: i for i, n in enumerate(EMOTION_ORDER)}
+    names.sort(key=lambda n: (rank.get(n, len(EMOTION_ORDER)), n))
+    cached[dd] = names
+    return names
+
+
 # ============================================================
 #  合成一只的精灵表
 # ============================================================
@@ -503,13 +581,29 @@ def build_sprite(item: dict, faces_cache: dict, force: bool) -> dict:
     sh_h = max(3, min(7, int(round(sh_w / 6))))
     shadow = make_shadow(sh_w, sh_h)
 
+    # 全表情（只有名单里写了 emotions = true 的才导出，见 EMOTION_ORDER 那段注释）。
+    # 每个表情**独占一行**，行号从 N_ROWS 开始，所以多导出的行不会动到上面六行。
+    emotion_rows: list[tuple[str, Image.Image]] = []
+    if item.get("emotions"):
+        for i, ename in enumerate(list_portraits(dex, faces_cache, force)):
+            png = fetch(f"portrait/{dd}/{ename}.png", force)
+            if png is None:
+                continue
+            im = Image.open(io.BytesIO(png)).convert("RGBA")
+            if im.size != (PORTRAIT_SIZE, PORTRAIT_SIZE):
+                im = im.crop((0, 0, PORTRAIT_SIZE, PORTRAIT_SIZE))
+            emotion_rows.append((ename, im))
+
     # 格子尺寸：所有帧里最宽/最高的那个，底边对齐（脚踩在同一条线上）
-    all_imgs = [im for fr in cropped.values() for im in fr] + face_imgs + [shadow]
+    all_imgs = ([im for fr in cropped.values() for im in fr] + face_imgs
+                + [shadow] + [im for _, im in emotion_rows])
     cell_w = max(im.width for im in all_imgs)
     cell_h = max(im.height for im in all_imgs)
     cols = max(len(cropped["i"]), len(cropped["wl"]), len(cropped["wr"]), len(face_imgs), 1)
+    # 表情行都是第 0 列，所以不能把它们的数量算进 cols —— 只是行数变多
+    rows_total = N_ROWS + len(emotion_rows)
 
-    sheet = Image.new("RGBA", (cell_w * cols, cell_h * N_ROWS), (0, 0, 0, 0))
+    sheet = Image.new("RGBA", (cell_w * cols, cell_h * rows_total), (0, 0, 0, 0))
 
     def place(im: Image.Image, row: int, col: int) -> tuple[int, int]:
         x = col * cell_w + (cell_w - im.width) // 2
@@ -525,6 +619,13 @@ def build_sprite(item: dict, faces_cache: dict, force: bool) -> dict:
     for col, im in enumerate(face_imgs):
         face_x, face_y = place(im, ROW_FACE, col)
     sh_x, sh_y = place(shadow, ROW_SHADOW, 0)
+
+    # 表情行：第 0 列，行号 N_ROWS + i。e 里记的是「表情名 -> 行号」。
+    emotion_map: dict[str, int] = {}
+    emo_x = emo_y = 0
+    for i, (ename, im) in enumerate(emotion_rows):
+        emo_x, emo_y = place(im, N_ROWS + i, 0)
+        emotion_map[ename] = N_ROWS + i
 
     OUT_SPRITE.mkdir(parents=True, exist_ok=True)
     out_png = OUT_SPRITE / f"{dex}.png"
@@ -553,7 +654,54 @@ def build_sprite(item: dict, faces_cache: dict, force: bool) -> dict:
         # 只是给 --ascii 和人看的信息，页面不用
         "_face": face_file,
     }
+    # 全表情：表情名 -> 行号（第 0 列）。只有名单里开了 emotions 的才有这个字段。
+    if emotion_map:
+        entry["e"] = {"w": PORTRAIT_SIZE, "h": PORTRAIT_SIZE, "x": emo_x, "y": emo_y, "r": emotion_map}
+    # 不在侧栏「宝可梦放养区」里抽到它（素材照样生成，别的挂件自己按图鉴号取）。
+    # js/pkmn.js 里按这个字段过滤随机池。
+    if item.get("hide"):
+        entry["hide"] = True
     return entry
+
+
+# ============================================================
+#  「蒂安希听到了」的消息
+# ============================================================
+
+def load_heard() -> list[dict]:
+    """读 data/diancie-heard.toml。text 必填非空；emotion 只能是白名单里的或空。"""
+    if not HEARD_TOML.exists():
+        return []
+    with HEARD_TOML.open("rb") as f:
+        data = tomllib.load(f)
+    items = data.get("items") or []
+    out: list[dict] = []
+    errs: list[str] = []
+    for i, it in enumerate(items, 1):
+        text = str(it.get("text", "")).strip()
+        emo = str(it.get("emotion", "") or "").strip()
+        if not text:
+            errs.append(f"第 {i} 段没有 text")
+            continue
+        if emo and emo not in HEARD_EMOTIONS:
+            errs.append(f"第 {i} 段的 emotion = \"{emo}\" 不在允许的表情里"
+                        f"（可用：{' '.join(HEARD_EMOTIONS)}）")
+            continue
+        out.append({"text": text, "emotion": emo})
+    if errs:
+        raise SystemExit("data/diancie-heard.toml 有问题：\n  - " + "\n  - ".join(errs))
+    return out
+
+
+def write_heard() -> int:
+    """把消息导出成页面直接读的 JSON。返回条数。"""
+    items = load_heard()
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    OUT_HEARD.write_text(
+        json.dumps({"items": items, "emotions": HEARD_EMOTIONS},
+                   ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8")
+    return len(items)
 
 
 # ============================================================
@@ -920,6 +1068,8 @@ def ascii_dump(dex: int) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="宝可梦放养区素材流水线")
     ap.add_argument("--talk", action="store_true", help="只重新生成台词 JSON（不联网、不动精灵表）")
+    ap.add_argument("--heard", action="store_true",
+                    help="只把 data/diancie-heard.toml 导出成页面读的 JSON（不联网、不动精灵表）")
     ap.add_argument("--sprites", action="store_true", help="只重做精灵表和图标，不碰台词")
     ap.add_argument("--force", action="store_true", help="无视缓存重新下载")
     ap.add_argument("--ascii", type=int, metavar="DEX", help="把某只的精灵表打成字符画")
@@ -929,14 +1079,21 @@ def main() -> None:
         ascii_dump(args.ascii)
         return
 
+    # 改「蒂安希听到了」的消息走这条：完全不联网，编辑器保存时也是它
+    if args.heard:
+        n = write_heard()
+        print(f"蒂安希听到了：{OUT_HEARD.relative_to(ROOT)}  {n} 条")
+        return
+
     pool = load_pool()
     faces_cache_path = CACHE / "_faces.json"
     faces_cache = json.loads(faces_cache_path.read_text(encoding="utf-8")) if faces_cache_path.exists() else {}
 
     if not args.talk:
         print(f"名单：{len(pool)} 只")
-        index = {"_doc": "由 tools/build-pkmn.py 生成；行号 0=Idle下 1=Walk左 2=Walk右 3=脸图 4=影子 5=Sleep",
-                 "gen": 3, "sheet": {}}
+        index = {"_doc": "由 tools/build-pkmn.py 生成；行号 0=Idle下 1=Walk左 2=Walk右 3=脸图 4=影子 5=Sleep"
+                          "；开了 emotions 的还有 6 起的一行一个表情（见该只的 e.r）",
+                 "gen": 4, "sheet": {}}
         for item in pool:
             e = build_sprite(item, faces_cache, args.force)
             face_file = e.pop("_face")
@@ -956,6 +1113,8 @@ def main() -> None:
         print(f"草地：{OUT_TILE.relative_to(ROOT)}")
         print(f"图标：{OUT_ICONS.relative_to(ROOT)}  {OUT_ICONS.stat().st_size / 1024:.1f} KB  "
               f"{ICON_SIZE}×{ICON_SIZE} × {len(ICON_KEYS)} 列 × 2 行")
+        n = write_heard()
+        print(f"蒂安希听到了：{OUT_HEARD.relative_to(ROOT)}  {n} 条")
         if args.sprites:
             return
 
