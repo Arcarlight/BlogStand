@@ -206,7 +206,14 @@
   }
 
   // ---------------- 角色 ----------------
+  /* ⚠️ 蒂安希和小碎钻是**两张不同的精灵表**，必须各加载各的。
+     一开始图省事让小碎钻也从 diancie.img（719 那张）取像素 —— 元数据
+     （格子尺寸、走图行、帧数）用的是 703 的，图片却是 719 的，于是：
+       · 小碎钻看起来是蒂安希的样子
+       · 719 图里对应位置经常是透明的，画出来时有时无（「突然消失」）
+     两张表是独立的资源，不能混用。 */
   var diancie = { img: new Image(), ready: false, t: 0, x: 0, y: 0, wCss: 0, hCss: 0 };
+  var carbink = { img: new Image(), ready: false };
   var gems = [];
 
   function makeGem() {
@@ -316,11 +323,15 @@
   }
 
   function drawGem(g) {
-    if (!g.ctx) return;
+    if (!g.ctx || !carbink.ready) return;
     var row = g.dir > 0 ? ROW.wr : ROW.wl;
-    var f = frameAt(G_META[g.dir > 0 ? 'wr' : 'wl'] || G_META.i, g.t);
+    var anim = G_META[g.dir > 0 ? 'wr' : 'wl'] || G_META.i;
+    var f = frameAt(anim, g.t);
+    // 帧号必须夹在实际存在的范围里：万一时长表比帧数长，drawImage 会越界
+    // 取到表外面（那片是透明的），看起来就是「小碎钻突然不见了」。
+    if (!(f >= 0) || f >= (anim.n || 1)) f = 0;
     g.ctx.clearRect(0, 0, g.ctx.canvas.width, g.ctx.canvas.height);
-    g.ctx.drawImage(diancie.img,
+    g.ctx.drawImage(carbink.img,
       f * G_META.cw, row * G_META.ch, G_META.cw, G_META.ch,
       0, 0, Math.round(g.wCss * dpr), Math.round(g.hCss * dpr));
     g.cv.style.left = Math.round(g.x) + 'px';
@@ -466,8 +477,11 @@
   });
 
   // ---------------- 启动 ----------------
-  diancie.img.onload = function () {
-    diancie.ready = true;
+  /* 两张精灵表都到齐了再开始 —— 只等蒂安希那张的话，小碎钻会先画成空的。 */
+  var started = false;
+  function maybeStart() {
+    if (started || !diancie.ready || !carbink.ready) return;
+    started = true;
     var n = pickGemCount();
     for (var i = 0; i < n; i++) gems.push(makeGem());
     layout();
@@ -476,11 +490,15 @@
     stage = 'idle';
     stageUntil = performance.now() + 1200;   // 进页面先静一小会儿再开口
     requestAnimationFrame(loop);
-  };
-  diancie.img.onerror = function () {
-    lineEl.textContent = '……它好像没下来。';
-  };
+  }
+
+  diancie.img.onload = function () { diancie.ready = true; maybeStart(); };
+  carbink.img.onload = function () { carbink.ready = true; maybeStart(); };
+  function failLoad() { lineEl.textContent = '……它们好像没下来。'; }
+  diancie.img.onerror = failLoad;
+  carbink.img.onerror = failLoad;
   diancie.img.src = ASSET + 'sprite/' + DIANCIE + '.png';
+  carbink.img.src = ASSET + 'sprite/' + CARBINK + '.png';
 
   // 给测试用（不影响功能）
   window.DiancieHeard = {
