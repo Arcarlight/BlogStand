@@ -100,13 +100,12 @@
 
   var ROW = { i: 0, wl: 1, wr: 2, face: 3, sh: 4, sl: 5 };
 
-  /* 小碎钻的目标身位 = **蒂安希的一半**（站长要的比例）。
-     能不能达到取决于侧栏留了多宽 —— 见 layout 里那笔空间账。 */
-  var GEM_RATIO = 0.5;
-  /* 算小碎钻尺寸时**按最多只数**留位置，而不是按这一轮实际抽到几只：
-     否则抽到 2 只时它们会明显比抽到 3 只时大一圈，每刷新一次大小都不一样。
-     3 而不是 4：蒂安希一半大（40px）× 4 只在这个侧栏宽度里放不下，必然缩水。
-     宁可「最多 3 只、每只都是蒂安希一半大」，也不要「最多 4 只、每只只有一半的一半」。 */
+  /* 小碎钻的身位 = 蒂安希宽 × 这个比例。
+     0.55 = 蒂安希的一半再多一点。站长看过 0.5（40px）那一版仍觉得偏小，
+     而现在尺寸已经**不再受可走空间约束**（重叠允许了），所以可以再大一点。 */
+  var GEM_RATIO = 0.55;
+  /* 抽几只：2 ~ MAX_GEMS。
+     3 而不是 4：矿洞横向空间有限，多一只只是多一次重叠，画面更挤。 */
   var MAX_GEMS = 3;
 
   var dpr = window.devicePixelRatio || 1;
@@ -345,54 +344,42 @@
     shadowCtx = fitCanvas(shadowCv, W, H);
     faceCtx = fitCanvas(faceCv, D_META.f.w * 2, D_META.f.h * 2);
 
-    /* 小碎钻的尺寸要同时满足三件事：
-         ① **目标 = 蒂安希的一半**（GEM_RATIO = 0.5），这是站长要的比例
-         ② 按**最多只数**（MAX_GEMS）算，抽到几只都同样大 —— 按实际只数算
-            会导致 2 只时明显比 3 只时大一圈，每刷新一次大小都不一样
-         ③ 每只分到的格子要**比身位宽**，否则可走范围是 0、它只能钉在原地
-            （踩过两次：格子正好等于身位时三只一动不动）
-       于是：格子宽 = 可走带宽 / MAX_GEMS，身位 = min(目标, 格子宽 - WALK_PAD)。
-       ⚠️ 侧栏宽度直接决定第二项能不能拿到 40px，数学上：
-          要 40px 就得 可走带宽 >= 3 × (40 + WALK_PAD) ≈ 150px，
-          加蒂安希 80 和边距，围栏要 ~272px，也就是侧栏 ~290px。
-          窄了小碎钻会自动缩水（宁可小，也不要溢出或呆立不动）。
-          CSS 里那两条宽度就是按这里反推的，改一边要改另一边。 */
-    var WALK_PAD = 8;                   // 每只身位之外还要留多少 px 走动
-    var freeW = Math.max(36, penW - dw - 12);
-    var target = dw * GEM_RATIO;                                  // 目标：蒂安希的一半
-    var byFit = (freeW / MAX_GEMS) - WALK_PAD;                    // 放得下且走得动的上限
-    var gw = Math.max(12, Math.round(Math.min(target, byFit)));
+    /* 小碎钻的尺寸**只由「蒂安希的一半」决定，不再和可走空间挂钩**。
+       ------------------------------------------------------------
+       前面几版一直在这个死循环里打转：
+         想让它们永不重叠 -> 每只分一格 -> 身位必须小于格子 -> 尺寸被压小
+       站长看过三版都说「太小了」，最后明确说「重叠也无所谓」——
+       那就把这条约束去掉。尺寸只按比例算：
+         gw = 蒂安希宽 × GEM_RATIO
+       于是侧栏再窄、抽到几只，它们都一样大，也不必为了腾出格子而缩水。
+       重叠交给绘制顺序自然处理（后画的盖住先画的），这在像素风里看着并不怪。 */
+    var gw = Math.max(12, Math.round(dw * GEM_RATIO));
     var gh = Math.max(12, Math.round(G_META.ch * gw / G_META.cw));
 
-    // 蒂安希右边到围栏右边，整片给小碎钻
+    // 蒂安希右边到围栏右边，整片给小碎钻自由走（不再分格）
     var lo = Math.min(penW - gw - 2, diancie.x + dw + 6);
     var hi = Math.max(lo, penW - gw - 2);
 
-    /* 实际抽到几只，就在这条带子上**均分**（尺寸已经按 MAX_GEMS 定死了，
-       所以只数只影响间距，不影响大小）。 */
-    var nGems = Math.max(1, gems.length);
-    var cell = (hi - lo) / nGems;
-
-    gems.forEach(function (g, i) {
+    gems.forEach(function (g) {
       g.wCss = gw; g.hCss = gh;
       g.ctx = fitCanvas(g.cv, Math.ceil(gw * dpr), Math.ceil(gh * dpr));
       g.y = penH - 11 - gh;
-      // 这一格里的可走范围（右边留出自身宽度，别贴出格子）
-      var cl = lo + cell * i;
-      var ch2 = cl + Math.max(0, cell - gw);
-      g.lo = cl; g.hi = ch2;
+      g.lo = lo; g.hi = hi;
       if (!g.placed) {
-        g.x = cl + (ch2 - cl) * Math.random();
+        g.x = lo + (hi - lo) * Math.random();
         g.dir = Math.random() < 0.5 ? -1 : 1;
-        g.speed = 3 + Math.random() * 5;      // CSS px / 秒
         g.t = Math.random() * 600;
+        // 走动 / 停下的节奏都各自随机，看起来才像各自在溜达而不是队列行军
+        g.speed = 6 + Math.random() * 7;          // CSS px / 秒
+        g.task = 'idle';
+        g.until = performance.now() + 400 + Math.random() * 2600;   // 一进来先停一下
         g.placed = true;
       } else {
-        g.x = Math.max(cl, Math.min(ch2, g.x));
+        g.x = Math.max(lo, Math.min(hi, g.x));
       }
     });
 
-    // 给主循环：每只用自己的格子边界
+    // 给主循环用（现在三只共用整条带子）
     walkLo = lo;
     walkHi = hi;
   }
@@ -423,8 +410,13 @@
 
   function drawGem(g) {
     if (!g.ctx || !carbink.ready) return;
-    var row = g.dir > 0 ? ROW.wr : ROW.wl;
-    var anim = G_META[g.dir > 0 ? 'wr' : 'wl'] || G_META.i;
+    /* 停下的时候用 Idle 帧（原地小幅呼吸），走的时候才用走图。
+       两种都用同一套 frameAt 计时，所以切换时不会跳帧。 */
+    var walking = (g.task === 'walk');
+    var key = walking ? (g.dir > 0 ? 'wr' : 'wl') : 'i';
+    var row = ROW[key];
+    var anim = G_META[key] || G_META.i;
+    if (!anim) { anim = G_META.i; row = ROW.i; }
     var f = frameAt(anim, g.t);
     // 帧号必须夹在实际存在的范围里：万一时长表比帧数长，drawImage 会越界
     // 取到表外面（那片是透明的），看起来就是「小碎钻突然不见了」。
@@ -542,12 +534,31 @@
 
     gems.forEach(function (g) {
       g.t += dt * 1000;
-      g.x += g.dir * g.speed * dt;
-      // 每只只在自己的格子里来回走（见 layout 里那段注释）
-      var l = (g.lo != null) ? g.lo : walkLo;
-      var h2 = (g.hi != null) ? g.hi : walkHi;
-      if (g.x <= l) { g.x = l; g.dir = 1; }
-      else if (g.x >= h2) { g.x = h2; g.dir = -1; }
+
+      /* 走走停停，而不是一刻不停地来回走（站长：「一直在走来走去，没有停下过」）。
+         两种状态轮换：走一段 -> 停一会儿 -> 换个方向再走。
+         停的时候仍然在切 Idle 帧，所以它是站在原地小幅呼吸，不是被冻住。 */
+      if (now >= g.until) {
+        if (g.task === 'walk') {
+          g.task = 'idle';
+          g.until = now + 2400 + Math.random() * 3600;      // 停 2.4~6 秒
+        } else {
+          g.task = 'walk';
+          /* 走的时间给够：带子只有 ~130px，走 2 秒才挪十来像素，
+             看起来像在原地抖。4 秒上下能明显走一段。
+             上限别太长（6 秒），否则抽到长值的那只会长时间不停。 */
+          g.until = now + 2600 + Math.random() * 2600;      // 走 2.6~5.2 秒
+          if (Math.random() < 0.55) g.dir = -g.dir;         // 多半换个方向
+        }
+      }
+
+      if (g.task === 'walk') {
+        g.x += g.dir * g.speed * dt;
+        var l = (g.lo != null) ? g.lo : walkLo;
+        var h2 = (g.hi != null) ? g.hi : walkHi;
+        if (g.x <= l) { g.x = l; g.dir = 1; }
+        else if (g.x >= h2) { g.x = h2; g.dir = -1; }
+      }
       drawGem(g);
     });
 
@@ -611,7 +622,8 @@
       return {
         dpr: dpr, S: S, art2css: art2css, penW: penW, penH: penH,
         diancie: { x: diancie.x, y: diancie.y, w: diancie.wCss, h: diancie.hCss },
-        gems: gems.map(function (g) { return { x: g.x, y: g.y, w: g.wCss, h: g.hCss, dir: g.dir, lo: g.lo, hi: g.hi }; }),
+        gems: gems.map(function (g) { return { x: g.x, y: g.y, w: g.wCss, h: g.hCss, dir: g.dir,
+                                                task: g.task, until: g.until, lo: g.lo, hi: g.hi }; }),
         walkLo: walkLo, walkHi: walkHi
       };
     },
