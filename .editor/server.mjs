@@ -20,6 +20,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn, execFile, execFileSync } from 'node:child_process';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 // 「蒂安希听到了」的表情白名单。关键词表本身只在编辑器面板预览时用（前端自己
 // 有一份同样的），服务端只需要这份名单来校验 POST 上来的 emotion。
@@ -592,8 +593,9 @@ function parseItems(text) {
    空值默认不写 —— 少一堆 `url = ""` / `title = ""` 这种噪音，也让
    「读出来 -> 原样写回」的往返完全一致（有测试盯着这一点）。
    只有 date 例外：它是必填，空着也要留个位置，免得整段少一个字段。
-   emotion 也例外：「蒂安希听到了」用空串表示「按文本自动判断」，文件里本来就
-   写着 emotion = ""，写盘时省掉它会让同一份文件来回保存两次长得不一样。 */
+   emotion 也例外（「蒂安希听到了」用空串表示「按文本自动判断」，读出来再写回
+   时要保留这一行）—— 不过那份文件现在走自己的 writeDiancieFile 了，
+   留在这里是为了别的将来会用到的列表。 */
 const KEEP_EMPTY_KEYS = new Set(['date', 'emotion']);
 
 function writeItems(header, items, keys, section = 'items') {
@@ -1259,45 +1261,445 @@ const DATA_LISTS = {
 /* ============================================================
    「蒂安希听到了」—— data/diancie-heard.toml
    ------------------------------------------------------------
-   文集侧栏那个挂件的消息，只有两个字段（text / emotion）。和其它列表一样
-   走 writeItems，所以没单开一份写盘逻辑；单开一对接口的理由只有两点：
-   要把 16 个表情名带给面板做下拉框，以及写完必须核对条数（见下面的路由）。
+   以前这份文件只有一张 [[items]] 列表；现在分成**三张表**：
+
+     [[heard]]    小碎钻们听到的事情 —— 站长写的，当树洞
+     [[said]]     小碎钻们说的话     —— 和宝可梦设定有关的小事
+     [[thought]]  蒂安希的感悟       —— 站长写的，当树洞
+
+   为什么必须跟着改而不是凑合：页面读的是 tools/build-pkmn.py 生成的
+   static/pkmn/diancie-heard.json（里面就是 kinds.heard / .said / .thought）。
+   编辑器要是还按老形状写回去，等于把站长写的话混成一堆、整份数据走形。
+
+   和其它列表一样每条只有两个字段（text / emotion），也照旧走 writeItems
+   那套写法（段落名由参数给，和音乐那份 [[tracks]] 一个意思）。单开一对
+   接口的理由有三点：把 16 个表情名和三类的名称/说明带给面板、写完必须
+   逐类核对条数、以及顺手重新导出 JSON（见下面的路由）。
 
    ⚠️ 抬头必须和 data/diancie-heard.toml 里那段注释**逐字一致**：
    编辑器保存时整段重写这个抬头，写短了就等于把文件里的说明「降级」掉。
    （和 CHANGELOG_HEADER 同一个道理，那边还踩过一次坑。）
-
-   抬头里「想改关键词表就改 .editor/server.mjs 里的 DIANCIE_EMOTION_WORDS」
-   这句现在指的是 .editor/emotion-words.mjs —— 属于历史措辞，按「逐字保留」
-   的要求没动它。
    ============================================================ */
-const DIANCIE_FILE = 'data/diancie-heard.toml';
+/** 保存前先把原文件复制一份到这里，写坏了站长还能捞回来（单份覆盖）。
+ *
+ * ⚠️ **绝不能放在 data/ 下面**。Hugo 会把 data/ 里**所有**文件都当数据文件读，
+ *    一份 `data/diancie-heard.toml.bak` 会让整站构建失败：
+ *      error building site: failed to load data: ...unmarshal of format "" is not supported
+ *    于是首页、文集、文章全都 500（踩过：面板保存一次就把整站打挂）。
+ *    放到 .editor/trash/ —— 那儿本来就有 .gitignore 兜着。 */
+const DIANCIE_BAK = '.editor/trash/diancie-heard.toml.bak';
+
+/* ============================================================
+   测试沙盒：把「蒂安希听到了」的数据文件指到别处
+   ------------------------------------------------------------
+   为什么要有这个开关 —— 出过一次严重事故：
+   我写的验证脚本会调 POST 往**站长的真文件**里写，再用错的备份还原，
+   结果把站长自己写的内容覆盖掉了、且找不回来。
+
+   测试**绝不能**碰站长的内容。所以给一条只给测试用的路：
+     EDITOR_DIANCIE_DIR=<某个临时目录>
+   设了之后，消息文件与备份都落在那个目录里（目录里没有就把当前文件复制过去），
+   真文件全程只读。
+
+   ⚠️ 这个变量**只能在测试进程里设**，绝不能出现在 start.cmd / start.command /
+      hugo.toml 里 —— 否则站长的保存会写进一个临时目录，同样等于丢数据。
+      刻意不做成站点参数，就是为了让它「只能从命令行给」。
+   ============================================================ */
+const DIANCIE_TEST_DIR = process.env.EDITOR_DIANCIE_DIR
+  ? path.resolve(process.env.EDITOR_DIANCIE_DIR)
+  : null;
+const DIANCIE_FILE = DIANCIE_TEST_DIR
+  ? path.join(DIANCIE_TEST_DIR, 'diancie-heard.toml')
+  : 'data/diancie-heard.toml';
+/* 备份也跟着进沙盒 —— 测试模式下连备份都不该落在仓库里 */
+const DIANCIE_BAK_EFFECTIVE = DIANCIE_TEST_DIR
+  ? path.join(DIANCIE_TEST_DIR, 'diancie-heard.toml.bak')
+  : DIANCIE_BAK;
 const DIANCIE_KEYS = ['text', 'emotion'];
+
+/** 三张表的顺序也是面板上三个分区的顺序：写盘、校验、报错都用它 */
+const DIANCIE_KINDS = ['heard', 'said', 'thought'];
+/** 旧的单列表段落名。只读兼容：文件里全是这种时整段当 heard（站长以前存的话不能丢） */
+const DIANCIE_LEGACY_SECTION = 'items';
+
+/* 三类的名字和说明。**必须和 tools/build-pkmn.py 的 HEARD_KIND_LABEL /
+   HEARD_KIND_HINT 逐字一致** —— 页面上/面板上写的名字是同一套说法，
+   两边不一样站长会以为是两份不同的东西。（导出出来的 JSON 里也是这两份。） */
+const DIANCIE_KIND_LABEL = {
+  heard: '小碎钻们听到的事情',
+  said: '小碎钻们说的话',
+  thought: '蒂安希的感悟',
+};
+const DIANCIE_KIND_HINT = {
+  heard: '站长自己写，当树洞用。',
+  said: '和宝可梦设定有关的小事。',
+  thought: '站长自己写，当树洞用。',
+};
+
+/** 三张表各自的小节注释。站长原来那份文件里在每张表上面都有这么一段，
+    保存时照原样写回去 —— 不然「打开面板点一下保存」就把他排版的注释吃掉了。 */
+const DIANCIE_SECTION_COMMENT = {
+  heard: `# ------------------------------------------------------------
+#  小碎钻们听到的事情（站长自己写，树洞用）
+# ------------------------------------------------------------`,
+  said: `# ------------------------------------------------------------
+#  小碎钻们说的话（和宝可梦设定有关）
+# ------------------------------------------------------------`,
+  thought: `# ------------------------------------------------------------
+#  蒂安希自己的感悟（站长自己写，树洞用）
+# ------------------------------------------------------------`,
+};
 
 const DIANCIE_HEADER = `# ============================================================
 #  「蒂安希听到了」—— 文集侧边栏那个挂件的内容
 #  ------------------------------------------------------------
-#  蒂安希站在矿洞里，隔一会儿就抬头听一下，然后把小碎钻告诉它的
-#  话转述出来。这里写的就是它要转述的那些话。
+#  蒂安希站在水晶洞里，隔一会儿就抬头听一下，然后把话讲出来。
 #
-#  ★ 改完直接保存就行 —— 不用重新跑任何脚本（这份文件是给页面直接读的）。
-#    在编辑器左侧「蒂安希听到了」面板里改最省事。
+#  它讲的话分**三类**，每次随机挑一类、再从那一类里随机挑一条：
 #
-#  每一段的字段：
-#    text = "…"     必填 —— 要转述的那句话（一段话，可以长一点）
+#    [[heard]]    小碎钻们**听到的事情**  —— 站长写的，当树洞用
+#    [[said]]     小碎钻们**说的话**      —— 和宝可梦设定有关的小事
+#    [[thought]]  蒂安希**自己的感悟**    —— 站长写的，当树洞用
+#
+#  ★ 改完直接保存就行 —— 不用重新跑任何脚本。
+#    在编辑器左侧「蒂安希听到了」面板里改最省事（那里有表情小图可挑）。
+#
+#  每一条的字段：
+#    text = "…"     必填 —— 要讲的那句话
 #    emotion = "…"  选填 —— 用哪张脸。留空/不写就**按文本自动判断**
-#                           （写了「哭」就用哭脸、写了「开心」就用笑脸，见下）
 #
-#  可以填的表情（就是素材里真实有的那些）：
+#  可以填的表情（素材里真实有的）：
 #    Normal 平静 / Happy 开心 / Joyous 雀跃 / Inspired 受到启发 /
 #    Determined 坚定 / Angry 生气 / Sad 难过 / Crying 哭 /
 #    Teary-Eyed 含泪 / Worried 担心 / Sigh 叹气 / Shouting 大声 /
 #    Surprised 吃惊 / Stunned 愣住 / Dizzy 晕 / Pain 疼
 #
-#  自动判断靠关键词表，在编辑器那个面板里能试（输入一句话看判成什么表情）。
-#  想改关键词表就改 .editor/server.mjs 里的 DIANCIE_EMOTION_WORDS。
+#  自动判断靠关键词表（.editor/emotion-words.mjs 和 static/js/diancie-heard.js
+#  各有一份，必须一致）。
 # ============================================================`;
 
+/* ---------- 表情小图（面板上要「看得见」，见下面的 /api/diancie/face） ----------
+   图从哪来：素材精灵表 + 索引（每个表情的行号在 static/pkmn/index.json 的
+   sheet["719"].e.r 里，第 0 列）。表情名旁边再给个中文，方便认。 */
+const DIANCIE_SPRITE = 'static/pkmn/sprite/719.png';
+const DIANCIE_SHEET_KEY = '719';
+const DIANCIE_EMOTION_CN = {
+  Normal: '平静', Happy: '开心', Joyous: '雀跃', Inspired: '受到启发',
+  Determined: '坚定', Angry: '生气', Sad: '难过', Crying: '哭',
+  'Teary-Eyed': '含泪', Worried: '担心', Sigh: '叹气', Shouting: '大声',
+  Surprised: '吃惊', Stunned: '愣住', Dizzy: '晕', Pain: '疼',
+};
+
+/* ---------- 读写这份文件 ---------- */
+
+/**
+ * 读 data/diancie-heard.toml，返回 { heard:[…], said:[…], thought:[…] }。
+ * 另有一项 sectionComments：每张表上方那段注释的原文（写盘时原样带回去）。
+ *
+ * 为什么不用通用的 parseItems：那一个只认 [[items]] / [[tracks]] / [[books]]
+ * 三种段落名，不认识 [[heard]]。这里单独读，顺便把**旧格式**兼容掉 ——
+ * 旧文件里全是 [[items]]，那是站长以前一条条写下来的话，整段当 heard 读出来，
+ * 不能因为格式变了就让它报错或者凭空消失。
+ */
+function parseDiancieHeard(text) {
+  const out = { heard: [], said: [], thought: [] };
+  const sectionComments = {};
+  let kind = null;              // 当前段落属于哪一类（null = 还没进任何段落）
+  let cur = null;
+  let pending = [];             // 上一张表的条目和这一段之间攒下来的注释行
+  /** pending 里有没有真正的注释行（只有空行的话等于没攒东西） */
+  const pendingHasComment = () => pending.some((l) => l.trim().startsWith('#'));
+  for (const line of String(text ?? '').split(/\r?\n/)) {
+    const t = line.trim();
+    const sec = t.match(/^\[\[([A-Za-z0-9_-]+)\]\]$/);
+    if (sec) {
+      const name = sec[1];
+      const real = DIANCIE_KINDS.includes(name);
+      if (real && !(name in sectionComments)) {
+        sectionComments[name] = pending.join('\n').trim();
+      }
+      pending = [];
+      // 旧格式的 [[items]] 整段当 heard（见上面的说明）；别的段落名一律不管
+      kind = real ? name : (name === DIANCIE_LEGACY_SECTION ? 'heard' : null);
+      cur = kind ? {} : null;
+      if (cur) out[kind].push(cur);
+      continue;
+    }
+    if (!t) {
+      // 空行：结束当前条目。条目和下面那段注释之间的空行要留着（注释块自己就带空行），
+      // 但条目之后那片空行不能算进来 —— 不然注释块的末尾会越攒越多空行。
+      cur = null;
+      if (!pendingHasComment()) pending = [''];
+      continue;
+    }
+    if (!kind || !cur) continue;             // 还没进任何表：这段文字（如抬头）不算注释
+    if (t.startsWith('#')) { pending.push(t); continue; }
+    const m = t.match(/^([A-Za-z0-9_]+)\s*=\s*"(.*)"\s*$/);
+    if (m) cur[m[1]] = m[2].replace(/\\"/g, '"');
+  }
+  for (const k of DIANCIE_KINDS) {
+    out[k] = out[k].map((it) => ({
+      text: String(it.text ?? ''),
+      emotion: String(it.emotion ?? ''),
+    }));
+  }
+  out.sectionComments = sectionComments;
+  return out;
+}
+
+/** 三类的条数（复核用；顺带日志里能一眼看出写了多少） */
+function diancieCounts(kinds) {
+  const out = {};
+  for (const k of DIANCIE_KINDS) out[k] = (kinds[k] || []).length;
+  return out;
+}
+
+/**
+ * 读「蒂安希听到了」的原始 TOML 文本。
+ *
+ * ⚠️ 沙盒模式下的路径是**绝对路径**（临时目录），不能走 readText/safePath ——
+ *    safePath 会把它当成「仓库内相对路径」再拼一次 ROOT，拼成
+ *    `D:\...\项目\C:\Users\...\Temp\...`，读不到文件、静默返回空串。
+ *    （踩过：沙盒里读出来 0 条，播种也写成了空文件。）
+ *    这里直接用 fsp 读绝对/相对两种形式：沙盒绝对路径可信，不走 safePath。
+ */
+async function readDiancieFile() {
+  const abs = DIANCIE_TEST_DIR ? DIANCIE_FILE : safePath(DIANCIE_FILE);
+  return await fsp.readFile(abs, 'utf8').catch(() => '');
+}
+
+/** 把文本写到指定路径（沙盒下是绝对路径，正常模式下走 safePath） */
+async function writeDiancieRawTo(target, text) {
+  const abs = DIANCIE_TEST_DIR ? target : safePath(target);
+  await fsp.mkdir(path.dirname(abs), { recursive: true });
+  await fsp.writeFile(abs, text, 'utf8');
+}
+
+async function writeDiancieRaw(text) {
+  const abs = DIANCIE_TEST_DIR ? DIANCIE_FILE : safePath(DIANCIE_FILE);
+  await fsp.mkdir(path.dirname(abs), { recursive: true });
+  await fsp.writeFile(abs, text, 'utf8');
+}
+
+async function readDiancieRaw() {
+  if (DIANCIE_TEST_DIR && !fs.existsSync(DIANCIE_FILE)) {
+    await fsp.mkdir(DIANCIE_TEST_DIR, { recursive: true });
+    const real = path.join(ROOT, 'data', 'diancie-heard.toml');
+    const seeded = await fsp.readFile(real, 'utf8').catch(() => null);
+    if (seeded !== null) await fsp.writeFile(DIANCIE_FILE, seeded, 'utf8');
+  }
+  return await readDiancieFile();
+}
+
+/**
+ * 把三类写成 TOML。抬头在最前，然后每类一张表 —— 和站长原来那份文件的形状一致。
+ * 每张表上方那段注释：文件里怎么写的就怎么带回去（少了就补默认的；
+ * 站长自己改过措辞就留他自己的）。空类也要留这段注释，不然下次打开面板
+ * 那类的小节说明就没了。
+ */
+function writeDiancieFile(header, kinds, sectionComments = {}) {
+  const out = [header.trimEnd(), ''];
+  for (const kind of DIANCIE_KINDS) {
+    const own = String(sectionComments[kind] ?? '').trim();
+    out.push(own || DIANCIE_SECTION_COMMENT[kind], '');
+    for (const it of kinds[kind] || []) {
+      out.push(`[[${kind}]]`);
+      for (const k of DIANCIE_KEYS) {
+        const v = String(it[k] ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        out.push(`  ${k} = "${v}"`);
+      }
+      out.push('');
+    }
+  }
+  return out.join('\n');
+}
+
+/* ---------- 表情小图：自己从精灵表里裁一格（不引 npm 包，也不起 python） ----------
+   素材 static/pkmn/sprite/719.png 是一张 PNG 精灵表：每个表情一格 cw × ch，
+   行号记在 static/pkmn/index.json 的 sheet["719"].e.r 里（第 0 列）。
+   站长说过「选表情这一块怎么不把表情显示出来？这样我看不出来啊」——
+   所以这里把对应的那一格裁出来发给他看。
+
+   Node 没有内置的图片解码，但 PNG 本身就是「zlib 压缩 + 逐行滤波」，
+   而这张表是 8bit RGBA（color type 6、无隔行），所以下面这个小小的解码器
+   就够用：解一次 zlib、逐行反滤波成原始像素，之后裁哪一格都是拷内存。
+   一张 320×880 的表解出来 1.1MB，常驻内存，裁一格不到 1ms。 */
+
+/** PNG 每个数据块结尾都要一个 CRC32；Node 没现成的，表驱动算一遍（很便宜） */
+const CRC_TABLE = (() => {
+  const t = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c;
+  }
+  return t;
+})();
+
+function crc32(buf) {
+  let c = -1;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+}
+
+/** 一个 PNG 块：长度 + 类型 + 数据 + CRC（CRC 只算类型和数据） */
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body), 0);
+  return Buffer.concat([len, body, crc]);
+}
+
+/**
+ * 把 8bit RGBA 像素编成一张 PNG。
+ * 每一行都用 filter 0（不过滤）—— 图小，filter 省不了几个字节，
+ * 但少写一个「按上一行做预测」的逻辑就少一处出错的地方。
+ */
+function pngFromRgba(rgba, w, h) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8;        // 位深 8
+  ihdr[9] = 6;        // 颜色类型 6 = 真彩 + Alpha
+  ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;   // 压缩/滤波/隔行都是默认
+  const stride = w * 4;
+  const raw = Buffer.alloc((stride + 1) * h);
+  for (let y = 0; y < h; y++) {
+    raw[y * (stride + 1)] = 0;              // filter 0
+    rgba.copy(raw, y * (stride + 1) + 1, y * stride, y * stride + stride);
+  }
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+/**
+ * 解一张 8bit RGBA 的 PNG（就是 static/pkmn/sprite/719.png 那种形状）。
+ * 别的形状（调色板 / 16 位 / 隔行）这里不支持，直接抛错 ——
+ * 素材是 tools/build-pkmn.py 生成的，形状固定；哪天真换了素材，
+ * 报错（面板上会显示「素材还没生成」）比发一张花图好。
+ */
+function decodePng(raw) {
+  let off = 8, w = 0, h = 0, bitDepth = 0, colorType = 0, interlace = 0;
+  const idat = [];
+  while (off + 8 <= raw.length) {
+    const len = raw.readUInt32BE(off);
+    const type = raw.toString('latin1', off + 4, off + 8);
+    const data = raw.subarray(off + 8, off + 8 + len);
+    if (type === 'IHDR') {
+      w = data.readUInt32BE(0); h = data.readUInt32BE(4);
+      bitDepth = data[8]; colorType = data[9]; interlace = data[12];
+    } else if (type === 'IDAT') {
+      idat.push(data);
+    } else if (type === 'IEND') {
+      break;
+    }
+    off += 12 + len;
+  }
+  if (!w || !h) throw new Error('PNG 里读不出尺寸');
+  if (bitDepth !== 8 || colorType !== 6 || interlace !== 0) {
+    throw new Error(`这张 PNG 的形状不认识（位深 ${bitDepth} / 颜色类型 ${colorType} / 隔行 ${interlace}）`);
+  }
+  const bpp = 4;
+  const stride = w * bpp;
+  const flat = zlib.inflateSync(Buffer.concat(idat));
+  if (flat.length < (stride + 1) * h) throw new Error('PNG 数据不完整');
+  const out = Buffer.alloc(stride * h);
+  let pos = 0;
+  for (let y = 0; y < h; y++) {
+    const ft = flat[pos++];
+    const o = y * stride;
+    const up = y > 0 ? out : null;          // 上一行（反滤波要用）
+    for (let i = 0; i < stride; i++) {
+      const x = flat[pos + i];
+      const left = i >= bpp ? out[o + i - bpp] : 0;
+      const above = up ? up[o - stride + i] : 0;
+      const ul = (up && i >= bpp) ? up[o - stride + i - bpp] : 0;
+      let v;
+      switch (ft) {
+        case 0: v = x; break;
+        case 1: v = x + left; break;
+        case 2: v = x + above; break;
+        case 3: v = x + ((left + above) >> 1); break;
+        case 4: {                                  // Paeth
+          const p = left + above - ul;
+          const pa = Math.abs(p - left), pb = Math.abs(p - above), pc = Math.abs(p - ul);
+          v = x + ((pa <= pb && pa <= pc) ? left : (pb <= pc ? above : ul));
+          break;
+        }
+        default: throw new Error('PNG 里有个不认识的滤波类型：' + ft);
+      }
+      out[o + i] = v & 0xff;
+    }
+    pos += stride;
+  }
+  return { width: w, height: h, bpp, data: out };
+}
+
+/**
+ * 从精灵表里裁一格出来编成 PNG。
+ * 尺寸不写死 40：以 index.json 里 e.w / e.h 为准（素材重生成过就自动跟着走）。
+ */
+function sheetCellPng(sheet, cell, row, col) {
+  const x = cell.x + col * sheet.cw;
+  const y = cell.y + row * sheet.ch;
+  if (x < 0 || y < 0 || x + cell.w > sheet.width || y + cell.h > sheet.height) return null;
+  const srcStride = sheet.width * sheet.bpp;
+  const cellStride = cell.w * sheet.bpp;
+  const out = Buffer.alloc(cellStride * cell.h);
+  for (let yy = 0; yy < cell.h; yy++) {
+    const from = (y + yy) * srcStride + x * sheet.bpp;
+    sheet.data.copy(out, yy * cellStride, from, from + cellStride);
+  }
+  return pngFromRgba(out, cell.w, cell.h);
+}
+
+/* 精灵表和裁出来的表情都只读一次就常驻内存：同一张脸不反复裁、也不反复解图。
+   缓存键带上文件 mtime + 大小 —— 素材重新生成过（重跑 build-pkmn.py）就自动失效。 */
+const DIANCIE_FACE_CACHE = { key: '', faces: new Map(), sheet: null };
+
+async function diancieFace(emotion) {
+  const name = String(emotion || '');
+  const abs = safePath(DIANCIE_SPRITE);
+  let st;
+  try { st = await fsp.stat(abs); } catch { return null; }
+  const key = `${st.mtimeMs}:${st.size}`;
+
+  if (DIANCIE_FACE_CACHE.key !== key) {
+    // 换了一份素材：整份缓存作废，重新读表、解码这张精灵表
+    DIANCIE_FACE_CACHE.key = key;
+    DIANCIE_FACE_CACHE.faces = new Map();
+    DIANCIE_FACE_CACHE.sheet = null;
+    let idx = {};
+    try { idx = JSON.parse(await readText('static/pkmn/index.json')); } catch { idx = {}; }
+    const meta = ((idx.sheet || {})[DIANCIE_SHEET_KEY]) || {};
+    if (meta.e && meta.e.r && meta.e.w) {
+      try {
+        const sheet = decodePng(await fsp.readFile(abs));
+        sheet.cw = Number(meta.cw) || 40;
+        sheet.ch = Number(meta.ch) || 40;
+        sheet.e = meta.e;
+        DIANCIE_FACE_CACHE.sheet = sheet;
+      } catch { return null; }
+    }
+  }
+
+  const sheet = DIANCIE_FACE_CACHE.sheet;
+  if (!sheet) return null;
+  if (DIANCIE_FACE_CACHE.faces.has(name)) return DIANCIE_FACE_CACHE.faces.get(name);
+
+  const e = sheet.e;
+  const row = (e.r || {})[name];
+  const png = (typeof row === 'number') ? sheetCellPng(sheet, e, row, 0) : null;
+  // 认不出来的名字也存起来（存 null），免得每来一个坏名字都重算一遍
+  DIANCIE_FACE_CACHE.faces.set(name, png);
+  return png;
+}
 
 
 /* ============================================================
@@ -2345,54 +2747,132 @@ async function handle(req, res, url) {
   }
 
   /* ---------- 「蒂安希听到了」的消息 ----------
-     单独一对接口（没并进 /api/list/*）：它还要把 16 个表情名带给面板做下拉框，
-     写盘后也必须核对条数。文件不存在时 GET 就当空的 —— 站长第一次用这个面板
-     之前，data/diancie-heard.toml 可能还没建。 */
+     单独一对接口（没并进 /api/list/*）：它还要把 16 个表情名和三类的名称/说明
+     带给面板做下拉框和分区标题，写盘后必须逐类核对条数，还要顺手重新导出 JSON。
+     文件不存在时 GET 就当三类都是空的 —— 站长第一次用这个面板之前，
+     data/diancie-heard.toml 可能还没建。 */
   if (p === '/api/diancie/heard' && req.method === 'GET') {
-    const raw = await readText(DIANCIE_FILE).catch(() => '');
-    const items = parseItems(raw).map((it) => ({
-      text: String(it.text ?? ''),
-      emotion: String(it.emotion ?? ''),
-    }));
-    return json(res, 200, { items, emotions: EMOTION_NAMES });
+    const raw = await readDiancieRaw();
+    return json(res, 200, {
+      kinds: parseDiancieHeard(raw),
+      emotions: EMOTION_NAMES,
+      labels: DIANCIE_KIND_LABEL,
+      hints: DIANCIE_KIND_HINT,
+      emotionCn: DIANCIE_EMOTION_CN,
+    });
   }
 
   if (p === '/api/diancie/heard' && req.method === 'POST') {
     const body = await readBody(req);
-    if (!Array.isArray(body.items)) return json(res, 400, { error: '参数不对：需要 items 数组' });
+    if (!body || typeof body.kinds !== 'object' || body.kinds === null) {
+      return json(res, 400, { error: '参数不对：需要 kinds 对象（heard / said / thought 三张表）' });
+    }
 
     /* 收进来先过一遍：
+       · 缺的类当空数组 —— 面板只画了有内容的区时，也不能把别的类抹掉
        · 完全空白的行（编辑面板里点了「加一条」还没写）直接丢掉，不算数据
        · 多行文字里的换行压成空格 —— TOML 的基本字符串不能跨行，真写进去
          Hugo 构建会直接报错；页面上本来也是一行一句地念
        · emotion 只认空串（= 自动判断）和白名单里的 16 个名字 */
-    const clean = [];
-    for (const it of body.items) {
-      const text = String(it?.text ?? '').replace(/[\r\n]+/g, ' ').trim();
-      const emotion = String(it?.emotion ?? '').trim();
-      if (!text) {
-        if (!emotion) continue;
-        return json(res, 400, { error: `第 ${clean.length + 1} 条还没写要转述的话` });
+    const kinds = {};
+    for (const kind of DIANCIE_KINDS) {
+      const src = body.kinds[kind];
+      if (src != null && !Array.isArray(src)) {
+        return json(res, 400, { error: `参数不对：kinds.${kind} 应该是数组` });
       }
-      if (emotion && !EMOTION_NAMES.includes(emotion)) {
-        return json(res, 400, { error: `第 ${clean.length + 1} 条的表情不认识：「${emotion}」` });
+      const clean = [];
+      for (const it of (src || [])) {
+        const text = String(it?.text ?? '').replace(/[\r\n]+/g, ' ').trim();
+        const emotion = String(it?.emotion ?? '').trim();
+        if (!text) {
+          // 一条空行：只要没选表情就当它不存在；选了表情却没了正文就得吭声
+          if (!emotion) continue;
+          return json(res, 400, { error: `「${DIANCIE_KIND_LABEL[kind]}」第 ${clean.length + 1} 条还没写内容` });
+        }
+        if (emotion && !EMOTION_NAMES.includes(emotion)) {
+          return json(res, 400, { error: `「${DIANCIE_KIND_LABEL[kind]}」第 ${clean.length + 1} 条的表情不认识：「${emotion}」` });
+        }
+        clean.push({ text, emotion });
       }
-      clean.push({ text, emotion });
+      kinds[kind] = clean;
     }
 
-    await writeText(DIANCIE_FILE, writeItems(DIANCIE_HEADER, clean, DIANCIE_KEYS));
+    /* 保存前先备份（单份覆盖）。编辑器整份重写这个文件，写坏了站长手写的那几句
+       就没了 —— 留一份 .bak 至少还能捞回来；顺便把上一次落盘的内容读出来，
+       一是拿每张表上方那段注释（原样带回去，别把站长的排版吃掉），
+       二是写完复核条数。备份失败不拦保存（只读目录之类），但要让前端知道。 */
+    let oldText = '';
+    let before = { heard: [], said: [], thought: [], sectionComments: {} };
+    try {
+      oldText = await readDiancieRaw();
+      before = parseDiancieHeard(oldText);
+    } catch (e) { /* 文件还没有（第一次用这个面板）：没得备份，注释用默认的 */ }
+    let backupWarn = '';
+    if (oldText) {
+      try {
+        await writeDiancieRawTo(DIANCIE_BAK_EFFECTIVE, oldText);
+      } catch (e) {
+        backupWarn = '（备份没做成：' + e.message + '）';
+      }
+    }
 
-    /* 写完再数一遍：条数对不上就报错，别返回一个 200 把话悄悄吞掉。
+    await writeDiancieRaw( writeDiancieFile(DIANCIE_HEADER, kinds, before.sectionComments));
+
+    /* 写完再逐类数一遍：哪一类条数对不上就报错，别返回一个 200 把话悄悄吞掉。
        （画廊那边出过真事故：请求体被读了两次变成空数组，清空了数据还报成功。）
-       这里条数只会少不会多（writeItems 遇到空值会跳过），但两种都算不对。 */
-    const written = parseItems(await readText(DIANCIE_FILE));
-    if (written.length !== clean.length) {
+       这里条数只会少不会多（空值会被上面过滤），但两种都算不对。 */
+    const counts = diancieCounts(kinds);
+    const written = diancieCounts(parseDiancieHeard(await readDiancieFile()));    const bad = DIANCIE_KINDS.filter((k) => written[k] !== counts[k]);
+    if (bad.length) {
       return json(res, 500, {
-        error: `保存后条数不对：打算写 ${clean.length} 条，实际落盘 ${written.length} 条` +
+        error: '保存后条数不对：' + bad.map((k) => `${DIANCIE_KIND_LABEL[k]} 打算写 ${counts[k]} 条、实际落盘 ${written[k]} 条`).join('；') +
           '（文件没有被别的程序同时改过的话，这算编辑器的 bug，请把这条报上来）',
       });
     }
-    return json(res, 200, { ok: true, count: clean.length, emotions: EMOTION_NAMES });
+
+    /* 顺手重新导出页面真正读的 JSON（--heard 是离线的，不联网）。
+       这一步失败**不算保存失败** —— 站长的原文已经落盘了，没必要让他重写一遍；
+       只在 warned 里说一声，前端提示「TOML 存好了但页面读的 JSON 没更新」。 */
+    let warned = backupWarn;
+    const regen = pythonOk ? await run(PYTHON, ['tools/build-pkmn.py', '--heard'], {
+      // Windows 上 python 默认按本地代码页输出中文，Node 按 utf8 收会变乱码
+      env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+    }) : { code: 1, stdout: '', stderr: pythonNote };
+    if (regen.code !== 0) {
+      const why = tail((regen.stdout + regen.stderr).trim(), 300) || `退出码 ${regen.code}`;
+      warned += (warned ? ' ' : '') + 'JSON 导出失败：' + why;
+    }
+
+    const total = DIANCIE_KINDS.reduce((n, k) => n + counts[k], 0);
+    const out = { ok: true, counts, count: total, total, emotions: EMOTION_NAMES };
+    if (warned) out.warned = warned;
+    return json(res, 200, out);
+  }
+
+  /* ---------- 表情小图：GET /api/diancie/face/<emotion> ----------
+     站长说过「选表情这一块怎么不把表情显示出来？这样我看不出来啊」——
+     所以把精灵表里对应的那一格裁出来发给他看（前端放大 + pixelated）。
+     只读、只认白名单里的名字，裁好的图常驻内存（同一张脸不反复裁）。 */
+  if (p.startsWith('/api/diancie/face/') && req.method === 'GET') {
+    const name = decodeURIComponent(p.slice('/api/diancie/face/'.length));
+    if (!EMOTION_NAMES.includes(name)) {
+      return json(res, 404, { error: `没有这个表情：${name}`, emotions: EMOTION_NAMES });
+    }
+    let png = null;
+    try { png = await diancieFace(name); } catch { png = null; }
+    if (!png) {
+      return json(res, 500, {
+        error: '表情素材还没生成：先跑一次 python tools/build-pkmn.py（或者确认 '
+          + DIANCIE_SPRITE + ' 和 static/pkmn/index.json 都在）',
+      });
+    }
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Content-Length': png.length,
+      // 素材换了 URL 不变，所以让浏览器每次都来问一下（进程内还有缓存，不疼）
+      'Cache-Control': 'no-cache',
+    });
+    return res.end(png);
   }
 
   /* ---------- 侧栏挂件顺序 ---------- */

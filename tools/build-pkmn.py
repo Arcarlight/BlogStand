@@ -666,42 +666,69 @@ def build_sprite(item: dict, faces_cache: dict, force: bool) -> dict:
 
 # ============================================================
 #  「蒂安希听到了」的消息
+#  ------------------------------------------------------------
+#  站长要求蒂安希讲的话分三类，各自独立（他用来当树洞）：
+#    heard   小碎钻们听到的事情  —— 站长写的
+#    said    小碎钻们说的话      —— 和宝可梦设定有关
+#    thought 蒂安希自己的感悟    —— 站长写的
+#  每次随机挑一类，再从那类里随机挑一条。
+#  TOML 里对应 [[heard]] / [[said]] / [[thought]] 三张表。
 # ============================================================
 
-def load_heard() -> list[dict]:
-    """读 data/diancie-heard.toml。text 必填非空；emotion 只能是白名单里的或空。"""
+HEARD_KINDS = ["heard", "said", "thought"]
+# 每类在页面上显示的名字（给编辑器面板和调试用）
+HEARD_KIND_LABEL = {
+    "heard": "小碎钻们听到的事情",
+    "said": "小碎钻们说的话",
+    "thought": "蒂安希的感悟",
+}
+HEARD_KIND_HINT = {
+    "heard": "站长自己写，当树洞用。",
+    "said": "和宝可梦设定有关的小事。",
+    "thought": "站长自己写，当树洞用。",
+}
+
+
+def load_heard() -> dict:
+    """读 data/diancie-heard.toml，返回 {heard: [...], said: [...], thought: [...]}。
+
+    三类各自校验：text 必填非空；emotion 只能是白名单里的或空字符串。
+    任何一条出错都直接报出来，而不是静默跳过 —— 写手写错了名字得让他知道。
+    """
+    out: dict[str, list[dict]] = {k: [] for k in HEARD_KINDS}
     if not HEARD_TOML.exists():
-        return []
+        return out
     with HEARD_TOML.open("rb") as f:
         data = tomllib.load(f)
-    items = data.get("items") or []
-    out: list[dict] = []
     errs: list[str] = []
-    for i, it in enumerate(items, 1):
-        text = str(it.get("text", "")).strip()
-        emo = str(it.get("emotion", "") or "").strip()
-        if not text:
-            errs.append(f"第 {i} 段没有 text")
-            continue
-        if emo and emo not in HEARD_EMOTIONS:
-            errs.append(f"第 {i} 段的 emotion = \"{emo}\" 不在允许的表情里"
-                        f"（可用：{' '.join(HEARD_EMOTIONS)}）")
-            continue
-        out.append({"text": text, "emotion": emo})
+    for kind in HEARD_KINDS:
+        for i, it in enumerate(data.get(kind) or [], 1):
+            where = f"[[{kind}]] 第 {i} 条"
+            text = str(it.get("text", "")).strip()
+            emo = str(it.get("emotion", "") or "").strip()
+            if not text:
+                errs.append(f"{where}没有 text")
+                continue
+            if emo and emo not in HEARD_EMOTIONS:
+                errs.append(f"{where}的 emotion = \"{emo}\" 不在允许的表情里"
+                            f"（可用：{' '.join(HEARD_EMOTIONS)}）")
+                continue
+            out[kind].append({"text": text, "emotion": emo})
     if errs:
         raise SystemExit("data/diancie-heard.toml 有问题：\n  - " + "\n  - ".join(errs))
     return out
 
 
 def write_heard() -> int:
-    """把消息导出成页面直接读的 JSON。返回条数。"""
-    items = load_heard()
+    """把三类消息导出成页面直接读的 JSON。返回总条数。"""
+    data = load_heard()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     OUT_HEARD.write_text(
-        json.dumps({"items": items, "emotions": HEARD_EMOTIONS},
+        json.dumps({"kinds": data, "emotions": HEARD_EMOTIONS,
+                    "labels": HEARD_KIND_LABEL, "hints": HEARD_KIND_HINT},
                    ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
-    return len(items)
+    return sum(len(v) for v in data.values())
 
 
 # ============================================================

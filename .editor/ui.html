@@ -178,6 +178,30 @@
     border-radius:3px;background:#fff}
   .dc-auto{color:#9db0c4;font-family:Consolas,monospace;font-size:11.5px;white-space:nowrap}
   .dc-auto b{color:#1e8e3e}
+  /* 表情小图：站长说过「选表情这一块怎么不把表情显示出来？这样我看不出来啊」，
+     所以这里真的把图摆出来 —— 小小的一张看不清，就放大 + 像素化。 */
+  .dc-face{width:40px;height:40px;image-rendering:pixelated;display:block;
+    border:1px solid var(--line);border-radius:3px;background:#fbfdff}
+  .dc-face-cell{width:44px;padding:2px 0}
+  .dc-face-cell.bad .dc-face{border-color:#e8b4b1;background:#fff6f5;opacity:.35}
+  /* 脸图没取到时的退化显示：不摆空 <img>（浏览器会画成破图），只写一行小字 */
+  .dc-face-missing{display:inline-block;width:40px;font-size:10px;line-height:1.2;
+    color:#b0b0b0;text-align:center;vertical-align:middle}
+  .dc-preview{white-space:normal;line-height:1.6;min-width:150px}
+  .dc-preview .dc-face{display:inline-block;width:36px;height:36px;vertical-align:middle;margin-left:4px}
+  .dc-sec{margin-top:20px;padding-top:10px;border-top:1px solid var(--line)}
+  .dc-sec-title{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .dc-sec-title .label{color:#123f70}
+  .dc-sec-title .code{font-family:Consolas,monospace;font-size:11px;color:#9db0c4}
+  .dc-sec-hint{margin:2px 0 8px;color:var(--dim);font-size:12px}
+  .dc-sec-title .cell{color:#9db0c4;font-size:11.5px;font-family:Consolas,monospace}
+  /* 16 张脸的全家福：先认脸，再回下面挑 */
+  .dc-legend{display:flex;flex-wrap:wrap;gap:6px 10px;margin:0 0 12px;
+    padding:8px 10px;background:#fbfdff;border:1px solid var(--line);border-radius:4px}
+  .dc-legend-item{display:flex;flex-direction:column;align-items:center;width:56px}
+  .dc-legend-item .dc-face{width:40px;height:40px}
+  .dc-legend-name{font-size:11px;color:#123f70;line-height:1.5}
+  .dc-legend-code{font-family:Consolas,monospace;font-size:9.5px;color:#9db0c4}
 
   /* ---------- 拖拽上传 ---------- */
   #editor.dragover{background:#eef7ff;box-shadow:inset 0 0 0 3px #7fb8f0}
@@ -1286,8 +1310,17 @@ async function renderNotices() {
 }
 
 /* --- 蒂安希听到了（文集侧栏那个挂件要转述的话） ---
-   数据 data/diancie-heard.toml，只有 text / emotion 两个字段。
-   emotion 留空 = 页面上按文本关键词自动挑脸，面板右边那列就是这件事的预览。
+   数据 data/diancie-heard.toml 分成**三张表**（当初只有一张 [[items]]，后来站长
+   的要求变成「会长三类话」）：
+     [[heard]]   小碎钻们听到的事情 —— 站长写的，当树洞
+     [[said]]    小碎钻们说的话     —— 和宝可梦设定有关
+     [[thought]] 蒂安希的感悟       —— 站长写的，当树洞
+   面板因此分成三个区，各区的名字/说明用接口给的 labels / hints（服务端和
+   tools/build-pkmn.py 里那两份文案逐字一致，页面上的说法也是同一套）。
+   保存一次下发三类；服务端缺的类当空数组，所以这里永远三类都发。
+
+   emotion 留空 = 页面上按文本关键词自动挑脸，右边那格就是这件事的预览
+   （带一张真的表情小图，图由 GET /api/diancie/face/<名字> 现裁）。
 
    ⚠️ 下面的 DIANCIE_WORDS 必须和 **两份** 同样的表一致：
         · static/js/diancie-heard.js（页面上真正显示哪张脸，是那份算的）
@@ -1316,6 +1349,13 @@ const DIANCIE_EMOTIONS = [
   'Normal', 'Happy', 'Joyous', 'Inspired', 'Determined', 'Angry', 'Sad', 'Crying',
   'Teary-Eyed', 'Worried', 'Sigh', 'Shouting', 'Surprised', 'Stunned', 'Dizzy', 'Pain',
 ];
+// 服务端拿不到 emotionCn 时的兜底中文名（和 server.mjs 的 DIANCIE_EMOTION_CN 一样）
+const DIANCIE_EMOTION_CN = {
+  'Normal': '平静', 'Happy': '开心', 'Joyous': '雀跃', 'Inspired': '受到启发',
+  'Determined': '坚定', 'Angry': '生气', 'Sad': '难过', 'Crying': '哭',
+  'Teary-Eyed': '含泪', 'Worried': '担心', 'Sigh': '叹气', 'Shouting': '大声',
+  'Surprised': '吃惊', 'Stunned': '愣住', 'Dizzy': '晕', 'Pain': '疼',
+};
 function diancieClassify(text) {
   const s = String(text || '');
   for (const [name, words] of DIANCIE_WORDS) {
@@ -1324,10 +1364,55 @@ function diancieClassify(text) {
   return 'Normal';
 }
 
+/* 表情小图缓存：名字 -> blob: 地址（空串 = 这个表情取不到）。
+   一次面板会话只拉一遍，不因为重画面板反复下载同 16 张图。
+   blob 而不是 apiGet：接口吐的是 PNG 不是 JSON，用 fetch 拿 blob 再转地址即可。
+   返回的 Promise 要 await —— 不等它就把面板画出来，第一遍画的全是没 src 的
+   空位（站长看到的就是「还是不显示」），得等图到了再画。 */
+let DIANCIE_FACE_URLS = null;
+let DIANCIE_FACE_LOADING = null;
+function diancieFacesOnce() {
+  if (DIANCIE_FACE_LOADING) return DIANCIE_FACE_LOADING;
+  if (DIANCIE_FACE_URLS) return Promise.resolve(DIANCIE_FACE_URLS);
+  DIANCIE_FACE_LOADING = (async () => {
+    const out = {};
+    /* ⚠️ **必须串行**，不能 Promise.all 并发。
+       之前是 16 个 fetch 一起发，实测有一大半会挂（面板上 36 张脸只出来 11 张，
+       其余 src 是空串、显示成破图 —— 站长要解决的正是这个）。
+       串行 16 个请求也就几百毫秒，换的是「一定都能拿到」。 */
+    for (const n of DIANCIE_EMOTIONS) {
+      try {
+        const res = await fetch('/api/diancie/face/' + encodeURIComponent(n),
+          { headers: { 'X-Editor-Token': TOKEN } });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        out[n] = URL.createObjectURL(await res.blob());
+      } catch (e) {
+        out[n] = '';      // 取不到就只显示名字，面板照常能用
+      }
+    }
+    DIANCIE_FACE_URLS = out;
+    return out;
+  })().finally(() => { DIANCIE_FACE_LOADING = null; });
+  return DIANCIE_FACE_LOADING;
+}
+
 async function renderDiancie() {
   const d = await apiGet('/api/diancie/heard');
   const emotions = (d.emotions && d.emotions.length) ? d.emotions : DIANCIE_EMOTIONS;
-  let items = (d.items || []).map((x) => ({ text: x.text || '', emotion: x.emotion || '' }));
+  const emotionCn = Object.assign({}, DIANCIE_EMOTION_CN, d.emotionCn || {});
+  const labels = Object.assign({}, {
+    heard: '小碎钻们听到的事情', said: '小碎钻们说的话', thought: '蒂安希的感悟',
+  }, d.labels || {});
+  const hints = Object.assign({}, {
+    heard: '站长自己写，当树洞用。', said: '和宝可梦设定有关的小事。', thought: '站长自己写，当树洞用。',
+  }, d.hints || {});
+
+  // 三类都要在（接口少给一类时补空数组），顺序固定：文件里也是这个顺序
+  const items = { heard: [], said: [], thought: [] };
+  for (const k of ['heard', 'said', 'thought']) {
+    const arr = (d.kinds && Array.isArray(d.kinds[k])) ? d.kinds[k] : [];
+    items[k] = arr.map((x) => ({ text: x.text || '', emotion: x.emotion || '' }));
+  }
 
   // 挂件开关就是 hugo.toml [params] 里的 diancieHeard，走「站点设置」那对接口改。
   // 键还不存在时（只可能是第一次开）当关着 —— 和 layouts 那边 `if site.Params.diancieHeard` 一致。
@@ -1337,91 +1422,169 @@ async function renderDiancie() {
     on = !!(p.items && p.items.diancieHeard && p.items.diancieHeard.value);
   } catch (e) { /* 读不到就按关着显示；保存开关时接口自己会报错 */ }
 
-  // 一条的「自动判断」预览：指定了表情就不预览，空着才算
-  const autoLabel = (it) => it.emotion
-    ? '<span class="dc-auto">手动指定</span>'
-    : `<span class="dc-auto">自动 → <b>${esc(diancieClassify(it.text))}</b></span>`;
+  // 表情小图先取回来再画面板：不等它的话，第一遍画出来的是 16 个没 src 的空位，
+  // 站长看到的就是「选表情这一块还是不显示图」。
+  await diancieFacesOnce().catch(() => {});
+
+  /** 名字 + 中文 + 小图。
+      取不到图时**不摆空 src**（浏览器会显示成一个破图图标，比什么都难看），
+      改成直接不输出 <img>，只留名字。 */
+  const faceHtml = (name) => {
+    const url = DIANCIE_FACE_URLS && DIANCIE_FACE_URLS[name];
+    if (!url) return '<span class="dc-face-missing" title="这张脸没取到">（无图）</span>';
+    return '<img class="dc-face" alt="' + esc(name) + '" src="' + esc(url) + '"' +
+      ' title="' + esc(name + ' ' + (emotionCn[name] || '')) + '">';
+  };
+  const emotionName = (n) => n + '　' + (emotionCn[n] || '');
+
+  /* 一行的预览：手动指定就照他选的，空着就现算「自动 → X」。
+     两种情况都把小图摆出来 —— 站长要的就是「能看出这张脸长什么样」。 */
+  const previewHtml = (it) => {
+    if (it.emotion) {
+      return '<span class="dc-auto">手动指定</span> ' + faceHtml(it.emotion);
+    }
+    const auto = diancieClassify(it.text);
+    return '<span class="dc-auto">自动 → <b>' + esc(auto) + '</b></span> ' + faceHtml(auto);
+  };
+
   const emotionOptions = (cur) => '<option value="">自动判断</option>'
-    + emotions.map((n) => `<option value="${esc(n)}"${n === cur ? ' selected' : ''}>${esc(n)}</option>`).join('');
+    + emotions.map((n) => '<option value="' + esc(n) + '"' + (n === cur ? ' selected' : '') +
+        '>' + esc(emotionName(n)) + '</option>').join('');
 
   const draw = () => {
     let h = '<h2 class="sec">蒂安希听到了</h2>';
-    h += '<p class="hint">文集侧栏那个挂件要转述的话，对应 <code>data/diancie-heard.toml</code>。</p>';
+    h += '<p class="hint">文集侧栏那个挂件要讲的话，对应 <code>data/diancie-heard.toml</code>。'
+      + '文件里是 <b>三张表</b>，下面三个区各管一张。</p>';
     h += '<div class="note">' +
-      '<b>改完不用跑任何脚本</b> —— 保存后到页面上<b>刷新一下</b>就能看到（这份文件是页面直接读的）。<br>' +
-      '表情选「自动判断」时，页面上按这句话里的关键词挑脸，右边那列显示<b>现在会挑到哪张</b>；' +
-      '想固定成某张脸就直接在下拉框里选。<br>' +
-      '换行写没关系，保存时会被压成一行（TOML 的字符串不能跨行，页面上也是一行一句地念）。</div>';
+      '<b>改完不用跑任何脚本</b> —— 保存后到页面上<b>刷新一下</b>就能看到（编辑器会顺手重新导出一次 JSON）。<br>' +
+      '表情选「自动判断」时，页面上按这句话里的关键词挑脸，右边那格显示<b>现在会挑到哪张</b>（配小图）；' +
+      '想固定成某张脸就直接在下拉框里选，选完小图也跟着换。<br>' +
+      '换行写没关系，保存时会被压成一行（TOML 的字符串不能跨行，页面上也是一行一句地念）。' +
+      '保存前编辑器会把原文件复制一份到 <code>data/diancie-heard.toml.bak</code>。</div>';
 
     h += '<div class="field"><label for="chkDiancie" title="hugo.toml 的 [params].diancieHeard">显示蒂安希挂件</label>'
-      + `<input type="checkbox" id="chkDiancie" ${on ? 'checked' : ''}>`
+      + '<input type="checkbox" id="chkDiancie" ' + (on ? 'checked' : '') + '>'
       + '<span class="cmt">hugo.toml 的 diancieHeard</span></div>';
     h += '<p class="hint">关掉后侧栏那整块就不显示了。第一次打开时，编辑器会在 <code>hugo.toml</code> 的 ' +
       '<code>[params]</code> 末尾补上一行 <code>diancieHeard = true</code>（「站点设置」面板补新键也是这么做的）。</p>';
-    h += '<div style="margin-bottom:18px"><button class="primary" id="btnSaveDiancieSw">保存开关</button></div>';
+    h += '<div style="margin-bottom:6px"><button class="primary" id="btnSaveDiancieSw">保存开关</button></div>';
 
-    h += '<table class="grid"><thead><tr>'
-      + '<th>要转述的话</th><th style="width:150px">表情</th>'
-      + '<th style="width:118px">自动判断</th><th style="width:34px"></th>'
-      + '</tr></thead><tbody id="tbDiancie">';
-    items.forEach((it, i) => {
-      h += `<tr>
-        <td><textarea class="dc-text" data-f="text" data-i="${i}" placeholder="比如：它们说，光从上面漏下来的样子，和宝石里面的光很像。">${esc(it.text)}</textarea></td>
-        <td><select class="dc-sel" data-f="emotion" data-i="${i}">${emotionOptions(it.emotion)}</select></td>
-        <td data-auto="${i}">${autoLabel(it)}</td>
-        <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
-    });
-    h += '</tbody></table>';
-    if (!items.length) {
-      h += '<p class="hint">还没有话。点下面的「加一条」写第一句 —— 一条都没有时，' +
-        '侧栏那块挂件会说「我还没听到什么」。</p>';
+    /* 16 张脸一次摆出来（每个名字配中文）：站长原来的抱怨就是「看不出选的是哪张」，
+       这里让他先认脸，再到下拉框里挑。 */
+    h += '<div class="dc-legend">'
+      + emotions.map((n) => '<span class="dc-legend-item">' + faceHtml(n)
+        + '<span class="dc-legend-name">' + esc(emotionCn[n] || '') + '</span>'
+        + '<span class="dc-legend-code">' + esc(n) + '</span></span>').join('')
+      + '</div>';
+
+    for (const kind of ['heard', 'said', 'thought']) {
+      const list = items[kind];
+      h += '<div class="dc-sec">';
+      h += '<h3 class="dc-sec-title"><span class="label">' + esc(labels[kind]) + '</span>'
+        + '<span class="code">[[' + kind + ']]</span>'
+        + '<span class="cell" data-count="' + kind + '">共 ' + list.length + ' 条</span></h3>';
+      h += '<p class="dc-sec-hint">' + esc(hints[kind]) + '</p>';
+      h += '<table class="grid"><thead><tr>'
+        + '<th style="width:44px">表情</th><th>内容</th>'
+        + '<th style="width:190px">表情</th><th style="width:170px">自动判断</th><th style="width:34px"></th>'
+        + '</tr></thead><tbody data-tb="' + kind + '">';
+      list.forEach((it, i) => {
+        h += '<tr>'
+          + '<td class="dc-face-cell" data-face="' + kind + '" data-i="' + i + '">' + faceHtml(it.emotion || diancieClassify(it.text)) + '</td>'
+          + '<td><textarea class="dc-text" data-f="text" data-kind="' + kind + '" data-i="' + i + '"'
+          + ' placeholder="比如：它们说，光从上面漏下来的样子，和宝石里面的光很像。">' + esc(it.text) + '</textarea></td>'
+          + '<td><select class="dc-sel" data-f="emotion" data-kind="' + kind + '" data-i="' + i + '">'
+          + emotionOptions(it.emotion) + '</select></td>'
+          + '<td class="dc-preview" data-auto="' + kind + '" data-i="' + i + '">' + previewHtml(it) + '</td>'
+          + '<td style="text-align:center"><button class="danger" data-del="' + i + '" data-kind="' + kind + '">×</button></td>'
+          + '</tr>';
+      });
+      h += '</tbody></table>';
+      if (!list.length) {
+        h += '<p class="hint">这一类还没有话。点下面的「＋ 加一条」写第一句 —— ' +
+          '三类都是空的时候，侧栏那块挂件会说「我还没听到什么」。</p>';
+      }
+      h += '<button data-add="' + kind + '">＋ 加一条</button></div>';
     }
-    h += '<button id="btnAddDiancie">＋ 加一条</button> <button class="primary" id="btnSaveDiancie">保存</button>';
+
+    h += '<div style="margin-top:16px">'
+      + '<button class="primary" id="btnSaveDiancie">' + ico('save') + ' 保存三类</button></div>';
     showPanel(h);
 
-    const collect = () => {
-      document.querySelectorAll('#tbDiancie [data-f]').forEach((el) => {
-        const i = +el.dataset.i;
-        if (!items[i]) return;
-        items[i][el.dataset.f] = el.value;
+    const KINDS = ['heard', 'said', 'thought'];
+
+    /* DOM -> items。三个区一起收（textarea / select 都有 data-kind + data-i） */
+    const collectAll = () => {
+      document.querySelectorAll('#panel [data-f]').forEach((el) => {
+        const kind = el.dataset.kind, i = +el.dataset.i;
+        if (items[kind] && items[kind][i]) items[kind][i][el.dataset.f] = el.value;
       });
     };
-    // 改了 text 或表情，只刷新那一行的预览，不整块重画（重画会把光标顶掉）
-    const refreshAuto = (i) => {
-      const cell = document.querySelector(`#tbDiancie [data-auto="${i}"]`);
-      if (cell && items[i]) cell.innerHTML = autoLabel(items[i]);
+    /** 只重画某一行的两张小图和自动判断文字（整块重画会把光标顶掉） */
+    const refreshRow = (kind, i) => {
+      const it = items[kind] && items[kind][i];
+      if (!it) return;
+      const cell = document.querySelector('#panel .dc-preview[data-auto="' + kind + '"][data-i="' + i + '"]');
+      if (cell) cell.innerHTML = previewHtml(it);
+      const face = document.querySelector('#panel [data-face="' + kind + '"][data-i="' + i + '"]');
+      if (face) face.innerHTML = faceHtml(it.emotion || diancieClassify(it.text));
     };
-    document.querySelectorAll('#tbDiancie textarea[data-f="text"]').forEach((el) => {
+    /** 条数小标签（增删之后要跟着变） */
+    const refreshCounts = () => {
+      for (const k of KINDS) {
+        const el = document.querySelector('#panel [data-count="' + k + '"]');
+        if (el) el.textContent = '共 ' + items[k].length + ' 条';
+      }
+    };
+
+    document.querySelectorAll('#panel textarea[data-f="text"]').forEach((el) => {
       el.addEventListener('input', () => {
-        const i = +el.dataset.i;
-        if (!items[i]) return;
-        items[i].text = el.value;
-        refreshAuto(i);
+        const kind = el.dataset.kind, i = +el.dataset.i;
+        if (!items[kind] || !items[kind][i]) return;
+        items[kind][i].text = el.value;
+        refreshRow(kind, i);      // 实时：「自动 → X」和小图跟着字变
       });
     });
-    document.querySelectorAll('#tbDiancie select[data-f="emotion"]').forEach((el) => {
+    document.querySelectorAll('#panel select[data-f="emotion"]').forEach((el) => {
       el.addEventListener('change', () => {
-        const i = +el.dataset.i;
-        if (!items[i]) return;
-        items[i].emotion = el.value;
-        refreshAuto(i);
+        const kind = el.dataset.kind, i = +el.dataset.i;
+        if (!items[kind] || !items[kind][i]) return;
+        items[kind][i].emotion = el.value;
+        refreshRow(kind, i);
       });
     });
-    document.querySelectorAll('#tbDiancie [data-del]').forEach((b) => b.addEventListener('click', () => {
-      collect(); items.splice(+b.dataset.del, 1); draw();
+    document.querySelectorAll('#panel [data-del]').forEach((b) => b.addEventListener('click', () => {
+      collectAll();
+      items[b.dataset.kind].splice(+b.dataset.del, 1);
+      draw();
     }));
-    $('#btnAddDiancie').addEventListener('click', () => {
-      collect(); items.push({ text: '', emotion: '' }); draw();
-    });
+    document.querySelectorAll('#panel [data-add]').forEach((b) => b.addEventListener('click', () => {
+      collectAll();
+      items[b.dataset.add].push({ text: '', emotion: '' });
+      draw();
+    }));
     $('#btnSaveDiancie').addEventListener('click', async () => {
-      collect();
+      collectAll();
       /* 全空的行（点了「加一条」还没写）服务端会丢掉，这里先自己清掉再画一遍，
-         免得保存成功之后面板上还挂着一个其实没落盘的空行。 */
-      const kept = items.filter((x) => String(x.text || '').trim() || String(x.emotion || '').trim());
-      if (kept.length !== items.length) { items = kept; draw(); }
+         免得保存成功之后面板上还挂着一个其实没落盘的空行。
+         注意是**原地**清（items[k] 是闭包里那个数组，重新赋值会让上面那些
+         监听器指向旧数组），也别整份重画 —— 站长可能正停在某个格子里打字。 */
+      let dropped = 0;
+      for (const k of KINDS) {
+        const kept = items[k].filter((x) => String(x.text || '').trim() || String(x.emotion || '').trim());
+        dropped += items[k].length - kept.length;
+        items[k].length = 0;
+        for (const x of kept) items[k].push(x);
+      }
+      if (dropped) { refreshCounts(); toast('有 ' + dropped + ' 条空行没有内容，没有保存', 'err'); }
       try {
-        const r = await apiPost('/api/diancie/heard', { items });
-        toast('已保存（到页面上刷新一下就能看到）' + (r && r.count != null ? `，共 ${r.count} 条` : ''), 'ok');
+        const r = await apiPost('/api/diancie/heard', { kinds: items });
+        const c = (r && r.counts) || {};
+        const sum = KINDS.reduce((n, k) => n + (c[k] || 0), 0);
+        toast('已保存：听到 ' + (c.heard || 0) + ' 条 / 说的 ' + (c.said || 0) + ' 条 / 感悟 ' + (c.thought || 0) +
+          ' 条，共 ' + sum + ' 条（到页面上刷新一下就能看到）', 'ok');
+        // 后端说「TOML 存住了但 JSON 没导出」时得让站长看见（页面读的是那份 JSON）
+        if (r && r.warned) toast('已保存，但有件事要留意：' + r.warned, 'err');
       } catch (e) {
         toast('保存失败：' + e.message, 'err');
       }

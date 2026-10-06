@@ -81,22 +81,39 @@
     return;
   }
 
-  var MSGS = [];
+  /* 三类消息，各自独立（站长用来当树洞）。
+     每次随机挑**一类**，再从那一类里挑一条 —— 不是把三类混成一个大池子，
+     否则「小碎钻们说的话」会被「听到的事情」淹掉。 */
+  var KINDS = { heard: [], said: [], thought: [] };
+  var KIND_ORDER = ['heard', 'said', 'thought'];
+  var KIND_LABEL = { heard: '小碎钻们听到的事情', said: '小碎钻们说的话', thought: '蒂安希的感悟' };
   var dataEl = document.getElementById('diancie-heard-data');
   try {
     var parsed = JSON.parse(dataEl.textContent || '{}');
-    MSGS = (parsed && parsed.items) || [];
-  } catch (e) { MSGS = []; }
+    if (parsed && parsed.kinds) {
+      KIND_ORDER.forEach(function (k) { KINDS[k] = parsed.kinds[k] || []; });
+      if (parsed.labels) KIND_LABEL = parsed.labels;
+    }
+  } catch (e) { /* 保持空，下面会提示 */ }
+
+  function kindTotal() {
+    var n = 0;
+    KIND_ORDER.forEach(function (k) { n += KINDS[k].length; });
+    return n;
+  }
+  var HAS_MSGS = kindTotal() > 0;
 
   /* 思考中那一档。开场语就是挂件标题本身（「蒂安希听到了」），
      所以这里只随机抽一句「嗯...」。 */
   var THINKING = ['嗯...', '我想想...', '等一下...'];
 
-  /* 时序（毫秒）：听 -> 想 -> 说，然后停一会儿再来一轮。 */
-  var T_LISTEN = 2200;
-  var T_THINK = 1700;
-  var T_HOLD_MIN = 9000;
-  var T_HOLD_MAX = 16000;
+  /* 时序（毫秒）：听 -> 想 -> 说，然后停一会儿再来一轮。
+     站长说「不用切换得这么快」，所以整轮拉长了：
+     说完停 14~26 秒（原来 9~16 秒），想那一档也从 1.7 秒放到 2.4 秒。 */
+  var T_LISTEN = 2600;
+  var T_THINK = 2400;
+  var T_HOLD_MIN = 14000;
+  var T_HOLD_MAX = 26000;
 
   var ROW = { i: 0, wl: 1, wr: 2, face: 3, sh: 4, sl: 5 };
 
@@ -463,17 +480,37 @@
   }
 
   // ---------------- 对话框三段式 ----------------
-  var lastIdx = -1;
+  /* 先随机挑**一类**（三类各自独立，不混池），再从那类里挑一条。
+     记住「这一轮是哪个类别 + 上一条是哪个」，避免连续重复同一类 / 同一条。 */
+  var lastKind = null;
+  var lastText = null;
+
   function pickMessage() {
-    if (!MSGS.length) return null;
-    if (MSGS.length === 1) return MSGS[0];
-    var i;
-    for (var guard = 0; guard < 24; guard++) {
-      i = Math.floor(Math.random() * MSGS.length);
-      if (i !== lastIdx) break;
+    var pool = [];
+    KIND_ORDER.forEach(function (k) {
+      if (KINDS[k].length) pool.push(k);
+    });
+    if (!pool.length) return null;
+
+    // 类别：优先挑和上一轮不同的那一类（只有一类时就只能重复）
+    var kind = pool[Math.floor(Math.random() * pool.length)];
+    if (pool.length > 1 && kind === lastKind) {
+      var others = pool.filter(function (k) { return k !== lastKind; });
+      kind = others[Math.floor(Math.random() * others.length)];
     }
-    lastIdx = i;
-    return MSGS[i];
+
+    var arr = KINDS[kind];
+    var item = arr.length === 1 ? arr[0] : null;
+    for (var guard = 0; !item && guard < 20; guard++) {
+      var cand = arr[Math.floor(Math.random() * arr.length)];
+      if (cand.text !== lastText) item = cand;
+    }
+    if (!item) item = arr[Math.floor(Math.random() * arr.length)];
+
+    lastKind = kind;
+    lastText = item.text;
+    // 把类别也带上：对话框第二行和测试都用得到
+    return { text: item.text, emotion: item.emotion, kind: kind, kindLabel: KIND_LABEL[kind] || kind };
   }
 
   function say(text, mood) {
@@ -486,7 +523,7 @@
   var current = null;
 
   function beginCycle() {
-    if (!MSGS.length) {
+    if (!HAS_MSGS) {
       say('……我还没听到什么。', '正在听');
       stage = 'idle';
       stageUntil = performance.now() + 12000;
@@ -509,7 +546,9 @@
     stage = 'speak';
     var emo = (current && current.emotion) ? current.emotion : classifyEmotion(current ? current.text : '');
     drawFace(emo);
-    say(current ? current.text : '……', emo);
+    /* 第二行显示**这条属于哪一类**（「小碎钻们听到的事情」等），
+       而不是表情名 —— 表情名对访客没意义，类别才让人知道这话从哪来。 */
+    say(current ? current.text : '……', current ? current.kindLabel : '');
     if (titleEl) titleEl.classList.remove('is-listening');
     stageUntil = performance.now() + T_HOLD_MIN + Math.random() * (T_HOLD_MAX - T_HOLD_MIN);
   }
@@ -614,7 +653,13 @@
   window.DiancieHeard = {
     classifyEmotion: classifyEmotion,
     emotions: EMOTION_WORDS.map(function (x) { return x[0]; }).concat([DEFAULT_EMOTION]),
-    messageCount: MSGS.length,
+    messageCount: kindTotal(),
+    kindCounts: function () {
+      var o = {};
+      KIND_ORDER.forEach(function (k) { o[k] = KINDS[k].length; });
+      return o;
+    },
+    kindLabels: KIND_LABEL,
     gemCount: function () { return gems.length; },
     /* 把内部尺寸摊出来：测试要按「画布里的图形尺寸」判断，
        不能拿占位画布的 getBoundingClientRect（它铺满整个围栏）。 */
@@ -628,7 +673,8 @@
       };
     },
     state: function () {
-      return { stage: stage, mood: moodEl ? moodEl.textContent : '', line: lineEl.textContent };
+      return { stage: stage, mood: moodEl ? moodEl.textContent : '', line: lineEl.textContent,
+               kind: current ? current.kind : null, kindLabel: current ? current.kindLabel : null };
     }
   };
 })();
