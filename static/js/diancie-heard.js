@@ -100,13 +100,14 @@
 
   var ROW = { i: 0, wl: 1, wr: 2, face: 3, sh: 4, sl: 5 };
 
-  /* 小碎钻比蒂安希小一圈。这是「相对蒂安希的比例」，最终尺寸还要受下面
-     MAX_GEMS 那笔空间账约束。 */
-  var GEM_SCALE = 0.6;
+  /* 小碎钻的目标身位 = **蒂安希的一半**（站长要的比例）。
+     能不能达到取决于侧栏留了多宽 —— 见 layout 里那笔空间账。 */
+  var GEM_RATIO = 0.5;
   /* 算小碎钻尺寸时**按最多只数**留位置，而不是按这一轮实际抽到几只：
-     否则抽到 2 只时它们会明显比抽到 4 只时大一圈，每刷新一次大小都不一样。
-     尺寸只由「地形 + 这个上限」决定，抽到几只都长一样大。 */
-  var MAX_GEMS = 4;
+     否则抽到 2 只时它们会明显比抽到 3 只时大一圈，每刷新一次大小都不一样。
+     3 而不是 4：蒂安希一半大（40px）× 4 只在这个侧栏宽度里放不下，必然缩水。
+     宁可「最多 3 只、每只都是蒂安希一半大」，也不要「最多 4 只、每只只有一半的一半」。 */
+  var MAX_GEMS = 3;
 
   var dpr = window.devicePixelRatio || 1;
   var penW = 0, penH = 0;
@@ -147,65 +148,154 @@
     return seed / 0x7fffffff;
   }
 
+  /* 水晶洞穴的背景。
+     第一版画成了砖墙 —— 深棕、横平竖直、一排排对齐，站长一眼看出「像地牢」。
+     水晶洞穴不是「砌出来的」，是**岩壁上长着晶体**：所以改成
+       · 冷色调（深蓝紫岩石，不用棕）
+       · 岩石是不规则的多边形块，不是对齐的砖
+       · 大大小小的晶体从岩壁和地面长出来，带高光棱边和光晕
+       · 整体偏暗，靠晶体的荧光提亮
+     固定种子，所以每次刷新画面一致（不会闪）。 */
   function paintCave() {
     if (!bgCtx) return;
     var W = bgCtx.canvas.width, H = bgCtx.canvas.height;
     bgCtx.clearRect(0, 0, W, H);
     bgCtx.imageSmoothingEnabled = false;
+    var u = Math.max(1, Math.round(dpr));     // 一个 CSS px = 几个设备像素
 
-    var BW = 34 * Math.max(1, Math.round(dpr));    // 砖宽（设备像素，按 dpr 放大）
-    var BH = 17 * Math.max(1, Math.round(dpr));
+    // ---- 洞穴底色：上深下更深的蓝紫，中间偏亮一点（光从洞顶漏下来） ----
+    var base = bgCtx.createLinearGradient(0, 0, 0, H);
+    base.addColorStop(0, '#161a38');
+    base.addColorStop(0.45, '#1d2450');
+    base.addColorStop(1, '#0e1128');
+    bgCtx.fillStyle = base;
+    bgCtx.fillRect(0, 0, W, H);
+
+    // ---- 岩石：不规则多边形块，越往下越暗 ----
+    // ⚠️ 别用等大的六边形铺满：第一版就是那样，结果像鱼鳞/蜂窝。
+    // 这里让每块的半径、顶点角度都随机，并且留出缝隙，看起来才是岩壁。
     seed = 20261002;
-
-    // 一层层砖：越靠下越暗，做出「往洞里走」的纵深
-    var row = 0;
-    for (var y = 0; y < H; y += BH, row++) {
-      var offset = (row % 2) ? Math.round(BW / 2) : 0;
-      var depth = y / Math.max(1, H);
-      var base = 76 - Math.round(depth * 32);
-      for (var x = -offset; x < W; x += BW) {
-        var lum = Math.max(20, Math.min(98, base + Math.round((rnd() - 0.5) * 16)));
-        bgCtx.fillStyle = 'rgb(' + lum + ',' + Math.round(lum * 0.93) + ',' + Math.round(lum * 0.8) + ')';
-        bgCtx.fillRect(x + 1, y + 1, BW - 2, BH - 2);
+    var CELL = 26 * u;
+    for (var gy = -CELL; gy < H + CELL; gy += CELL) {
+      for (var gx = -CELL; gx < W + CELL; gx += CELL) {
+        var cx = gx + (rnd() - 0.5) * CELL;
+        var cy = gy + (rnd() - 0.5) * CELL;
+        var depth = cy / Math.max(1, H);
+        var lum = 44 - Math.round(depth * 14) + Math.round((rnd() - 0.5) * 14);
+        lum = Math.max(14, Math.min(60, lum));
+        // 冷色：蓝 > 绿 > 红
+        bgCtx.fillStyle = 'rgb(' + (lum - 6) + ',' + (lum + 2) + ',' + (lum + 20) + ')';
+        var r = CELL * (0.22 + rnd() * 0.34);
+        var n = 5 + Math.floor(rnd() * 3);
+        bgCtx.beginPath();
+        for (var k = 0; k < n; k++) {
+          var a = (k / n) * Math.PI * 2 + rnd() * 0.9;
+          var rr = r * (0.5 + rnd() * 0.9);
+          var px2 = cx + Math.cos(a) * rr, py2 = cy + Math.sin(a) * rr * 0.85;
+          if (k === 0) bgCtx.moveTo(px2, py2); else bgCtx.lineTo(px2, py2);
+        }
+        bgCtx.closePath();
+        bgCtx.fill();
+        // 少量亮面，做出岩壁的起伏
+        if (rnd() < 0.18) {
+          bgCtx.fillStyle = 'rgba(120,150,210,.18)';
+          bgCtx.fill();
+        }
       }
     }
 
-    // 砖缝：压在砖块之上，边缘才清楚
-    bgCtx.fillStyle = 'rgba(10,8,6,.55)';
-    for (var yy = 0; yy < H; yy += BH) bgCtx.fillRect(0, yy, W, 1);
-    row = 0;
-    for (var y2 = 0; y2 < H; y2 += BH, row++) {
-      var off2 = (row % 2) ? Math.round(BW / 2) : 0;
-      for (var xx = -off2; xx < W; xx += BW) bgCtx.fillRect(xx, y2, 1, BH);
+    // 岩缝：随机短线段，破掉「一块块」的规律感
+    seed = 5150;
+    bgCtx.strokeStyle = 'rgba(8,10,26,.55)';
+    bgCtx.lineWidth = u;
+    for (var s = 0; s < 26; s++) {
+      var sx = rnd() * W, sy = rnd() * H;
+      bgCtx.beginPath();
+      bgCtx.moveTo(sx, sy);
+      for (var seg = 0; seg < 3; seg++) {
+        sx += (rnd() - 0.5) * 26 * u;
+        sy += (rnd() - 0.5) * 20 * u;
+        bgCtx.lineTo(sx, sy);
+      }
+      bgCtx.stroke();
     }
 
-    // 顶部一点微光（像洞口漏下来），底部压暗
-    var g1 = bgCtx.createLinearGradient(0, 0, 0, H * 0.5);
-    g1.addColorStop(0, 'rgba(214,204,172,.22)');
-    g1.addColorStop(1, 'rgba(214,204,172,0)');
-    bgCtx.fillStyle = g1;
-    bgCtx.fillRect(0, 0, W, H * 0.5);
+    // ---- 发光晶体 ----
+    // 从岩壁/地面「长」出来：底边贴在洞底或洞壁，尖端朝内。
+    // 画法：一个细长的四边形（菱形），中间亮、边缘更亮，底下垫一圈光晕。
+    function crystal(cx, cy, len, wid, hue, grow) {
+      // hue: 'cyan' | 'violet' | 'white'
+      var light = hue === 'cyan' ? ['rgba(150,240,255,.95)', 'rgba(90,200,235,.75)', 'rgba(40,130,180,.55)']
+                : hue === 'violet' ? ['rgba(215,180,255,.95)', 'rgba(165,130,235,.75)', 'rgba(95,70,170,.55)']
+                : ['rgba(240,250,255,.95)', 'rgba(190,215,240,.75)', 'rgba(120,150,200,.55)'];
+      // 光晕
+      var gl = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, len * 1.5);
+      gl.addColorStop(0, light[2]);
+      gl.addColorStop(1, 'rgba(0,0,0,0)');
+      bgCtx.fillStyle = gl;
+      bgCtx.fillRect(cx - len * 1.5, cy - len * 1.5, len * 3, len * 3);
 
-    var g2 = bgCtx.createLinearGradient(0, H * 0.5, 0, H);
-    g2.addColorStop(0, 'rgba(0,0,0,0)');
-    g2.addColorStop(1, 'rgba(0,0,0,.46)');
-    bgCtx.fillStyle = g2;
-    bgCtx.fillRect(0, H * 0.5, W, H * 0.5);
+      // 菱形晶柱：grow = +1 向上长，-1 向下长
+      var tipX = cx + (rnd() - 0.5) * wid * 0.5;
+      var tipY = cy + grow * len;
+      bgCtx.beginPath();
+      bgCtx.moveTo(cx - wid / 2, cy);
+      bgCtx.lineTo(tipX, tipY);
+      bgCtx.lineTo(cx + wid / 2, cy);
+      bgCtx.lineTo(cx + wid * 0.18, cy);
+      bgCtx.closePath();
+      bgCtx.fillStyle = light[1];
+      bgCtx.fill();
 
-    // 岩壁上嵌着的碎晶：几处亮点，让画面不那么平
-    seed = 77113;
-    var px = Math.max(1, Math.round(dpr));
-    for (var i = 0; i < 10; i++) {
-      var cx = Math.round(rnd() * (W - 8)) + 4;
-      var cy = Math.round(rnd() * (H * 0.78)) + 4;
-      var big = rnd() < 0.35;
-      bgCtx.fillStyle = 'rgba(178,214,255,.55)';
-      bgCtx.fillRect(cx, cy, big ? px * 2 : px, big ? px * 2 : px);
+      // 高光棱边（靠左那条边更亮，做出「透光」的感觉）
+      bgCtx.beginPath();
+      bgCtx.moveTo(cx - wid / 2, cy);
+      bgCtx.lineTo(tipX, tipY);
+      bgCtx.strokeStyle = light[0];
+      bgCtx.lineWidth = Math.max(1, u * 0.6);
+      bgCtx.stroke();
+    }
+
+    seed = 90210;
+    var hues = ['cyan', 'cyan', 'violet', 'white'];
+    // 洞底那一排：从地面往上长
+    for (var i = 0; i < 7; i++) {
+      var bx = rnd() * W;
+      crystal(bx, H - 1, (10 + rnd() * 22) * u, (4 + rnd() * 5) * u,
+              hues[Math.floor(rnd() * hues.length)], -1);
+    }
+    // 洞顶那一排：从顶上往下垂
+    for (var j = 0; j < 5; j++) {
+      var tx = rnd() * W;
+      crystal(tx, 1, (7 + rnd() * 15) * u, (3 + rnd() * 4) * u,
+              hues[Math.floor(rnd() * hues.length)], 1);
+    }
+    // 岩壁零星的碎晶
+    seed = 31337;
+    for (var k2 = 0; k2 < 14; k2++) {
+      var fx = rnd() * W, fy = rnd() * H * 0.85;
+      var big = rnd() < 0.4;
+      bgCtx.fillStyle = 'rgba(190,230,255,.75)';
+      bgCtx.fillRect(fx, fy, big ? u * 2 : u, big ? u * 2 : u);
       if (big) {
-        bgCtx.fillStyle = 'rgba(255,255,255,.75)';
-        bgCtx.fillRect(cx, cy, px, px);
+        bgCtx.fillStyle = 'rgba(255,255,255,.9)';
+        bgCtx.fillRect(fx, fy, u, u);
       }
     }
+
+    // 底部压一层暗，让站在地上的角色有「落地」的感觉
+    var g2 = bgCtx.createLinearGradient(0, H * 0.62, 0, H);
+    g2.addColorStop(0, 'rgba(4,6,20,0)');
+    g2.addColorStop(1, 'rgba(4,6,20,.52)');
+    bgCtx.fillStyle = g2;
+    bgCtx.fillRect(0, H * 0.62, W, H * 0.38);
+
+    // 顶上再压一点，突出「洞里很暗、只有晶体在发光」
+    var g3 = bgCtx.createLinearGradient(0, 0, 0, H * 0.28);
+    g3.addColorStop(0, 'rgba(2,4,14,.45)');
+    g3.addColorStop(1, 'rgba(2,4,14,0)');
+    bgCtx.fillStyle = g3;
+    bgCtx.fillRect(0, 0, W, H * 0.28);
   }
 
   // ---------------- 角色 ----------------
@@ -226,7 +316,7 @@
     return g;
   }
 
-  function pickGemCount() { return 2 + Math.floor(Math.random() * 3); }   // 2~4 只
+  function pickGemCount() { return 2 + Math.floor(Math.random() * (MAX_GEMS - 1)); }   // 2 ~ MAX_GEMS 只
 
   function computeScale() {
     var base = Math.min(4, Math.max(2, Math.round(dpr * 1.5)));
@@ -256,18 +346,22 @@
     faceCtx = fitCanvas(faceCv, D_META.f.w * 2, D_META.f.h * 2);
 
     /* 小碎钻的尺寸要同时满足三件事：
-         ① 按**最多只数**算，抽到几只都同样大（按实际只数算会导致
-            2 只时明显比 4 只时大一圈 —— 站长指出的就是这一点）
-         ② 身位 <= 格子宽的 4/5 —— 留出走动余量。取 1/2 时余量是一半、
-            但身位被压得太小（实测只有 13px，站长说「也太小了吧」）；
-            取 4/5 能让它尽量大，同时每只仍然在自己的格子来回走
-         ③ 身位不能大到和蒂安希一样 —— DPR 低的时候格子会被放大到 40px
-       于是：格子宽 = 可走宽度 / MAX_GEMS，身位 = 格子宽 * 4/5，
-       再和 GEM_SCALE（相对蒂安希的比例）取小的。 */
+         ① **目标 = 蒂安希的一半**（GEM_RATIO = 0.5），这是站长要的比例
+         ② 按**最多只数**（MAX_GEMS）算，抽到几只都同样大 —— 按实际只数算
+            会导致 2 只时明显比 3 只时大一圈，每刷新一次大小都不一样
+         ③ 每只分到的格子要**比身位宽**，否则可走范围是 0、它只能钉在原地
+            （踩过两次：格子正好等于身位时三只一动不动）
+       于是：格子宽 = 可走带宽 / MAX_GEMS，身位 = min(目标, 格子宽 - WALK_PAD)。
+       ⚠️ 侧栏宽度直接决定第二项能不能拿到 40px，数学上：
+          要 40px 就得 可走带宽 >= 3 × (40 + WALK_PAD) ≈ 150px，
+          加蒂安希 80 和边距，围栏要 ~272px，也就是侧栏 ~290px。
+          窄了小碎钻会自动缩水（宁可小，也不要溢出或呆立不动）。
+          CSS 里那两条宽度就是按这里反推的，改一边要改另一边。 */
+    var WALK_PAD = 8;                   // 每只身位之外还要留多少 px 走动
     var freeW = Math.max(36, penW - dw - 12);
-    var byScale = G_META.cw * art2css * GEM_SCALE;
-    var byFit = (freeW / MAX_GEMS) * 0.8;
-    var gw = Math.max(12, Math.round(Math.min(byScale, byFit)));
+    var target = dw * GEM_RATIO;                                  // 目标：蒂安希的一半
+    var byFit = (freeW / MAX_GEMS) - WALK_PAD;                    // 放得下且走得动的上限
+    var gw = Math.max(12, Math.round(Math.min(target, byFit)));
     var gh = Math.max(12, Math.round(G_META.ch * gw / G_META.cw));
 
     // 蒂安希右边到围栏右边，整片给小碎钻

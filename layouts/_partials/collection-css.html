@@ -154,13 +154,16 @@ body.theme-collection #footer {
    （比视口宽一倍），整页横向溢出：标题、导航、正文、页脚右边全被截掉，
    侧栏又只剩 190px。断点与 retro.css 取同一处，补集就是 min-width:1005px。 */
 @media (min-width: 1005px) {
-  /* 250 而不是 190/210：文集侧栏里那个「蒂安希听到了」挂着矿洞，
-     蒂安希 + 最多 4 只小碎钻要横向铺开。
-       190 -> 小碎钻只有 13px，太小（站长说「也太小了吧」）
-       250 -> 约 19px，看得出来是小石头
-     正文相应从 790 收到 730，仍远宽于主站的 656。 */
-  body.theme-collection #content { width: 730px !important; }
-  body.theme-collection #sidebar { width: 250px !important; }
+  /* 290：文集侧栏里那个「蒂安希听到了」挂着矿洞，蒂安希 + 最多 3 只小碎钻
+     要横向铺开。站长要「小碎钻 = 蒂安希的一半」（40px），按 JS 那笔空间账
+     反推：3 × (40 + 8px 走动余量) = 144px 的可走带，加蒂安希 80px 和边距，
+     围栏得 ~272px，侧栏就得 290。
+       190 -> 13px    210 -> 16px    250 -> 28px    270 -> 40px(但走不动)    290 -> 40px ✓
+     正文相应从 790 收到 694，仍宽于主站的 656。
+     ⚠️ 这两条和 js/diancie-heard.js 里的 WALK_PAD / MAX_GEMS / GEM_RATIO 是
+        同一笔账，改一边要一起改。 */
+  body.theme-collection #content { width: 694px !important; }
+  body.theme-collection #sidebar { width: 290px !important; }
 }
 
 /* 侧栏窄了，时钟和播放器跟着收一点，别撑破 */
