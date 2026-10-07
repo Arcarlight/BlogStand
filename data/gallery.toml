@@ -333,3 +333,9 @@
   cat = "pkmn"
   date = "2026-02-11"
   desc = "然而并没有赶上。"
+
+[[items]]
+  title = "石之公主"
+  file = "DianciePrincess.png"
+  cat = "pkmn"
+  date = "2026-10-07"
