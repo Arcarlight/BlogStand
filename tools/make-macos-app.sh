@@ -117,37 +117,51 @@ AS
   exit 0
 fi
 
-mkdir -p "\$REPO/.editor"
-cd "\$REPO" || fail "进不去仓库目录：\$REPO"
-command -v node >/dev/null 2>&1 || fail "找不到 node（试过 PATH 里的常见位置）。先装一个：brew install node"
+# ------------------------------------------------------------
+#  没在跑 → 交给「终端」去启动
+#
+#  为什么不在这里直接跑：这个应用是访达启动的**未签名脚本外壳**，macOS 的
+#  隐私保护会**静默**拒掉它对 ~/文稿（仓库所在）的读写 —— 表现就是
+#  「编辑器没能起来」而日志一行都没写（2026-10-08 踩的，找了半天）。
+#  终端是系统签名应用、有自己的授权；不够时系统会弹一个看得懂的提示。
+#  顺带的好处：编辑器跑在终端窗口里，关掉窗口就是停止（和以前一样）。
+# ------------------------------------------------------------
+APP_LOG="\$HOME/Library/Logs/星虹巢编辑器.log"
+log() { printf '%s  %s\n' "\$(date '+%Y-%m-%d %H:%M:%S')" "\$1" >> "\$APP_LOG" 2>/dev/null || true; }
 
-{
-  echo ""
-  echo "===== \$(date '+%Y-%m-%d %H:%M:%S') 从应用启动 ====="
-} >> "\$LOG" 2>&1
+[ -x "\$REPO/.editor/start.command" ] || fail "找不到 \$REPO/.editor/start.command —— 仓库不完整，或者路径不对。"
 
-# 后台跑，并且带上「重启编辑器」用的循环：
-# 界面上的重启按钮会留下 .editor/restart-needed，这里看到标记就把进程拉起来。
-# EDITOR_NO_OPEN=1 是让 server 自己别开浏览器 —— 等端口真的起来了，由我们在下面开，
-# 免得页面先于服务打开、看到一片空白。
-nohup /bin/bash -c '
-  cd "\$0" || exit 1
-  while :; do
-    rm -f .editor/restart-needed 2>/dev/null
-    EDITOR_NO_OPEN=1 node .editor/server.mjs
-    [ -f .editor/restart-needed ] || break
-    sleep 1
-  done
-' "\$REPO" >> "\$LOG" 2>&1 &
+log "启动：通过终端打开 \$REPO/.editor/start.command"
+if ! /usr/bin/open -a Terminal "\$REPO/.editor/start.command" 2>/dev/null; then
+  log "open -a Terminal 失败"
+  fail "没能把启动命令交给「终端」。
+可以手动打开：\$REPO/.editor/start.command"
+fi
 
-for _ in \$(seq 1 60); do
+for _ in \$(seq 1 80); do        # 最多等 40 秒
   sleep 0.5
   alive && break
 done
 
-alive || fail "编辑器没能起来。日志尾部："
-open_page
-exit 0
+if alive; then
+  log "起来了：\$URL"
+  open_page
+  exit 0
+fi
+
+log "超时：端口 \$PORT 没起来"
+alert "编辑器还没起来（等了 40 秒）。
+
+最可能的原因：macOS 拦住了「终端」对「文稿」文件夹的访问。
+去「系统设置 → 隐私与安全性 → 文件与文件夹」里，允许「终端」
+访问「文稿」文件夹；或者直接在终端里跑一次：
+
+  \$REPO/.editor/start.command
+
+就能看到真正的报错。
+
+（这个应用自己的记录在 ~/Library/Logs/星虹巢编辑器.log）"
+exit 1
 LAUNCHER
 chmod +x "$APP/Contents/MacOS/launcher"
 
