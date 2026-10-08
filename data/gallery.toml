@@ -339,3 +339,11 @@
   file = "DianciePrincess.png"
   cat = "pkmn"
   date = "2026-10-07"
+  desc = "在看完《破坏之茧与蒂安希》后为蒂安希所迷而画的画。喜欢这样可爱的蒂安希。"
+
+[[items]]
+  title = "CuriosOasilia"
+  file = "CuriosOasilia.png"
+  cat = "pkmnflya"
+  date = "2026-10-08"
+  desc = "是在干什么呢...？"
