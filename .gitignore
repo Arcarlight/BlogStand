@@ -19,6 +19,8 @@ __pycache__/
 *.pyc
 .editor/trash/
 .editor/access.log
+# macOS 应用外壳（tools/make-macos-app.sh）启动编辑器时的日志，一直往后追加
+.editor/editor.log
 # 侧栏拖动排序的顺序（只是编辑器自己的显示顺序，不属于站点内容）
 .editor/order.json
 # 「重启编辑器」留的标记：它只是给启动脚本看的一次性信号，几秒内就被消费掉。
