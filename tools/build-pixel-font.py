@@ -446,13 +446,22 @@ def main():
     #    结果每次访问都下载 690 KB 的整份字体（而分块方案本该只花 ~60 KB）。
     #    那些「没在内容里出现」的字不会丢：它们全都在 rest 里，进后面的块，
     #    只是改成按需下载。
-    common = ({ord(c) for c in site_chars()} | ASCII) & available
+    #
+    # ⚠️⚠️ **ASCII 绝不能过 `& available` 这道筛子。**
+    #    available 只包含「宋体 12ppem 点阵里有位图」的字，而 ASCII **不在那份点阵里**
+    #    （实测只有 1 个：空格）—— 它们本来是宋体自带的**轮廓字形**（字形名 zero/one/A/a、
+    #    不是脚本生成的 uniXXXX），一直躺在原字体里。
+    #    加了这个交集，ASCII 会被整个滤掉：站点里所有数字/字母/标点
+    #    **静默回退到系统字体**，一眼看上去发虚（站长 2026-10-11 就是这么发现的：
+    #    「数字怎么 fallback 成不是像素的字体了，之前有的啊」）。
+    #    正确处理：ASCII 直接进常用块，不做 available 过滤（subset 会保住这些轮廓）。
+    common = ({ord(c) for c in site_chars()} & available) | ASCII
     # 其余的字：全部留给后面的块，按码位均分，浏览器用到才下
     rest = (want - common) & available
     # 站点文本里「宋体点阵没有、现有字体也没有」的字：只能靠字体栈末尾的系统宋体兜底。
     # （base_cps 要从这里减掉：否则会把 ASCII、标点这些「字体里明明有」的字
     #   也报成补不了的，那份报告就没法看了。）
-    uncovered = sorted({ord(c) for c in site_chars()} - available - base_cps)
+    uncovered = sorted({ord(c) for c in site_chars()} - available - base_cps - ASCII)
 
     print("常用块：%d 字；其余：%d 字；宋体点阵里都没有、补不了的：%d 个 %s"
           % (len(common), len(rest), len(uncovered), "".join(chr(c) for c in uncovered)))
