@@ -533,6 +533,47 @@ img { border: 0; }
   border: 1px solid #999999;
 }
 
+/* 重量级动图的「首帧海报 + 点击播放」。
+   ------------------------------------------------------------------
+   起因：migrated/Bounce-Game.gif 是 11.47 MB / 231 帧 / 15 秒，
+   单张就占了 niki_202608 那页 96% 的负载 —— 比全站其他所有图加起来还重。
+   试过转成动图 webp：体积能从 11.47 MB 掉到 1.42 MB，但**不可靠**：
+   实测帧数从 231 变成 219、逐帧像素最大差 240（画面被改了）。
+   用户自己画的素材不该赌这种有损转换，所以改为：
+     · 正文只放第一帧的海报（webp，13.8 KB / 35.9 KB 两档）
+     · 想看动画的点开 —— 原 GIF 一个字节没动，动画完整
+   收益是 11470 KB -> 13.8 KB（约 99.9%），代价是要点一下。
+   ------------------------------------------------------------------ */
+.gif-play {
+  display: inline-block;
+  position: relative;
+  line-height: 0;              /* 去掉行内元素底部的空隙，免得提示条偏移 */
+  text-decoration: none;
+}
+.gif-play img {
+  /* 海报不要上面那条白边蓝框 —— 它只是缩略图，框起来像张普通图反而看不出能点 */
+  border-color: #6a7fa8;
+}
+.gif-play-hint {
+  display: block;
+  line-height: 1.6;
+  margin-top: 2px;
+  padding: 1px 6px;
+  color: #ffffff;
+  background: #2f4f7a;
+  border: 1px solid #1c3355;
+}
+/* 字号必须走 --px-sm 且 !important —— 点阵字体那条
+   `html.pxfont body * { font-size: var(--px) !important }` 会把这里接管掉，
+   普通 font-size 根本不生效（站点里所有分散的小字都是这么写的）。 */
+html.pxfont .gif-play-hint { font-size: var(--px-sm, 11px) !important; }
+.gif-play:hover .gif-play-hint {
+  background: #3f6396;
+}
+.gif-play:hover img {
+  border-color: #ffffff;
+}
+
 /* 段首就是图的段落不缩进。text-indent 只作用于首行，所以只要把图从首行摘出来
    就安全了 —— 图后面换行才出现的（比如 <p><br><img>）本来就不吃这个缩进。
    用 :has() 而不是给 img 加 display:block，因为后者会把

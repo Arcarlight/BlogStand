@@ -17,7 +17,7 @@ description: "【关于这个网站|アバウト】 这个网站， “虹星的
 <hr />
 <p>
 <h1>【关于我|管理人について】</h1>
-<img loading="lazy" src="/images/migrated/Hoshi-Flygon.jpg" width="200">
+<picture><source type="image/webp" srcset="/images/migrated/Hoshi-Flygon-200.webp 200w, /images/migrated/Hoshi-Flygon-400.webp 400w" sizes="200px" /><img loading="lazy" src="/images/migrated/Hoshi-Flygon.jpg" width="200"></picture>
 （tbtak中的头图）
 <p>
 <h2>〜中文的自我介绍〜</h2>
