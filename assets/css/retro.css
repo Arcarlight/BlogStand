@@ -1776,10 +1776,48 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
 {{/* 选哪一份点阵字体：vonwaon（默认，公有领域）或 simsun12（宋体 12px 点阵提取） */}}
 {{ $pxFile := "vonwaon-12px.woff2" }}
 {{ $pxName := "VonwaonBitmap" }}
-{{ if eq (site.Params.pixelFontFile | default "vonwaon") "simsun12" }}
+{{ $useSimsun := eq (site.Params.pixelFontFile | default "vonwaon") "simsun12" }}
+{{ if $useSimsun }}
   {{ $pxFile = "simsun12-pixel.woff2" }}
   {{ $pxName = "SimSun12Pixel" }}
 {{ end }}
+
+{{ if $useSimsun }}
+/* ============================================================
+   宋体点阵：**分块 + unicode-range**
+   ------------------------------------------------------------
+   这份字体是全量的（28432 字形，整份约 690 KB）。整份一次性下发的话，
+   每次访问都要多花 690 KB —— 实测首页负载 2.17 MB 里有 690 KB 是它。
+
+   所以 tools/build-pixel-font.py 把它切成若干块：
+     块1（本文件名的那个）  站点现在用到的 2511 字，约 72 KB，head.html 会 preload
+     块2 起                其余的字按码位均分，每块约 165 KB
+   浏览器**只下载页面上真正出现的字所在的那几块**。正常访问只花块1；
+   哪天写了生僻字，才多下一块。
+
+   块定义在 data/pixel-font.toml，由那个脚本生成，不要手改。
+
+   ⚠️ 键名要用 `index hugo.Data "pixel-font"`：Hugo 对带连字符的文件名
+      **保留连字符**（`hugo.Data.pixel-font` 这种写法在模板里没法解析，
+      `hugo.Data.pixel_font` 也取不到 —— 实测两样都是 NIL）。
+   ============================================================ */
+{{ with index hugo.Data "pixel-font" }}{{ range .files }}
+@font-face {
+  font-family: '{{ $pxName }}';
+  src: url(../fonts/{{ .name }}) format('woff2');
+  unicode-range: {{ .range }};
+  font-display: swap;
+}
+{{ end }}{{ else }}
+/* 还没跑过 tools/build-pixel-font.py（没有 data/pixel-font.toml）：退回单文件。
+   单文件能用，只是每次访问都要多下约 690 KB。 */
+@font-face {
+  font-family: '{{ $pxName }}';
+  src: url(../fonts/{{ $pxFile }}) format('woff2');
+  font-display: swap;
+}
+{{ end }}
+{{ else }}
 @font-face {
   font-family: '{{ $pxName }}';
   /* 用相对路径而不是 absURL：CSS 发布在 /xxx/css/retro.css，
@@ -1789,6 +1827,7 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
   src: url(../fonts/{{ $pxFile }}) format('woff2');
   font-display: swap;
 }
+{{ end }}
 
 {{ if site.Params.pixelFontJa }}
 /* 日文假名单独走 MS Gothic 的点阵（从 msgothic.ttc 的 12ppem 点阵提取）。

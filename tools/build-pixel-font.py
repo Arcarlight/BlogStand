@@ -437,11 +437,21 @@ def main():
     else:
         want = {ord(c) for c in site_chars()} | {ord(c) for c in gb2312_chars(0)}
 
-    # 常用块 = 站点现在的字 ∪ 原字体已有的字 ∪ ASCII（模板里的数字和标点）
-    common = ({ord(c) for c in site_chars()} | base_cps | ASCII) & available
-    # 其余的字（要全量的话）
+    # 常用块（会 preload 的那一块）= 站点现在用到的字 ∪ ASCII（模板里的数字和标点）
+    #
+    # ⚠️ 这里**不能**再把「原字体已有的字」并进来。早期字体是手挑的子集（2339 字），
+    #    并进来是为了「以前有、但现在内容里没出现的字别丢」。可是现在字体已经是
+    #    **全量**（28000+ 字），base_cps 会把所有字都拉进常用块 ——
+    #    分块就完全失效：实测常用块 28431 字、其余 0 字，
+    #    结果每次访问都下载 690 KB 的整份字体（而分块方案本该只花 ~60 KB）。
+    #    那些「没在内容里出现」的字不会丢：它们全都在 rest 里，进后面的块，
+    #    只是改成按需下载。
+    common = ({ord(c) for c in site_chars()} | ASCII) & available
+    # 其余的字：全部留给后面的块，按码位均分，浏览器用到才下
     rest = (want - common) & available
-    # 站点文本里连宋体点阵都没有的字（只能靠别的字体兜底）
+    # 站点文本里「宋体点阵没有、现有字体也没有」的字：只能靠字体栈末尾的系统宋体兜底。
+    # （base_cps 要从这里减掉：否则会把 ASCII、标点这些「字体里明明有」的字
+    #   也报成补不了的，那份报告就没法看了。）
     uncovered = sorted({ord(c) for c in site_chars()} - available - base_cps)
 
     print("常用块：%d 字；其余：%d 字；宋体点阵里都没有、补不了的：%d 个 %s"
@@ -479,8 +489,10 @@ def main():
     print("全量字体：%d 字形" % base["maxp"].numGlyphs)
 
     # ---- 2) 常用块写回原文件名（preload 的就是它）
-    size = write_chunk(base, common, MAIN_WOFF)
-    print("  块1 %-28s %6.1f KB  %d 字" % (os.path.basename(MAIN_WOFF), size / 1024.0, len(common)))
+    # write_chunk 返回 (字节数, 实际覆盖的码位) —— unicode-range 要用**实际**那批，
+    # 不能按请求的字写（请求里可能有宋体点阵没有的字，写进去浏览器会误以为这块能渲染）。
+    size, common_actual = write_chunk(base, common, MAIN_WOFF)
+    print("  块1 %-28s %6.1f KB  %d 字" % (os.path.basename(MAIN_WOFF), size / 1024.0, len(common_actual)))
 
     # ---- 3) 其余按码位均分
     rest_sorted = sorted(rest)
@@ -493,11 +505,11 @@ def main():
         if not cps:
             continue
         name = "simsun12-pixel-%d.woff2" % (i + 2)
-        size = write_chunk(base, cps, os.path.join(FONT_DIR, name))
+        size, actual = write_chunk(base, cps, os.path.join(FONT_DIR, name))
         files.append(name)
-        ranges.append(to_unicode_range(cps))
+        ranges.append(to_unicode_range(sorted(actual)))
         print("  块%d %-28s %6.1f KB  %d 字  U+%X 起"
-              % (i + 2, name, size / 1024.0, len(cps), cps[0]))
+              % (i + 2, name, size / 1024.0, len(actual), min(actual)))
 
     # 清掉上一轮多出来的块
     keep = {os.path.basename(MAIN_WOFF)} | set(files)
@@ -516,7 +528,7 @@ def main():
         fh.write("#  第一块是站点现在用到的字，head.html 里 preload 的也是它。\n")
         fh.write("# ============================================================\n")
         fh.write('[[files]]\n  name = "%s"\n  range = "%s"\n\n'
-                 % (os.path.basename(MAIN_WOFF), to_unicode_range(common)))
+                 % (os.path.basename(MAIN_WOFF), to_unicode_range(sorted(common_actual))))
         for name, rng in zip(files, ranges):
             fh.write('[[files]]\n  name = "%s"\n  range = "%s"\n\n' % (name, rng))
     print("块定义已写入 %s（共 %d 块）" % (DATA_TOML, 1 + len(files)))
