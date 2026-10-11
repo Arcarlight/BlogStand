@@ -114,6 +114,15 @@
   {{ end }}
   {{ end }}
 
+  {{/* 跨文档视图过渡（「切页面不断歌」那套，见 retro.css 第 28 节）。
+       这条 meta 是**旧写法**：Chrome 126~136 只认它，不认 CSS 的
+       @view-transition。两条一起放，新版浏览器无所谓（CSS 那份优先、这里会被忽略），
+       旧版 Chrome 靠它生效。实测本机 Chrome 156 上 CSS at-rule 已解析成
+       CSSViewTransitionRule，两条都留着是向后兼容。 */}}
+  {{ if site.Params.seamlessNav }}
+  <meta name="view-transition" content="same-origin">
+  {{ end }}
+
   {{/* RSS / Atom 自动发现 */}}
   {{ range .AlternativeOutputFormats -}}
   <link rel="{{ .Rel }}" type="{{ .MediaType.Type }}" href="{{ .Permalink }}" title="{{ site.Title }}">
