@@ -168,12 +168,45 @@ function logAccess(line) {
 }
 try { fs.writeFileSync(ACCESS_LOG, `--- 编辑器启动 ${new Date().toISOString()} ---\n`); } catch { }
 
+/* ============================================================
+   本地 HTTP 探测：用 node:http，**不要用全局 fetch**
+   ------------------------------------------------------------
+   为什么专门写这个 —— Node v24.20.0 上编辑器会**启动几秒后直接崩**：
+       AssertionError [ERR_ASSERTION]: assert(!this.paused)
+           at Parser.finish (node:internal/deps/undici/undici:7388:9)
+           at Socket.onHttpSocketEnd (...)
+   罪魁是全局 fetch（底层 undici）在「本地回环、对方正常关闭连接」时
+   会撞上它自己的解析器断言 —— 而站里的探测（ping 端口、探 hugo server）
+   全是这种短连接。换成 node:http 的 request 就稳了，这条路走了十几年。
+
+   拿半天才找到：崩溃点在 undici 内部，堆栈里看不到任何一行自己的代码，
+   只有一个 `assert(!this.paused)`。以后再看到这个断言，先看有没有 fetch。
+   ============================================================ */
+function httpGet(url, timeoutMs) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    let req;
+    try {
+      req = http.get(url, (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (c) => { body += c; if (body.length > 65536) body = body.slice(0, 65536); });
+        res.on('end', () => finish({ status: res.statusCode, body }));
+        res.on('error', () => finish(null));
+      });
+    } catch { return finish(null); }
+    req.setTimeout(timeoutMs, () => { try { req.destroy(); } catch { } finish(null); });
+    req.on('error', () => finish(null));
+  });
+}
+
 /** 看看指定端口上跑的是不是我们自己 */
 async function pingExisting(port = PORT) {
+  const r = await httpGet(`http://127.0.0.1:${port}/api/ping`, 1500);
+  if (!r || r.status !== 200) return null;
   try {
-    const r = await fetch(`http://127.0.0.1:${port}/api/ping`, { signal: AbortSignal.timeout(1500) });
-    if (!r.ok) return null;
-    const j = await r.json();
+    const j = JSON.parse(r.body);
     return j && j.app === 'hoshi-editor' ? j : null;
   } catch { return null; }
 }
@@ -189,10 +222,8 @@ let hugoUrl = `http://127.0.0.1:${HUGO_PORT}/`;
 const tail = (s, n = 4000) => (s.length > n ? '…' + s.slice(-n) : s);
 
 async function probe(url) {
-  try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(2000) });
-    return r.status;
-  } catch { return 0; }
+  const r = await httpGet(url, 2000);
+  return r ? r.status : 0;
 }
 
 async function hugoAlive(url = hugoUrl) {
@@ -1209,6 +1240,47 @@ function runThumbScript(srcRel, dstRel) {
   }
 }
 
+/* 上传时压缩图片：调用 tools/compress-image.py。
+   ------------------------------------------------------------
+   站长反馈「每次都要麻烦你帮我优化，太麻烦了」—— 根因是**上传这一环没有任何压缩**，
+   一张 1917x1325 的 PNG（1.1 MB）原样进 static/images/，读者也原样下载 1.1 MB。
+   所以把压缩放到上传路径上，所有入口（正文插图、画廊、拖拽）一次覆盖。
+
+   脚本只做一件事：**尺寸超过上限就缩到上限**，保持原格式。
+   （为什么不顺手转 webp：画廊缩略图命名是按原文件名推的，而且 gallery.html
+     对 .webp 项直接跳过缩略图生成 —— 改扩展名会把已经修好的问题踩回去。
+     为什么不搞调色板量化：那是每次上传都自动跑的有损操作，照片会明显劣化。）
+
+   压不小 / 不该压（webp、gif、尺寸没超）时脚本自己返回 changed:false，
+   这里就原样用上传的字节。失败也**只记录不抛错** —— 压缩是优化，不该拦住上传。 */
+function compressUpload(buf, ext) {
+  const script = path.join(ROOT, 'tools', 'compress-image.py');
+  const tmpDir = path.join(ROOT, '.editor', 'tmp');
+  const stamp = crypto.randomBytes(6).toString('hex');
+  const src = path.join(tmpDir, `up-${stamp}${ext || '.png'}`);
+  const dst = path.join(tmpDir, `up-${stamp}-out${ext || '.png'}`);
+  try {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    fs.writeFileSync(src, buf);
+    const r = execFileSync(PYTHON, [script, src, dst],
+      { encoding: 'utf8', cwd: ROOT, windowsHide: true, timeout: 120000,
+        env: { ...process.env, PYTHONUTF8: '1' } });
+    const info = JSON.parse(String(r).trim());
+    if (info && info.ok && info.changed && fs.existsSync(dst)) {
+      return { buf: fs.readFileSync(dst), info };
+    }
+    return { buf, info: info || {} };
+  } catch (e) {
+    const raw = String((e.stdout || e.stderr || e.message || '')).trim();
+    let detail = raw;
+    try { detail = JSON.parse(raw).error || raw; } catch { /* 原样 */ }
+    return { buf, info: { ok: false, error: String(detail).slice(0, 200) } };
+  } finally {
+    for (const f of [src, dst]) { try { fs.unlinkSync(f); } catch { /* 没就没 */ } }
+  }
+}
+
+/* 缩略图统一放 static/images/gallery/thumbs/，文件名里的 / 换成 __。
 /* 缩略图统一放 static/images/gallery/thumbs/，文件名里的 / 换成 __。
    为什么不跟原图放一起：画廊可以直接引用站上任意已有图片，缩略图要是放在
    原图旁边，static/images/ 那 110 个文件里会被掺进一堆 .webp（而且以后每加
@@ -2398,6 +2470,16 @@ async function handle(req, res, url) {
     }
     await fsp.mkdir(safePath(dir), { recursive: true });
 
+    /* 先压缩（尺寸超上限就缩到上限），再做去重命名 —— 顺序很重要：
+       buf.length 要反映**真正落盘**的大小，否则面板上显示的体积是错的。 */
+    const uploadExt = clean.slice(clean.lastIndexOf('.')).toLowerCase();
+    const comp = compressUpload(buf, uploadExt);
+    let bufOut = comp.buf;
+    // 压完更大就保底用上传的原始字节（脚本正常情况下自己会返回 changed:false，
+    // 这里再兜一道，免得任何情况下把图搞坏）
+    if (bufOut.length >= buf.length) bufOut = buf;
+    const cInfo = comp.info || {};
+
     // 重名就加序号
     const dot = clean.lastIndexOf('.');
     const stem = clean.slice(0, dot), ext = clean.slice(dot);
@@ -2405,10 +2487,18 @@ async function handle(req, res, url) {
     while (await fsp.stat(safePath(`${dir}/${final}`)).catch(() => null)) {
       final = `${stem}-${n++}${ext}`;
     }
-    await fsp.writeFile(safePath(`${dir}/${final}`), buf);
+    await fsp.writeFile(safePath(`${dir}/${final}`), bufOut);
 
     const rel = `${dir}/${final}`;
-    const out = { ok: true, url: '/' + rel.replace(/^static\//, ''), rel, bytes: buf.length };
+    const out = {
+      ok: true, url: '/' + rel.replace(/^static\//, ''), rel, bytes: bufOut.length,
+      origBytes: buf.length,
+      compressed: bufOut.length < buf.length,
+      // 给面板用：省了多少、缩到多大
+      savePct: buf.length ? Math.round(100 * (1 - bufOut.length / buf.length)) : 0,
+      from: cInfo.from, to: cInfo.to, pixel: cInfo.pixel,
+      compressNote: cInfo.reason || cInfo.error || '',
+    };
 
     // 画廊那种大图：顺手压一张缩略图（统一放 gallery/thumbs/）
     if (wantThumb !== false && dir !== 'static/images') {
