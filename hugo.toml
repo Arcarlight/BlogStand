@@ -139,6 +139,18 @@ timeZone = "Asia/Shanghai"
   # 关掉即恢复成系统 emoji 字体。
   emojiFont = true
 
+  # ---- 符号缺口字体（fusion-gap-symbols.woff2，16 KB）----
+  # 宋体 12px 点阵里**根本没有** ⇆ ↻ © » ½ ⚙ ♡ ✓ 这些字形，
+  # 它们会回退到系统宋体 —— 字形是对的，但边缘不点阵，
+  # 混在一行汉字里一眼就能看出来（2026-10-11 发现）。
+  # 「从宋体提取」补不出来（源里就没有），所以另找一份：
+  # 缝合像素字体 / Fusion Pixel Font（TakWolf，SIL OFL 1.1，12 像素格）。
+  # 由 tools/build-gap-font.py 切出，**只含符号**（790 个码位、约 16 KB）：
+  # 刻意不含汉字（我们自己那份更强）、韩文、CJK 扩展B。
+  # 带 unicode-range，不用这些符号的页面不会下载它。
+  # 关掉即这些符号退回系统字体（旧行为）。
+  pixelGapFont = true
+
   # ---- 更新日志（侧栏挂件 + 首页列表）----
   # 内容 = 自动（按 git 提交日期取最近更新的页面）+ 手动（data/updates.toml，
   # 在编辑器左侧的「更新日志」面板里加）。

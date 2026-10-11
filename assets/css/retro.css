@@ -1908,11 +1908,16 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
    text-shadow 一并清掉：带模糊的描边会把点阵边缘糊成灰的。 */
 html.pxfont body,
 html.pxfont body * {
-  /* 字体栈：假名 -> 宋体 -> 系统宋体（兜底）。最后那个是安全网：
-     两份点阵都缺的字（比如 ゔゕゖ 这 14 个假名，MS Gothic 的 12px 点阵里
-     根本没有）会落到系统宋体上 —— 字形正确，只是边缘不点阵，
-     总比掉到 monospace 变成完全不同的字体好。 */
-  font-family: {{ if site.Params.pixelFontJa }}'MSGothic12JPPixel', {{ end }}'{{ $pxName }}', {{ if site.Params.emojiFont }}'Mona12Emoji', {{ end }}SimSun, "宋体", monospace !important;
+  /* 字体栈：假名 -> 宋体 -> emoji -> 符号缺口 -> 系统宋体（兜底）。
+     最后那个是安全网：前面几份都缺的字（比如 ゔゕゖ 这 14 个假名，
+     MS Gothic 的 12px 点阵里根本没有）会落到系统宋体上 ——
+     字形正确，只是边缘不点阵，总比掉到 monospace 变成完全不同的字体好。
+
+     顺序很关键：**缺口字体排在宋体后面**。它的 unicode-range 已经把
+     「现有字体已覆盖的码位」全排除了（见 tools/build-gap-font.py），
+     与前面几份不重叠；这个顺序是再加一道保险 ——
+     将来宋体补了某个符号，它会先命中，缺口字体不会抢。 */
+  font-family: {{ if site.Params.pixelFontJa }}'MSGothic12JPPixel', {{ end }}'{{ $pxName }}', {{ if site.Params.emojiFont }}'Mona12Emoji', {{ end }}{{ if site.Params.pixelGapFont }}{{ with index hugo.Data "pixel-gap-font" }}'{{ .family }}', {{ end }}{{ end }}SimSun, "宋体", monospace !important;
   font-weight: normal !important;
   font-size: var(--px, 16px) !important;
   text-shadow: none !important;
@@ -2032,6 +2037,51 @@ html.pxfont .entry-content { line-height: 1.55; }
   line-gap-override: 0%;
   font-display: swap;
 }
+{{ end }}
+
+{{ if site.Params.pixelGapFont }}
+/* ============================================================
+   26b. 符号缺口字体（hugo.toml: pixelGapFont）
+   ------------------------------------------------------------
+   问题：宋体 12px 点阵里**根本没有** ⇆ ↻ © » ½ ⚙ ♡ ✓ 这些字形，
+   它们会回退到字体栈末尾的系统宋体 —— 字形对，但边缘不点阵，
+   混在同一行里一眼就能看出来（站长 2026-10-11 发现的就是这个）。
+
+   「从宋体提取」的任何方案都补不出来（源里就没有），所以另找一份：
+   缝合像素字体 / Fusion Pixel Font（TakWolf，SIL OFL 1.1），
+   12 像素格的泛中日韩点阵，Arrows 112/112、Latin-1 95/95、
+   Geometric Shapes 96/96 全都有。
+
+   ⚠️ 这里**只切符号**，刻意不含汉字、韩文、CJK 扩展B：
+      汉字那块我们自己更强（基本区 20902 字 vs 它的 19219；
+      扩展A 6582 vs 1481），韩文和扩展B 又完全用不上。
+      全切进去要多 250 KB，实际一次都用不到。
+
+   由 tools/build-gap-font.py 生成（790 个码位，约 16 KB），
+   范围写在 data/pixel-gap-font.toml 里 —— 那个脚本会把
+   「现有字体已经覆盖的码位」全部排除，所以不会抢走宋体/日文/emoji 的字。
+
+   度量按宋体对齐（同第 26 节的做法）：Fusion 自己的 hhea 是
+   1300 / -300（em = 1200，比宋体那份高），不覆盖的话一行里有符号就可能行高跳。
+   实测：正文 line-height 1.65 > 1.3333，行盒由 line-height 决定，
+   所以正文行高本来就不受影响；这里再对齐一道，
+   免得 .mp-btn（line-height:1）那类地方出偏差。
+   ⚠️ 键名是 `pixel-gap-font`（**连字符保留**）—— Hugo 对带连字符的文件名
+      不改写成下划线，写 `pixel_gap_font` 会取到 NIL、@font-face 静默不生成。
+      （同 26b 那节里 `pixel-font` 的坑，实测确认过。）
+   ============================================================ */
+{{ with index hugo.Data "pixel-gap-font" }}
+@font-face {
+  font-family: '{{ .family }}';
+  /* 相对路径，理由同其它点阵字体：localhost / 127.0.0.1 互换访问时不跨域 */
+  src: url(../fonts/{{ .file }}) format('woff2');
+  unicode-range: {{ .range }};
+  ascent-override: 83.3333%;
+  descent-override: 16.6667%;
+  line-gap-override: 0%;
+  font-display: swap;
+}
+{{ end }}
 {{ end }}
 
 /* ============================================================
