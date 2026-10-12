@@ -28,6 +28,12 @@
   button{
     font:inherit;padding:5px 12px;border:1px solid var(--line);border-radius:4px;background:#fff;
     color:var(--ink);cursor:pointer;
+    /* 一排按钮里，带图标的那颗会比纯文字的矮 3px 左右 —— 因为 <img> 会参与
+       inline-block 的基线计算，把按钮自己的基线顶下去，于是它整体上移。
+       实测（2026-10-12，「+ 加一条更新」和「保存」并排）：两颗高度都是 32.8px，
+       顶边却差 3.3px。**改 img 的 vertical-align 没用**，得改按钮自己的：
+       middle 之后顶边差 0。 */
+    vertical-align:middle;
   }
   button:hover{background:#f0f6ff}
   button:disabled{opacity:.5;cursor:default}
@@ -119,6 +125,37 @@
      选中的那一行由上面的 `.row.active .ico{opacity:1}` 恢复全不透明。 */
   .row[data-file] .ico{width:15px;height:15px;opacity:.78}
   .grpbody[hidden]{display:none}
+  /* 表格里那些小按钮（上移 / 下移 / 删掉）里的图标：收一档，
+     免得 16px 的图标把表格行高顶起来（原来那三个字形「↑ ↓ ×」大约也是 13px）。 */
+  table.grid button .ico{width:13px;height:13px}
+
+  /* ---------- 侧栏顶上的「新建页面」：拟物化按钮 ----------
+     站长：「侧边工具栏最顶上的新建页面没有做成拟物化按钮的样子」。
+     它原来是 .row.create —— 和列表行走同一套样式（只是字是蓝的），所以看着不像按钮。
+     现在给它自己的**凸起面容**（和折叠条、工具栏按钮同一套配方：上亮下暗的渐变
+     + 顶沿内白高光 + 一圈内描边 + 底部内暗影 + 近投影），按下时凹下去 ——
+     一眼就是「一条可以按的东西」。
+     ⚠️ 不碰 padding / margin —— `.row` 的盒模型一个字都不能改（见上面那条警告），
+        立体感全靠 background / box-shadow / 圆角。 */
+  .row.create{
+    color:var(--accent);
+    background:linear-gradient(180deg, #ffffff 0%, #f2f8ff 45%, #e2eefb 46%, #d3e4f7 100%);
+    box-shadow:
+      inset 0 1px 0 #ffffff,                     /* 顶沿高光 */
+      inset 0 0 0 1px rgba(140,175,215,.75),     /* 一圈内描边（代替 border，不占位） */
+      inset 0 -2px 2px rgba(46,78,116,.10),      /* 底部内暗影：厚度 */
+      0 1px 2px rgba(6,24,48,.10);               /* 近投影：抬离底色 */
+  }
+  .row.create:hover{
+    color:#124a86;
+    background:linear-gradient(180deg, #ffffff 0%, #f7fbff 45%, #e9f3ff 46%, #d9e9fb 100%);
+  }
+  .row.create:active{
+    box-shadow:
+      inset 0 2px 4px rgba(46,78,116,.20),
+      inset 0 0 0 1px rgba(140,175,215,.85),
+      inset 0 -1px 0 rgba(255,255,255,.85);
+  }
   .row{
     display:flex;align-items:center;gap:6px;padding:4px 12px 4px 18px;cursor:pointer;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -140,7 +177,7 @@
   .galpick-cell span{width:100%;overflow:hidden;font-size:11px;color:var(--dim);white-space:nowrap;text-overflow:ellipsis;text-align:center}
   .galpick-cell:hover{border-color:var(--accent)}
   .galpick-cell.on{border-color:var(--accent);box-shadow:0 0 0 2px #cfe4fb;background:#f2f8ff}
-  .galpick-cell.on::after{content:"✓";position:absolute;margin:-4px 0 0 84px;color:#1a7f37;font-weight:bold}
+  .galpick-cell.on::after{content:"";position:absolute;margin:-4px 0 0 84px;width:14px;height:14px;background:url(/editor-icons/fugue/tick.png) center/14px no-repeat}
   /* 已经在画廊里的图：灰一点 + 一个「已导入」角标，一眼能扫出来 */
   .galpick-cell.added{background:#f4f6f8;border-style:dashed}
   .galpick-cell.added img{opacity:.45}
@@ -204,6 +241,12 @@
   table.grid td{border:1px solid var(--line);padding:3px 5px}
   table.grid input{width:100%;font:inherit;font-size:12px;border:1px solid transparent;background:transparent;padding:3px 5px;border-radius:3px}
   table.grid input:focus{border-color:var(--accent);background:#fff;outline:0}
+  /* 表格里的**复选框**要单独收回来：上面那条 `table.grid input{width:100%}` 会把
+     它拉成一整条，配上自己画的蓝底就成了一根又宽又扁的「压扁的勾」
+     （站长截图反馈：「文集里的打钩按钮被压扁了」）。
+     尺寸和 .field 里的复选框对齐（16px），这样 :checked::after 那个勾的
+     定位（left:4px/top:1px/4×8）也是现成对的。 */
+  table.grid input[type=checkbox]{width:16px;height:16px;padding:0;vertical-align:middle}
   .swatch{width:34px;height:24px;border:1px solid var(--line);border-radius:3px;padding:0;vertical-align:middle}
 
   /* ---------- 脚本卡 ---------- */
@@ -831,7 +874,7 @@
   <span id="dirtyFlag" class="dirty" hidden>未保存</span>
   <span class="spacer"></span>
   <button class="ghost" id="btnNewTop" title="新建日记 / 博客 / 单页"><img class="ico" src="/editor-icons/fugue/plus.png" alt="">新建页面</button>
-  <button class="ghost" id="btnPreview" title="打开 / 收起右侧预览"><img class="ico" src="/editor-icons/fugue/eye.png" alt=""><span id="btnPreviewText">预览 ▸</span></button>
+  <button class="ghost" id="btnPreview" title="打开 / 收起右侧预览"><img class="ico" src="/editor-icons/fugue/eye.png" alt=""><span id="btnPreviewText">预览</span><img class="ico" id="btnPreviewArrow" src="/editor-icons/fugue/arrow-000-small.png" alt=""></button>
   <button class="ghost" id="btnLive" title="在浏览器里打开线上站"><img class="ico" src="/editor-icons/fugue/external.png" alt="">打开线上站</button>
   <button class="ghost" id="btnBuild" title="本地构建一遍，检查有没有报错"><img class="ico" src="/editor-icons/fugue/tick.png" alt="">构建检查</button>
   <button class="ghost" id="btnSync" title="从线上（GitHub）拉取改动 —— 换一台电脑编辑时先点这个"><img class="ico" src="/editor-icons/fugue/arrow-repeat.png" alt="">拉取线上</button>
@@ -850,8 +893,8 @@
     <!-- 编辑器自身有新版本时的提示条（pull 到新代码但没重启 / 页面没刷新） -->
     <div id="staleBar" hidden>
       <span id="staleText"></span>
-      <button id="btnStaleAct" class="primary">刷新页面</button>
-      <button id="btnStaleClose" class="ghost" title="先不管">×</button>
+      <button id="btnStaleAct" class="primary"><img class="ico" src="/editor-icons/fugue/arrow-repeat.png" alt="" draggable="false">刷新页面</button>
+      <button id="btnStaleClose" class="ghost" title="先不管"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button>
     </div>
     <div id="toolbar">
       <span id="curPath">← 从左边选一个文件</span>
@@ -879,7 +922,7 @@
       <button id="btnInsertDay" title="插入某一天的锚点段落" hidden><img class="ico" src="/editor-icons/fugue/calendar.png" alt="">插入日期</button>
       <button id="btnToggleDraft" hidden><img class="ico" src="/editor-icons/fugue/pin.png" alt=""><span id="btnDraftText">设为草稿</span></button>
       <button id="btnSave" class="primary" disabled title="Ctrl+S"><img class="ico" src="/editor-icons/fugue/disk.png" alt="">保存</button>
-      <button id="btnDelete" class="danger" disabled><img class="ico" src="/editor-icons/fugue/bin.png" alt="">删除</button>
+      <button id="btnDelete" class="danger" disabled><img class="ico" src="/editor-icons/fugue/cross.png" alt="">删除</button>
       <input type="file" id="filePicker" accept="image/*" multiple hidden>
     </div>
     <div id="panes">
@@ -902,8 +945,8 @@
     <h3 id="mTitle">标题</h3>
     <div id="mBody"></div>
     <div class="mfoot">
-      <button id="mCancel">取消</button>
-      <button id="mOk" class="primary">确定</button>
+      <button id="mCancel"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false">取消</button>
+      <button id="mOk" class="primary"><img class="ico" src="/editor-icons/fugue/tick.png" alt="" draggable="false">确定</button>
     </div>
   </div>
 </div>
@@ -1328,7 +1371,8 @@ function refreshPreview() {
 $('#btnPreview').addEventListener('click', async () => {
   // 注意：这里不再摘掉 panel 类 —— 面板和预览可以同时开着。
   const on = document.body.classList.toggle('preview');
-  $('#btnPreviewText').textContent = on ? '预览 ▾' : '预览 ▸';
+  $('#btnPreviewText').textContent = '预览';
+  $('#btnPreviewArrow').src = '/editor-icons/fugue/' + (on ? 'arrow-270-small' : 'arrow-000-small') + '.png';
   if (!on) { $('#preview').src = 'about:blank'; return; }
   if ($('#preview').src && $('#preview').src !== 'about:blank') {
     // 已经开着预览窗口（比如刚点是开着面板的）-> 只是重新显示，顺手刷一下
@@ -1501,7 +1545,7 @@ async function renderNav() {
     新开一个月也一样 —— 建好日记页，导航页会自动多出那一块。
   </div>`;
   if (!d.diaries.length) {
-    h += '<p class="hint">还没有日记。先去「➕ 新建页面」建一篇。</p>';
+    h += '<p class="hint">还没有日记。先去「<img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false">新建页面」建一篇。</p>';
     return showPanel(h);
   }
   h += '<table class="grid"><thead><tr><th style="width:130px">月份</th><th>日历里能点的日子</th><th style="width:180px">导航页</th></tr></thead><tbody>';
@@ -1557,18 +1601,18 @@ async function renderNavbar() {
       // 现在指向的地址不在候选里就补一条，免得保存时被悄悄改掉
       if (cur && !pages.some((p) => p[0] === cur)) opts += `<option value="${esc(cur)}" selected>${esc(cur)}（自定义）</option>`;
       h += `<tr>
-        <td style="text-align:center;color:#9bb4cc">☰</td>
+        <td style="text-align:center;color:#9bb4cc"><img class="ico" src="/editor-icons/fugue/arrow-move.png" alt="" draggable="false"></td>
         <td><input data-f="name" data-i="${i}" value="${esc(it.name || '')}" placeholder="显示的文字"></td>
         <td><select data-f="pageRef" data-i="${i}">${opts}</select></td>
         <td style="text-align:center;white-space:nowrap">
-          <button data-up="${i}" title="上移" ${i === 0 ? 'disabled' : ''}>↑</button>
-          <button data-down="${i}" title="下移" ${i === items.length - 1 ? 'disabled' : ''}>↓</button>
-          <button class="danger" data-del="${i}" title="删掉这一项">×</button>
+          <button data-up="${i}" title="上移" ${i === 0 ? 'disabled' : ''}><img class="ico" src="/editor-icons/fugue/arrow-090-small.png" alt="" draggable="false"></button>
+          <button data-down="${i}" title="下移" ${i === items.length - 1 ? 'disabled' : ''}><img class="ico" src="/editor-icons/fugue/arrow-270-small.png" alt="" draggable="false"></button>
+          <button class="danger" data-del="${i}" title="删掉这一项"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button>
         </td></tr>`;
     });
     h += '</tbody></table>';
     if (!items.length) h += '<p class="hint">还没有导航项。加一个吧。</p>';
-    h += '<button id="btnAddNav">＋ 加一项</button> <button class="primary" id="btnSaveNav">保存</button>';
+    h += '<button id="btnAddNav"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一项</button> <button class="primary" id="btnSaveNav">保存</button>';
     showPanel(h);
 
     const collect = () => {
@@ -1636,7 +1680,7 @@ async function renderSettings() {
         ${it.comment ? `<span class="cmt">${esc(it.comment)}</span>` : ''}</div>`;
     }
   }
-  h += '</form><div style="margin-top:16px"><button class="primary" id="btnSaveSettings">保存设置</button></div>';
+  h += '</form><div style="margin-top:16px"><button class="primary" id="btnSaveSettings"><img class="ico" src="/editor-icons/fugue/disk.png" alt="" draggable="false">保存设置</button></div>';
   showPanel(h);
 
   $('#btnSaveSettings').addEventListener('click', async () => {
@@ -1663,10 +1707,10 @@ async function renderLinks() {
       <td><input data-f="name" data-i="${i}" value="${esc(it.name || '')}"></td>
       <td><input data-f="url"  data-i="${i}" value="${esc(it.url || '')}"></td>
       <td><input data-f="desc" data-i="${i}" value="${esc(it.desc || '')}"></td>
-      <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+      <td style="text-align:center"><button class="danger" data-del="${i}"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td></tr>`;
   });
   h += '</tbody></table>';
-  h += '<button id="btnAddLink">＋ 加一条</button> <button class="primary" id="btnSaveLinks">保存</button>';
+  h += '<button id="btnAddLink"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一条</button> <button class="primary" id="btnSaveLinks">保存</button>';
   showPanel(h);
 
   let items = d.items.map((x) => Object.assign({}, x));
@@ -1703,10 +1747,10 @@ async function renderLinksFrom(items) {
       <td><input data-f="name" data-i="${i}" value="${esc(it.name || '')}"></td>
       <td><input data-f="url"  data-i="${i}" value="${esc(it.url || '')}"></td>
       <td><input data-f="desc" data-i="${i}" value="${esc(it.desc || '')}"></td>
-      <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+      <td style="text-align:center"><button class="danger" data-del="${i}"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td></tr>`;
   });
   h += '</tbody></table>';
-  h += '<button id="btnAddLink">＋ 加一条</button> <button class="primary" id="btnSaveLinks">保存</button>';
+  h += '<button id="btnAddLink"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一条</button> <button class="primary" id="btnSaveLinks">保存</button>';
   showPanel(h);
   const collect = () => {
     document.querySelectorAll('#tbLinks input[data-f]').forEach((el) => {
@@ -1740,9 +1784,9 @@ async function renderButtons() {
         <td><input type="color" class="swatch" data-f="fg" data-i="${i}" value="${esc(it.fg || '#ffffff')}"></td>
         <td><span style="display:inline-flex;flex-direction:column;justify-content:center;align-items:center;width:88px;height:31px;border:1px solid #999;background:${esc(it.bg||'#1b5a9e')};color:${esc(it.fg||'#fff')};font-size:8px;line-height:1.1;overflow:hidden">
           <b style="font-size:9px">${esc(it.line1||'')}</b>${esc(it.line2||'')}</span></td>
-        <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+        <td style="text-align:center"><button class="danger" data-del="${i}"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td></tr>`;
     });
-    h += '</tbody></table><button id="btnAddBtn">＋ 加一个</button> <button class="primary" id="btnSaveBtns">保存</button>';
+    h += '</tbody></table><button id="btnAddBtn"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一个</button> <button class="primary" id="btnSaveBtns">保存</button>';
     showPanel(h);
 
     const collect = () => {
@@ -1790,11 +1834,11 @@ async function renderUpdates() {
         <td><input type="date" data-f="date" data-i="${i}" value="${esc(it.date || '')}"></td>
         <td><input data-f="title" data-i="${i}" value="${esc(it.title || '')}" placeholder="比如：换了新的点阵字体"></td>
         <td><input data-f="url" data-i="${i}" value="${esc(it.url || '')}" placeholder="/blog/xxx/ 或留空"></td>
-        <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+        <td style="text-align:center"><button class="danger" data-del="${i}"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td></tr>`;
     });
     h += '</tbody></table>';
     if (!items.length) h += '<p class="hint">还没有手动通报。不加也没关系，侧栏那块已经在收自动的最近更新。</p>';
-    h += '<button id="btnAddUpd">＋ 加一条通报</button> <button class="primary" id="btnSaveUpd">保存</button>';
+    h += '<button id="btnAddUpd"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一条通报</button> <button class="primary" id="btnSaveUpd">保存</button>';
     showPanel(h);
 
     const collect = () => {
@@ -1852,13 +1896,13 @@ async function renderChangelog() {
         <td style="text-align:center;white-space:nowrap">
           <button data-ind="${i}" style="padding:1px 6px"
             title="${it.indent ? '改回并列（不缩进）' : '缩进成上一条的子条目'}">${it.indent ? '子条目' : '并列'}</button>
-          <button class="danger" data-del="${i}">×</button>
+          <button class="danger" data-del="${i}"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button>
         </td></tr>`;
     });
     h += '</tbody></table>';
     if (!items.length) h += '<p class="hint">还没有记录。第一条通常是「创建了这个网站」。</p>';
     h += `<p class="hint">共 ${items.length} 条，跨 ${new Set(items.map((x) => String(x.date || '').slice(0, 4))).size} 个年份。</p>`;
-    h += '<button id="btnAddChg">＋ 加一条更新</button> ' +
+    h += '<button id="btnAddChg"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一条更新</button> ' +
          '<button class="primary" id="btnSaveChg">保存</button>';
     showPanel(h);
 
@@ -1914,11 +1958,11 @@ async function renderNotices() {
         <td><input type="date" data-f="date" data-i="${i}" value="${esc(it.date || '')}"></td>
         <td><input data-f="text" data-i="${i}" value="${esc(it.text || '')}" placeholder="比如：本站刚搬完家，样式还在微调"></td>
         <td><input data-f="url"  data-i="${i}" value="${esc(it.url || '')}" placeholder="/blog/xxx/ 或留空"></td>
-        <td style="text-align:center"><button class="danger" data-del="${i}">×</button></td></tr>`;
+        <td style="text-align:center"><button class="danger" data-del="${i}"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td></tr>`;
     });
     h += '</tbody></table>';
     if (!items.length) h += '<p class="hint">还没有公告。没有公告时，侧栏那块不会显示出来。</p>';
-    h += '<button id="btnAddNotice">＋ 加一条公告</button> <button class="primary" id="btnSaveNotices">保存</button>';
+    h += '<button id="btnAddNotice"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一条公告</button> <button class="primary" id="btnSaveNotices">保存</button>';
     showPanel(h);
 
     const collect = () => {
@@ -2099,7 +2143,7 @@ async function renderDiancie() {
       + '<span class="cmt">hugo.toml 的 diancieHeard</span></div>';
     h += '<p class="hint">关掉后侧栏那整块就不显示了。第一次打开时，编辑器会在 <code>hugo.toml</code> 的 ' +
       '<code>[params]</code> 末尾补上一行 <code>diancieHeard = true</code>（「站点设置」面板补新键也是这么做的）。</p>';
-    h += '<div style="margin-bottom:6px"><button class="primary" id="btnSaveDiancieSw">保存开关</button></div>';
+    h += '<div style="margin-bottom:6px"><button class="primary" id="btnSaveDiancieSw"><img class="ico" src="/editor-icons/fugue/disk.png" alt="" draggable="false">保存开关</button></div>';
 
     /* 16 张脸一次摆出来（每个名字配中文）：站长原来的抱怨就是「看不出选的是哪张」，
        这里让他先认脸，再到下拉框里挑。 */
@@ -2128,7 +2172,7 @@ async function renderDiancie() {
           + '<td><select class="dc-sel" data-f="emotion" data-kind="' + kind + '" data-i="' + i + '">'
           + emotionOptions(it.emotion) + '</select></td>'
           + '<td class="dc-preview" data-auto="' + kind + '" data-i="' + i + '">' + previewHtml(it) + '</td>'
-          + '<td style="text-align:center"><button class="danger" data-del="' + i + '" data-kind="' + kind + '">×</button></td>'
+          + '<td style="text-align:center"><button class="danger" data-del="' + i + '" data-kind="' + kind + '"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td>'
           + '</tr>';
       });
       h += '</tbody></table>';
@@ -2136,7 +2180,7 @@ async function renderDiancie() {
         h += '<p class="hint">这一类还没有话。点下面的「＋ 加一条」写第一句 —— ' +
           '三类都是空的时候，侧栏那块挂件会说「我还没听到什么」。</p>';
       }
-      h += '<button data-add="' + kind + '">＋ 加一条</button></div>';
+      h += '<button data-add="' + kind + '"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一条</button></div>';
     }
 
     h += '<div style="margin-top:16px">'
@@ -2254,7 +2298,7 @@ async function renderGallery() {
   html += '<div class="note">' +
           '<b>上传新图</b>：选文件即可，自动存进 <code>static/images/gallery/</code> 并压一张缩略图（首屏只背几十 KB，点开才加载原图）。<br>' +
           '<b>引用已有的图</b>：站上 <code>static/images/</code> 里已经有的图不用再传一份，点「选已有图」挑就行。<br>' +
-          '<b>按住左侧 ≡ 拖动</b>就是站内展示顺序（同一分类内：封面最前，其余按创作日期从新到旧）。<br>' +
+          '<b>按住左侧的把手拖动</b>就是站内展示顺序（同一分类内：封面最前，其余按创作日期从新到旧）。<br>' +
           '标题和创作日期是页面上显示的那两行；日期留空也行。</div>';
 
   html += '<table class="grid" id="galTable"><thead><tr>' +
@@ -2267,7 +2311,7 @@ async function renderGallery() {
   html += '<div style="margin-top:6px">' +
           '<button id="btnGalUpload">' + ico('upload') + ' 上传新图</button> ' +
           '<button id="btnGalPick">' + ico('grid') + ' 选已有图</button> ' +
-          '<button id="btnGalAdd">＋ 手动加一条</button> ' +
+          '<button id="btnGalAdd"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 手动加一条</button> ' +
           '<button class="primary" id="btnGalSave">' + ico('save') + ' 保存</button>' +
           '</div>';
   html += '<input type="file" id="galFile" accept="image/*" multiple hidden>';
@@ -2276,7 +2320,7 @@ async function renderGallery() {
   html += '<p class="hint">分类就是页面上的小节标题。<b>id 是页内锚点</b>（首字母不能乱改，改了旧链接会失效），' +
           'name 是显示名，desc 是标题下面那行灰字。</p>';
   html += '<div id="galSections"></div>';
-  html += '<div style="margin-top:6px"><button id="btnGalAddSec">＋ 加一个分类</button></div>';
+  html += '<div style="margin-top:6px"><button id="btnGalAddSec"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一个分类</button></div>';
 
   showPanel(html);
 
@@ -2334,7 +2378,7 @@ async function renderGallery() {
 
       const td0 = document.createElement('td');
       td0.style.textAlign = 'center';
-      td0.innerHTML = '<span class="handle" style="cursor:grab">≡</span>';
+      td0.innerHTML = '<span class="handle" style="cursor:grab"><img class="ico" src="/editor-icons/fugue/arrow-move.png" alt="" draggable="false"></span>';
 
       const td1 = document.createElement('td');
       const img = document.createElement('img');
@@ -2579,8 +2623,8 @@ async function pickExistingImages(opts) {
          ? '带 <b>已导入</b> 标记的是画廊里已经有的。'
          : '') + '</p>';
   h += '<p><input id="galPickSearch" placeholder="按文件名筛…" style="font:inherit;padding:4px 7px;border:1px solid var(--line);border-radius:4px;width:260px"> ' +
-       '<button id="galPickInsert" class="primary">插入选中的</button> ' +
-       '<button id="galPickBack">返回</button> ' +
+       '<button id="galPickInsert" class="primary"><img class="ico" src="/editor-icons/fugue/tick.png" alt="" draggable="false">插入选中的</button> ' +
+       '<button id="galPickBack"><img class="ico" src="/editor-icons/fugue/arrow-180-small.png" alt="" draggable="false">返回</button> ' +
        '<span class="cmt" id="galPickInfo"></span></p>';
   h += '<div id="galPickGrid" class="galpick"></div>';
   showPanel(h);
@@ -2679,7 +2723,7 @@ async function renderMusic() {
     let h = '<h2 class="sec">音乐</h2>';
     h += '<p class="hint">侧栏最上面那条播放器。曲目对应 <code>data/music.toml</code>，' +
          '音频放在 <code>static/music/</code>。</p>';
-    h += '<div class="note"><b>按住左侧 ≡ 拖动</b>就是播放顺序，松手即保存，不用另点保存按钮。<br>' +
+    h += '<div class="note"><b>按住左侧的把手拖动</b>就是播放顺序，松手即保存，不用另点保存按钮。<br>' +
          '「上传音频」会把文件直接存进 <code>static/music/</code> 并自动加一条曲目 —— ' +
          '这是最省事的做法；已经手动拷进去的，把<b>文件名</b>（不带目录）填进第一列也行。<br>' +
          '也可以用外链：第一列直接写完整的 <code>https://</code> 地址。<br>' +
@@ -2693,7 +2737,7 @@ async function renderMusic() {
     h += '<div id="musicRows"></div>';
     h += '<p id="musicEmpty" class="hint">' + (items.length ? '' : '还没有曲目。点下面的「上传音频」或「＋ 手动加一条」开始。') + '</p>';
     h += '<button id="btnMusicUpload">' + ico('upload') + ' 上传音频</button> ';
-    h += '<button id="btnMusicAdd">＋ 手动加一条</button> ';
+    h += '<button id="btnMusicAdd"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 手动加一条</button> ';
     h += '<button class="primary" id="btnMusicSave">' + ico('save') + ' 保存</button>';
     h += '<input type="file" id="musicFile" accept="audio/*,.mp3,.ogg,.m4a,.wav,.flac" multiple hidden>';
     showPanel(h);
@@ -2712,11 +2756,11 @@ async function renderMusic() {
       tr.draggable = true;
       tr.dataset.i = String(i);
       tr.innerHTML =
-        `<td style="text-align:center"><span class="handle" style="cursor:grab">≡</span></td>` +
+        `<td style="text-align:center"><span class="handle" style="cursor:grab"><img class="ico" src="/editor-icons/fugue/arrow-move.png" alt="" draggable="false"></span></td>` +
         `<td><input data-f="file" data-i="${i}" value="${esc(it.file || '')}" placeholder="iforest.mp3"></td>` +
         `<td><input data-f="title" data-i="${i}" value="${esc(it.title || '')}" placeholder="不填就显示文件名"></td>` +
         `<td><input data-f="artist" data-i="${i}" value="${esc(it.artist || '')}" placeholder="来源未知"></td>` +
-        `<td style="text-align:center;white-space:nowrap">${badge}<br><button class="danger" data-del="${i}" title="删掉这条">×</button></td>`;
+        `<td style="text-align:center;white-space:nowrap">${badge}<br><button class="danger" data-del="${i}" title="删掉这条"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td>`;
       tb.appendChild(tr);
     });
 
@@ -2879,13 +2923,13 @@ function talkTable(st, groupKey, title, hint, keys, optional) {
       const n = [...String(s)].length;
       h += `<tr><td><input class="pk-in" data-g="${groupKey}" data-k="${esc(k)}" value="${esc(s)}"></td>`
          + `<td class="pk-n${n > 40 ? ' bad' : ''}">${n}</td>`
-         + `<td style="text-align:center"><button class="danger" data-del="${groupKey}:${esc(k)}:${i}">×</button></td></tr>`;
+         + `<td style="text-align:center"><button class="danger" data-del="${groupKey}:${esc(k)}:${i}"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td></tr>`;
     });
     const opt = !!(optional && optional.has && optional.has(k));
     const rule = min ? (opt ? `可空；写了至少 ${min} 句` : `至少留 ${min} 句`) : '';
     h += `<tr><td colspan="3" class="pk-add"><span class="pk-sub">${esc(label)} · ${esc(k)}`
        + `${rule ? '：' + rule : ''}</span> `
-       + `<button data-add="${groupKey}:${esc(k)}">＋ 加一条</button></td></tr>`;
+       + `<button data-add="${groupKey}:${esc(k)}"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一条</button></td></tr>`;
   });
   h += '</tbody></table>';
   return h;
@@ -2936,7 +2980,7 @@ function paintPkmn() {
   h += talkTable(PK, 'page', '看着某一页时说的', '（它正在陪你看这一页）', PK.groups.page);
   h += talkTable(PK, 'weather', '外面什么天气时说的', '（按访客当地天气）', PK.groups.weather);
 
-  h += '<div style="margin-top:18px"><button class="primary" id="btnSavePkmn">保存并生成</button> '
+  h += '<div style="margin-top:18px"><button class="primary" id="btnSavePkmn"><img class="ico" src="/editor-icons/fugue/disk.png" alt="" draggable="false">保存并生成</button> '
      + `<span class="cmt">${pythonHint(PK.meta)}</span></div>`;
   h += '<pre id="pkLog" class="pk-log" hidden></pre>';
   showPanel(h);
@@ -3069,7 +3113,7 @@ function paintTbtak() {
 
   h += talkTable(TBT, 'pools', '它自己的话', '（按什么时候说分）', TBT.groups, TBT.optional);
 
-  h += '<div style="margin-top:18px"><button class="primary" id="btnSaveTbt">保存并生成</button> '
+  h += '<div style="margin-top:18px"><button class="primary" id="btnSaveTbt"><img class="ico" src="/editor-icons/fugue/disk.png" alt="" draggable="false">保存并生成</button> '
      + `<span class="cmt">${pythonHint(TBT.meta)}</span></div>`;
   h += '<pre id="tbtLog" class="pk-log" hidden></pre>';
   showPanel(h);
@@ -3160,7 +3204,7 @@ async function renderSidebar() {
        '友情链接和小按钮的内容在各自的面板里。</div>';
   h += '<ul id="sideOrder">';
   items.forEach((k) => {
-    h += `<li draggable="true" data-key="${esc(k)}"><span class="handle">≡</span><span class="name">${esc(label[k] || k)}</span><code>${esc(k)}</code></li>`;
+    h += `<li draggable="true" data-key="${esc(k)}"><span class="handle"><img class="ico" src="/editor-icons/fugue/arrow-move.png" alt="" draggable="false"></span><span class="name">${esc(label[k] || k)}</span><code>${esc(k)}</code></li>`;
   });
   h += '</ul>';
   h += '<p class="hint">没列进去的挂件（比如以后新加的）会自动排在最后。</p>';
@@ -3217,16 +3261,16 @@ async function renderScripts() {
       <div class="acts">
         <label class="sw"><input type="checkbox" data-toggle="${esc(f)}" ${on ? 'checked' : ''} ${isBuiltin ? 'disabled' : ''}> 在网站上加载</label>
         ${isBuiltin ? '<span style="font-size:11px;color:#9db0c4">内置脚本由 layouts/baseof.html 直接引入，开关不在这里</span>' : ''}
-        <button data-edit="${esc(f)}">编辑</button>
+        <button data-edit="${esc(f)}"><img class="ico" src="/editor-icons/fugue/pencil.png" alt="" draggable="false">编辑</button>
         <button class="danger" data-rm="${esc(f)}">删除</button>
       </div></div>`;
   }
-  h += '<button id="btnNewJs">＋ 新建脚本</button>';
+  h += '<button id="btnNewJs"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 新建脚本</button>';
 
   h += '<h3 style="font-size:13px;color:#44586e;margin-top:24px">外部脚本</h3>';
   h += '<p class="hint">贴第三方 CDN 的地址，每行一个。例如统计、评论、字体之类的挂件。</p>';
   h += `<textarea id="extJs" style="width:100%;min-height:80px;font:12px/1.6 Consolas,monospace;padding:8px;border:1px solid var(--line);border-radius:4px" placeholder="https://cdn.example.com/widget.js">${esc(d.external.map((e) => e.src).join('\n'))}</textarea>`;
-  h += '<div style="margin-top:8px"><button class="primary" id="btnSaveExt">保存外部脚本</button></div>';
+  h += '<div style="margin-top:8px"><button class="primary" id="btnSaveExt"><img class="ico" src="/editor-icons/fugue/disk.png" alt="" draggable="false">保存外部脚本</button></div>';
   showPanel(h);
 
   document.querySelectorAll('[data-toggle]').forEach((cb) => cb.addEventListener('change', async () => {
@@ -3865,15 +3909,15 @@ function renderCollectionWith(books, articles) {
       <td style="text-align:center"><input type="checkbox" data-bf="r18" data-i="${i}"${b.r18 ? ' checked' : ''}></td>
       <td><input data-bf="order" data-i="${i}" value="${esc(b.order === undefined ? '' : String(b.order))}" style="width:56px"></td>
       <td><input data-bf="desc" data-i="${i}" value="${esc(b.desc || '')}"></td>
-      <td style="text-align:center"><button class="danger" data-bdel="${i}">×</button></td></tr>`;
+      <td style="text-align:center"><button class="danger" data-bdel="${i}"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td></tr>`;
   });
   h += '</tbody></table>';
   h += '<datalist id="collStatus"><option value="连载中"></option><option value="已完结"></option><option value="停止更新"></option></datalist>';
-  h += '<button id="btnAddBook">＋ 加一册</button>';
+  h += '<button id="btnAddBook"><img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false"> 加一册</button>';
 
   h += '<h3 style="font-size:13px;color:#44586e;margin-top:22px">文章归属</h3>';
   if (!articles.length) {
-    h += '<p class="hint">文集里还没有文章。先用「➕ 新建页面」建一篇，类型选「文集」。</p>';
+    h += '<p class="hint">文集里还没有文章。先用「<img class="ico" src="/editor-icons/fugue/plus.png" alt="" draggable="false">新建页面」建一篇，类型选「文集」。</p>';
   } else {
     h += '<table class="grid"><thead><tr><th>文章</th><th style="width:180px">属于哪一册</th>'
        + '<th style="width:56px">随感</th><th style="width:46px">R18</th><th style="width:70px">weight</th>'
