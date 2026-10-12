@@ -286,15 +286,17 @@
 
   function tearPath(w, h, seed) {
     var rnd = mulberry(seed >>> 0);
-    var yBase = h - 22;                       /* 撕边大致落在这条线上 */
+    var yBase = h - 34;                       /* 纸的下沿（撕边）大致落在这条线上 */
     var pts = [[0, 0], [w, 0], [w, yBase - 2]];
 
     /* 右下角伸出去的那个角：底边两脚 + 尖，尖朝着拉鲁瓦（在纸下面偏左）。
-       窄一点、深一点才像个"指过来"的角，太宽就成了一块垂下来的纸。 */
-    var baseR = w - 24, tipX = w - 47, baseL = w - 62;
-    pts.push([baseR, yBase - 1]);
-    pts.push([tipX, h - 1]);
-    pts.push([baseL, yBase + 1]);
+       尺寸是抠出来的：**窄 26px、深 33px**（比深还窄一点才像"指出来"）。
+       之前是宽 32 深 27，比豁口深是深了，但宽过深就成了一块斜切下来的纸角。
+       豁口最深才 6px，所以角一眼就能认出来。 */
+    var baseR = w - 24, tipX = w - 40, baseL = w - 50;
+    pts.push([baseR, yBase - 2]);
+    pts.push([tipX, h - 1]);                  /* 比撕边深 ~33px */
+    pts.push([baseL, yBase + 2]);
 
     /* 底边从右往左"撕"。关键是**别一直上下交替** —— 那样不管宽窄都是三角锯齿，
        一眼还是机器画的。真撕出来的边大部分是平的，偶尔撕掉一小口：
@@ -307,16 +309,16 @@
         nx = Math.max(24, x - (22 + rnd() * 44));
         pts.push([nx, y]);
         x = nx;
-      } else if (r < 0.80) {                           /* 咬掉一小口 */
+      } else if (r < 0.80) {                           /* 咬掉一小口（浅，别抢角的戏） */
         nx = Math.max(22, x - (7 + rnd() * 13));
-        pts.push([nx, y + (4 + rnd() * 7)]);
+        pts.push([nx, y + (3 + rnd() * 3.5)]);
         x = nx;
         nx = Math.max(18, x - (6 + rnd() * 11));
         pts.push([nx, y + (rnd() * 2 - 1)]);
         x = nx;
       } else {                                         /* 缺一小块（边翘起来） */
         nx = Math.max(20, x - (6 + rnd() * 10));
-        pts.push([nx, y - (3 + rnd() * 5)]);
+        pts.push([nx, y - (2 + rnd() * 3)]);
         x = nx;
       }
     }

@@ -975,9 +975,10 @@
   align-items: flex-start;
   gap: 10px;
   width: min(392px, 76vw);
-  /* 底部这 34px 是留给"撕边 + 指着拉鲁瓦的那个角"的 —— 它们和纸是**同一个
-     clip-path**，所以必须在元素盒子里面，不然会被裁掉。 */
-  padding: 10px 12px 34px;
+  /* 底部这 54px 是留给"撕边 + 指着拉鲁瓦的那个角"的 —— 它们和纸是**同一个
+     clip-path**，所以必须在元素盒子里面，不然会被裁掉。
+     角比豁口深得多（约 27px vs 6px），不然分不出哪个是"指过来的角"。 */
+  padding: 10px 12px 54px;
   background: #f8f1de url(../images/board/paper.png) no-repeat;
   background-size: 48px 48px;
   /* clip-path 由 JS 现算（每次打开都重新撕一次，宽窄深浅都不一样，
@@ -1009,7 +1010,7 @@
 
 @media (max-width: 700px) {
   .bd-keeper { right: 10px; bottom: 8px; }
-  .bd-keeper-say-inner { width: min(300px, 80vw); padding: 8px 9px 30px; gap: 8px; }
+  .bd-keeper-say-inner { width: min(300px, 80vw); padding: 8px 9px 50px; gap: 8px; }
 }
 
 /* 拉鲁瓦的素材署名：放在板子页最底下（不在对话框里，站长说那样挤） */
