@@ -292,23 +292,62 @@
       inset 0 -2px 0 rgba(255,255,255,.10),
       0 2px 6px rgba(0,0,0,.28);                /* 浮起来 */
   }
-  /* 顶栏按钮：半透明玻璃，浮在蓝底上 */
+  /* ---------- 顶栏按钮：深蓝标题栏上的浅色塑料凸起 ----------
+     ⚠️ 第一版这里做成了**半透明玻璃**（rgba 白，透出底下的蓝渐变），
+        站长反馈两点，都成立：
+          · 「渐变用的和底栏一样导致没有区分度」——半透明的按钮和底下的
+            蓝渐变混在一起，按钮的边界看不出来了
+          · 「没有阴影之类，不如下方按钮有感觉」——当时只给了 inset 高光
+            和一个 1px 的外阴影，没有厚度
+        所以改成**不透明浅色面**：按钮有自己的实体表面，不再透出底下的蓝；
+        再补上外投影（两段，做出厚度）、底部 1px 暗线、以及一圈底部暗色内描边
+        —— 就是工具栏按钮那套配方，只是整体更亮一点（它贴在深蓝上）。
+        仍然**不改任何尺寸**（只碰 background / border-color / box-shadow）。 */
   button.ghost{
     background:
-      linear-gradient(180deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,.10) 50%,
-                      rgba(255,255,255,.02) 51%, rgba(0,0,0,.04) 100%);
-    border-color:rgba(255,255,255,.45);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.55), 0 1px 1px rgba(0,0,0,.22);
-    text-shadow:0 1px 1px rgba(0,0,0,.35);
+      /* 上面的横向反光带：一条 47% 处的硬分界，做出「玻璃压一层」的感觉 */
+      linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 46%,
+                      rgba(255,255,255,.05) 47%, rgba(255,255,255,0) 62%,
+                      rgba(0,0,0,.06) 100%),
+      /* 实体乳白面：不透明，这才是和标题栏拉开区分度的关键 */
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 44%, #e6eef9 46%, #d3e0f0 100%);
+    border-color:#93b0d0;
+    box-shadow:
+      inset 0 1px 0 #fff,                        /* 顶部受光 */
+      inset 0 0 0 1px rgba(255,255,255,.55),     /* 一圈内亮描边（玻璃边） */
+      inset 0 -2px 2px rgba(46,78,116,.16),      /* 底部内侧暗影 */
+      0 1px 0 rgba(255,255,255,.35),             /* 底沿亮线，把按钮从蓝底「抬」出来 */
+      0 2px 3px rgba(6,24,48,.42),               /* 近投影 */
+      0 4px 9px rgba(6,24,48,.32);               /* 远投影 = 厚度感 */
+    color:#17324f;
+    text-shadow:0 1px 0 rgba(255,255,255,.85);
   }
   button.ghost:hover{
     background:
-      linear-gradient(180deg, rgba(255,255,255,.52) 0%, rgba(255,255,255,.22) 50%,
-                      rgba(255,255,255,.10) 51%, rgba(0,0,0,.02) 100%);
+      linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.45) 46%,
+                      rgba(255,255,255,.10) 47%, rgba(255,255,255,0) 62%,
+                      rgba(0,0,0,.03) 100%),
+      linear-gradient(180deg, #ffffff 0%, #fbfdff 44%, #edf4fc 46%, #dceaf8 100%);
+    border-color:#7ba0c6;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      inset 0 0 0 1px rgba(255,255,255,.7),
+      inset 0 -2px 2px rgba(46,78,116,.14),
+      0 1px 0 rgba(255,255,255,.45),
+      0 0 0 1px rgba(150,190,235,.45),
+      0 2px 4px rgba(6,24,48,.45),
+      0 5px 12px rgba(6,24,48,.35);
+    color:#0f2a45;
   }
+  /* 按下去：翻成凹的 + 下沉，并且投影收掉（按进去就没有厚度了） */
   button.ghost:active{
-    background:linear-gradient(180deg, rgba(0,0,0,.16), rgba(0,0,0,.04));
-    box-shadow:inset 0 2px 4px rgba(0,0,0,.35);
+    background:
+      linear-gradient(180deg, #c9d9ea 0%, #dde8f5 100%);
+    border-color:#7ba0c6;
+    box-shadow:
+      inset 0 3px 6px rgba(20,45,80,.45),
+      inset 0 -1px 0 rgba(255,255,255,.5);
+    text-shadow:0 1px 0 rgba(255,255,255,.5);
   }
 
   /* ---------- 按钮：凸起塑料 ---------- */
@@ -338,39 +377,91 @@
     transform:translateY(1px);
   }
   button:focus-visible{outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.95), 0 0 0 3px rgba(78,150,220,.45)}
+  /* 禁用：**扁下去**，不是凸起来。
+     ------------------------------------------------------------
+     站长反馈「不可用的保存按钮也立体化了，不可用的可以扁下去」—— 对。
+     凸起意味着「可以按」，禁用按钮给出凸起是在骗人。
+     所以这里把立体感整个拿掉：
+       · 没有外投影（不浮起来）
+       · 没有顶部高光（不受光）
+       · 底色压平、降饱和
+       · 加一圈内阴影，读起来像「凹进去 / 焊死了」
+       · 只留一层很淡的内描边表示边界
+     ⚠️ 只碰 background / border-color / box-shadow / color / opacity，
+        不改尺寸。opacity 也参与布局之外，安全。 */
   button:disabled{
-    background:linear-gradient(180deg, #f4f6f9, #e8ecf1);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+    background:linear-gradient(180deg, #eff2f5 0%, #e7ebf0 100%);
+    border-color:#c4ccd6;
+    color:#9aa6b4;
     text-shadow:none;
+    opacity:1;
+    box-shadow:
+      inset 0 1px 3px rgba(40,56,74,.16),      /* 内凹 */
+      inset 0 0 0 1px rgba(255,255,255,.5);    /* 很淡的边界 */
   }
+  /* 禁用的主按钮（比如没改动时是灰的「发布」）：同样扁下去，不留一点光泽 */
+  button.primary:disabled,
+  button.danger:disabled,
+  button.ghost:disabled{
+    background:linear-gradient(180deg, #eff2f5 0%, #e7ebf0 100%);
+    border-color:#c4ccd6;
+    color:#9aa6b4;
+    box-shadow:
+      inset 0 1px 3px rgba(40,56,74,.16),
+      inset 0 0 0 1px rgba(255,255,255,.5);
+    transform:none;
+  }
+  /* 禁用的图标也压暗一点，跟文字一致 */
+  button:disabled .ico{opacity:.45;filter:grayscale(1)}
 
-  /* ---------- 主按钮（发布）：玻璃糖 ---------- */
+  /* ---------- 主按钮（发布）：玻璃糖 ----------
+     ⚠️ 第一版站长反馈「黄色的发布按钮好像还是没有凸起来的感觉」，对。
+        原因：橙色整体偏亮，渐变两端色差被吃掉了，高光/底沿都看不出来。
+        加强了三处（仍然只碰 background / border-color / box-shadow）：
+          · 渐变上端提到近白、下端压到更深的橙褐，拉开明暗
+          · 顶部内高光加厚到 2px，底部暗带加深到 3px
+          · 外投影加远投影一档（厚度），并加一圈细白外描边把按钮从蓝底上「切」出来 */
   button.primary{
     background:
-      linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,.16) 46%,
-                      rgba(255,255,255,.02) 47%, rgba(255,255,255,0) 62%,
-                      rgba(0,0,0,.06) 100%),
-      linear-gradient(180deg, #ffd077 0%, #ffb03c 48%, #f29a00 52%, #d17f00 100%);
-    border-color:#a86400;
-    color:#4a2b00;
-    text-shadow:0 1px 0 rgba(255,255,255,.55);
+      /* 上半的近白高光 + 底部暗带（做出塑料的厚度） */
+      linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.34) 44%,
+                      rgba(255,255,255,.06) 48%, rgba(255,255,255,0) 63%,
+                      rgba(120,60,0,.18) 100%),
+      linear-gradient(180deg, #ffe9a8 0%, #ffc255 46%, #f59a00 52%, #bd6f00 100%);
+    border-color:#8a5200;
+    color:#43260a;
+    text-shadow:0 1px 0 rgba(255,255,255,.6);
     box-shadow:
-      inset 0 1px 0 rgba(255,255,255,.95),
-      inset 0 -1px 0 rgba(0,0,0,.16),
-      0 1px 2px rgba(31,45,61,.30),
-      0 0 0 1px rgba(255,255,255,.30) inset;
+      inset 0 2px 0 rgba(255,255,255,.95),        /* 顶部厚高光 */
+      inset 0 0 0 1px rgba(255,255,255,.35),      /* 内亮描边 */
+      inset 0 -2px 3px rgba(90,45,0,.35),         /* 底部内暗影 */
+      0 1px 0 rgba(255,255,255,.35),              /* 底沿亮线 */
+      0 2px 3px rgba(40,20,0,.45),                /* 近投影 */
+      0 5px 12px rgba(40,20,0,.35);               /* 远投影 = 厚度 */
   }
   button.primary:hover{
     background:
-      linear-gradient(180deg, rgba(255,255,255,.72) 0%, rgba(255,255,255,.24) 46%,
-                      rgba(255,255,255,.05) 47%, rgba(255,255,255,0) 62%,
-                      rgba(0,0,0,.04) 100%),
-      linear-gradient(180deg, #ffdb92 0%, #ffbb55 48%, #ffa614 52%, #e08a00 100%);
-    border-color:#8f5600;
+      linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.45) 44%,
+                      rgba(255,255,255,.10) 48%, rgba(255,255,255,0) 63%,
+                      rgba(120,60,0,.14) 100%),
+      linear-gradient(180deg, #fff3c4 0%, #ffcd70 46%, #ffa61c 52%, #cc7a00 100%);
+    border-color:#7a4800;
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,1),
+      inset 0 0 0 1px rgba(255,255,255,.45),
+      inset 0 -2px 3px rgba(90,45,0,.30),
+      0 1px 0 rgba(255,255,255,.45),
+      0 0 0 1px rgba(255,200,120,.5),
+      0 2px 4px rgba(40,20,0,.5),
+      0 6px 15px rgba(40,20,0,.4);
   }
+  /* 按下去：整个翻成凹的，投影收掉（按进去就没有厚度了） */
   button.primary:active{
-    background:linear-gradient(180deg, #e8a331, #f6b947);
-    box-shadow:inset 0 2px 5px rgba(120,70,0,.45);
+    background:linear-gradient(180deg, #d98f1f 0%, #f2b53f 100%);
+    box-shadow:
+      inset 0 3px 6px rgba(90,45,0,.55),
+      inset 0 -1px 0 rgba(255,255,255,.35);
+    transform:translateY(1px);
   }
 
   /* ---------- 危险按钮：红玻璃 ---------- */
@@ -627,7 +718,7 @@
   <button class="ghost" id="btnLive" title="在浏览器里打开线上站"><img class="ico" src="/editor-icons/fugue/external.png" alt="">打开线上站</button>
   <button class="ghost" id="btnBuild" title="本地构建一遍，检查有没有报错"><img class="ico" src="/editor-icons/fugue/tick.png" alt="">构建检查</button>
   <button class="ghost" id="btnSync" title="从线上（GitHub）拉取改动 —— 换一台电脑编辑时先点这个"><img class="ico" src="/editor-icons/fugue/arrow-repeat.png" alt="">拉取线上</button>
-  <button class="primary" id="btnPublish" title="git add + commit + push"><img class="ico" src="/editor-icons/fugue/upload.png" alt="">发布</button>
+  <button class="primary" id="btnPublish" title="git add + commit + push"><img class="ico" src="/editor-icons/fugue/paper-plane.png" alt="">发布</button>
 </header>
 
 <div id="main">
@@ -714,9 +805,16 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;',
    以后想换某张图只改这张表；文件名对不上会 404，肉眼一看就知道。 */
 const FUGUE = {
   book:'book', music:'music', 'paint-brush':'paint-brush', cog:'gear',
-  bars:'navigation', link:'chain', grid:'ui-buttons', refresh:'arrow-repeat',
+  /* bars 是侧栏「顶部导航」那一行。原来映射到 navigation.png
+     （蓝色圆箭头，站长觉得「有点奇怪」），2026-10-12 换成 direction.png
+     —— 路牌 + 箭头，指向「导航」更直白。 */
+  bars:'direction', link:'chain', grid:'ui-buttons', refresh:'arrow-repeat',
   notebook:'notebook', 'comment-quote':'balloon-quotation', 'message-dots':'balloon-ellipsis',
   diamond:'diamond', 'pencil-ruler':'pencil-ruler', code:'script', 'calendar-alt':'calendar',
+  /* publish 是顶栏那颗黄色「发布」。**单列一个名字**，不要直接改成 upload：
+     「上传新图 / 上传音频」两个按钮还要用 upload（向上箭头本来就是对的动作），
+     只有「发布到线上」用纸飞机。 */
+  publish:'paper-plane',
   plus:'plus', eye:'eye', 'external-link':'external', check:'tick', upload:'upload',
   bold:'edit-bold', italics:'edit-italic', expand:'application-resize', image:'image',
   thumbtack:'pin', save:'disk', trash:'bin', search:'magnifier', folder:'folder',
