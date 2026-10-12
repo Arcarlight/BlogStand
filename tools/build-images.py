@@ -28,6 +28,11 @@ static/images/ 下，hugo 命令行又没有图片处理子命令。所以派生
   · 已经是 <picture> 包裹的 <img> 直接跳过 —— 所以这个脚本是幂等的，重复跑第二次
     「0 张需要处理」。
   · 默认就是 dry-run。要真的写文件必须显式加 --apply，避免手滑。
+  · 改写内容前会先把「当时的日期」封存进 front matter 的 lastmod（没有才补，
+    已有的一律不动）。因为这个脚本只换图片加载方式、渲染结果不变，却会让文件的
+    git 日期跳到当天 —— 而更新日志的日期默认就取 git 日期，2026-10-11 那次因此
+    让 14 个页面一起挂上 NEW。补上 lastmod 后（见 hugo.toml 的 [frontmatter]），
+    无论跑多少遍脚本，页面日期都不再移动。详见 ensure_lastmod()。
 
 它是怎么定「显示宽度」的
 ------------------------
@@ -67,6 +72,7 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -614,6 +620,51 @@ def apply_edits(text, edits):
     return text
 
 
+# ---------------------------------------------------------------- lastmod 封存
+
+LAST_MOD_RE = re.compile(r"^lastmod\s*:", re.M)
+
+
+def git_last_date(path):
+    """这个文件最后一次提交的日期（YYYY-MM-DD）；取不到返回 None。"""
+    rel = os.path.relpath(path, ROOT).replace("\\", "/")
+    try:
+        r = subprocess.run(["git", "log", "-1", "--format=%cs", "--", rel],
+                           cwd=ROOT, capture_output=True, text=True, timeout=20)
+    except Exception:
+        return None
+    d = (r.stdout or "").strip()
+    return d if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d) else None
+
+
+def ensure_lastmod(text, path):
+    """改写内容之前，先把这个文件「当时的日期」封存进 front matter 的 lastmod。
+
+    为什么必须这么做：hugo.toml 的 [frontmatter] 里 lastmod 排在 :git 前面，
+    所以**写了就以写的为准**；没写的文件仍然取 git 日期。本脚本只是把 <img>
+    包一层 <picture>（渲染结果完全一样），却会让 git 日期跳到当天 —— 2026-10-11
+    那次就让 14 个页面的更新日志一起挂上 NEW。补上 lastmod 之后，无论以后跑多少遍
+    脚本，页面日期都不再动；而「真改了内容」有编辑器负责把 lastmod 刷成当天。
+
+    已有 lastmod 的文件一律不动 —— 那个值可能是人工核对过的真实内容日期。
+    返回 (新文本, 补进去的日期 or None)。"""
+    m = re.match(r"^(---\r?\n)(.*?)(\r?\n---)", text, re.S)
+    if not m:
+        return text, None                       # 没有 front matter，不碰
+    if LAST_MOD_RE.search(m.group(2)):
+        return text, None
+    d = git_last_date(path)
+    if not d:
+        return text, None                       # 还没提交过（新文件）→ 让 git 日期自然生长
+    nl = "\r\n" if "\r\n" in m.group(0) else "\n"
+    dm = re.search(r"^date\s*:.*$", m.group(2), re.M)
+    if dm:
+        pos = m.start(2) + dm.end()             # 插在 date: 那行后面，和站里既有写法一致
+        return text[:pos] + nl + "lastmod: " + d + text[pos:], d
+    pos = m.end(1)
+    return text[:pos] + "lastmod: " + d + nl + text[pos:], d
+
+
 # ---------------------------------------------------------------- 主流程
 
 def main(argv=None):
@@ -772,6 +823,7 @@ def main(argv=None):
     # ---- 改写 content/
     changed_files = 0
     fallback_changed = []
+    stamped_files = []
     if do_write_content:
         by_file = {}
         for it in final:
@@ -793,6 +845,9 @@ def main(argv=None):
                 continue
             new_text = apply_edits(original, edits)
             if new_text != original:
+                new_text, stamped = ensure_lastmod(new_text, fp)
+                if stamped:
+                    stamped_files.append((os.path.relpath(fp, ROOT).replace("\\", "/"), stamped))
                 with open(fp, "w", encoding="utf-8", newline="") as f:
                     f.write(new_text)          # newline="" → 原有 CRLF/LF 原样保留
                 changed_files += 1
@@ -808,6 +863,12 @@ def main(argv=None):
     out("tools/build-images.py   %s" % ("APPLY（写文件）" if args.apply else "DRY-RUN（只报告）"))
     out("  仓库        : %s" % ROOT)
     out("  内容文件    : %d 个   --only=%s --skip=%s" % (len(files), args.only, args.skip))
+    if stamped_files:
+        out("  lastmod 封存: %d 个文件本来没有 lastmod，已按**改写前**的日期补上"
+            % len(stamped_files))
+        out("                （不补的话，脚本一跑这些页面的日期就会跳到今天，更新日志满屏 NEW）")
+        for rel, d in stamped_files:
+            out("                  %-52s %s" % (rel, d))
     out("  正文栏宽    : %dpx   --unknown-mode %s   --fallback %s"
         % (args.column, args.unknown_mode, args.fallback))
     own = [i for i in all_items if i.src_url.startswith(IMAGE_URL_PREFIX)]

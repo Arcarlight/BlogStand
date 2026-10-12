@@ -28,15 +28,18 @@
 {{- $exclude := .excludeSections | default slice }}
 {{- $onlyManual := .onlyManual | default false }}
 {{- $newDays := int (site.Params.updateLogNewDays | default 7) }}
-{{- $cut := now.AddDate 0 0 (mul -1 $newDays) }}
+{{/* 「新」按**日历日**比，不按时刻。
+     手写的 lastmod 只有日期（零点），按时刻比会在第 7 天提前一天掉出窗口 ——
+     2026-10-05 的国庆游记就是这么被误判成「不新」的。比 ISO 日期字符串即可。 */}}
+{{- $cut := (now.AddDate 0 0 (mul -1 $newDays)).Format "2006-01-02" }}
 
 {{/* NEW 牌子的第二个门槛：updateLogSince 之前的改动只算「搬家」，不挂牌子。
      整批迁移过来的页面 git 日期都很新，不加这个条件会满屏都是 NEW。 */}}
 {{- $hasSince := false }}
-{{- $since := now }}
+{{- $since := now.Format "2006-01-02" }}
 {{- with site.Params.updateLogSince }}
   {{- $hasSince = true }}
-  {{- $since = time . }}
+  {{- $since = (time .).Format "2006-01-02" }}
 {{- end }}
 
 {{- $entries := slice }}
@@ -50,7 +53,8 @@
             "title" .Title
             "url"   .RelPermalink
             "lines" (slice)
-            "new"   (and (ge .Lastmod $cut) (or (not $hasSince) (ge .Lastmod $since)))) }}
+            "new"   (and (ge (.Lastmod.Format "2006-01-02") $cut)
+                         (or (not $hasSince) (ge (.Lastmod.Format "2006-01-02") $since)))) }}
     {{- end }}
   {{- end }}
 {{- end }}
@@ -69,7 +73,7 @@
           "title" (.title | default "")
           "url"   (.url | default "")
           "lines" $lines
-          "new"   (ge $d $cut)) }}
+          "new"   (ge ($d.Format "2006-01-02") $cut)) }}
   {{- end }}
 {{- end }}
 

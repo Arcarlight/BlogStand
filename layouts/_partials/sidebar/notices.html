@@ -6,7 +6,8 @@
 {{ $items := hugo.Data.notices.items }}
 {{ with $items }}
 {{ $newDays := int (site.Params.updateLogNewDays | default 7) }}
-{{ $cut := now.AddDate 0 0 (mul -1 $newDays) }}
+{{/* 按日历日比（数据文件里的 date 只有日期）—— 与 update-log.html 同一套判据 */}}
+{{ $cut := (now.AddDate 0 0 (mul -1 $newDays)).Format "2006-01-02" }}
 {{ $list := slice }}
 {{ range . }}
   {{ if .date }}
@@ -20,7 +21,7 @@
   <div class="widget-body">
     <ul class="notice-list">
       {{ range first (int (site.Params.noticeCount | default 5)) . }}
-      <li{{ if ge .date $cut }} class="is-new"{{ end }}>
+      <li{{ if ge (.date.Format "2006-01-02") $cut }} class="is-new"{{ end }}>
         <span class="nt-date">{{ .date.Format "2006-01-02" }}</span>
         {{ if .url }}<a href="{{ .url }}">{{ .text }}</a>{{ else }}<span class="nt-text">{{ .text }}</span>{{ end }}
       </li>

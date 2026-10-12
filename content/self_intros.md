@@ -1,6 +1,7 @@
 ---
 title: "网站和自我介绍"
 date: 2026-06-11
+lastmod: 2026-09-17
 # 上面这个日期取自老站 sitemap 的 lastmod（老站这类 page 没有发布日期）
 draft: false
 tags: ["#SI"]

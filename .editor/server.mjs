@@ -787,6 +787,50 @@ function setFrontMatter(text, updates) {
 }
 
 /* ------------------------------------------------------------
+   保存内容时刷新 lastmod —— 更新日志的日期靠它才「跟得上」
+   ------------------------------------------------------------
+   hugo.toml 里 [frontmatter] 的 lastmod 排在 :git 前面，也就是**文件里写明的
+   lastmod 优先**。这样做是为了让批量脚本（tools/build-images.py 那种「只换图片
+   加载方式」的改写）不再把页面日期顶成当天 —— 2026-10-11 那次 14 个页面一起挂
+   NEW 就是这么来的。
+   代价是：**「真改了内容」必须有人负责把 lastmod 推到当天**，否则日期会永远冻在
+   第一次写进去的那天。这个责任在编辑器这边（也就是下面这个函数）。
+
+   只认「正文有变化」的保存：
+     · 只动 front matter（草稿开关、文集归属、排序、标签）不算内容更新
+     · 只处理 content/ 下的 .md —— 编辑器也能编 data/、tools/ 那些，别去碰
+   日期取**本机当天**：站长在 +8，站点 timeZone 也是 Asia/Shanghai，一致。
+   ------------------------------------------------------------ */
+function todayLocal() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** 取 front matter 之后的正文；没有 front matter 就返回 null */
+function bodyOf(text) {
+  const s = String(text || '').replace(/^\uFEFF/, '');
+  const m = s.match(/^---\r?\n[\s\S]*?\r?\n---/);
+  return m ? s.slice(m[0].length) : null;
+}
+
+/** 保存前调一次：正文变了就把 lastmod 刷成今天（原本没有就加上） */
+function touchLastmod(rel, oldText, newText) {
+  if (!/^content\/.*\.md$/i.test(String(rel || '').replace(/\\/g, '/'))) return newText;
+  const before = bodyOf(oldText);
+  const after = bodyOf(newText);
+  if (before === null || after === null) return newText;   // 没有 front matter，不碰
+  if (before === after) return newText;                    // 只动了 front matter
+  try {
+    return setFrontMatter(newText, { lastmod: todayLocal() })
+      // 站里既有写法是不加引号（lastmod: 2026-07-31），跟着来
+      .replace(/^(lastmod:\s*)"(\d{4}-\d{2}-\d{2})"$/m, '$1$2');
+  } catch {
+    return newText;                                        // 出问题就原样写，别拦保存
+  }
+}
+
+/* ------------------------------------------------------------
    把「漏在正文开头的 front matter 字段」收回 front matter
    ------------------------------------------------------------
    手改的时候很容易把那几行打在结束的 --- **下面**，那样它们就成了正文，
@@ -2342,7 +2386,10 @@ async function handle(req, res, url) {
 
   if (p === '/api/file' && req.method === 'POST') {
     const { p: rel, text } = await readBody(req);
-    await writeText(rel, text);
+    // 正文有变化就把 lastmod 刷成今天（见 touchLastmod 的注释）。读旧文本失败
+    // （比如新建文件）就当空串，那也意味着「正文变了」，照样刷。
+    const before = await readText(rel).catch(() => '');
+    await writeText(rel, touchLastmod(rel, before, text));
     return json(res, 200, { ok: true });
   }
 

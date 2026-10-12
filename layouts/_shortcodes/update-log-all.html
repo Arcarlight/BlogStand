@@ -25,7 +25,9 @@
 {{- $years = sort $years "year" "desc" -}}
 
 {{- $newDays := int (site.Params.updateLogNewDays | default 7) -}}
-{{- $cut := now.AddDate 0 0 (mul -1 $newDays) -}}
+{{/* 按日历日比，不按时刻 —— 数据文件里的 date 是零点，按时刻比会少挂牌子。
+     与 layouts/_partials/update-log.html 保持同一套判据。 */}}
+{{- $cut := (now.AddDate 0 0 (mul -1 $newDays)).Format "2006-01-02" -}}
 
 <div class="updall">
   <p class="updall-count">共 {{ len $all }} 条记录，跨 {{ len $years }} 个年份。</p>
@@ -45,7 +47,7 @@
             {{/* 子更新：text 数组里第二条起，缩进成上一条的续行 */}}
             <li class="ul-sub-item"><span class="ul-title">{{ .title }}</span></li>
           {{- else -}}
-            <li class="ul-row{{ if ge $d $cut }} is-new{{ end }}">
+            <li class="ul-row{{ if ge $iso $cut }} is-new{{ end }}">
               {{- if eq $iso $shownDate -}}
                 <span class="ul-date ul-date-same"></span>
               {{- else -}}
