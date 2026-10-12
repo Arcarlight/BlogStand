@@ -268,6 +268,75 @@
     if (!pool.length) { pool.push('……唔，今天没什么可说的。你就当我在这儿看门吧。'); }
   }
 
+  /* ---------------- 纸的形状（撕边 + 指着它的角） ----------------
+     两个要点：
+       · 撕边**不能**用固定多边形：等距等深的锯齿一眼就看出是机器画的。
+         这里每次打开重新撕一次，齿的宽窄和深浅都随机。
+       · 指着拉鲁瓦的那个角**必须是同一块纸**（同一个多边形），
+         单放一个三角形元素永远会有接缝。
+     坐标全在元素盒子里 —— clip-path 出了盒子就被裁掉，所以底部留了 34px。 */
+  function mulberry(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function tearPath(w, h, seed) {
+    var rnd = mulberry(seed >>> 0);
+    var yBase = h - 22;                       /* 撕边大致落在这条线上 */
+    var pts = [[0, 0], [w, 0], [w, yBase - 2]];
+
+    /* 右下角伸出去的那个角：底边两脚 + 尖，尖朝着拉鲁瓦（在纸下面偏左）。
+       窄一点、深一点才像个"指过来"的角，太宽就成了一块垂下来的纸。 */
+    var baseR = w - 24, tipX = w - 47, baseL = w - 62;
+    pts.push([baseR, yBase - 1]);
+    pts.push([tipX, h - 1]);
+    pts.push([baseL, yBase + 1]);
+
+    /* 底边从右往左"撕"。关键是**别一直上下交替** —— 那样不管宽窄都是三角锯齿，
+       一眼还是机器画的。真撕出来的边大部分是平的，偶尔撕掉一小口：
+         45% 平的一段，35% 咬掉一小口（下去再回来），20% 缺一小块（往上翘）。 */
+    var x = baseL - 4;
+    var y = yBase + (rnd() * 3 - 1.5);
+    while (x > 34) {
+      var r = rnd(), nx;
+      if (r < 0.45) {                                  /* 平的一段 */
+        nx = Math.max(24, x - (22 + rnd() * 44));
+        pts.push([nx, y]);
+        x = nx;
+      } else if (r < 0.80) {                           /* 咬掉一小口 */
+        nx = Math.max(22, x - (7 + rnd() * 13));
+        pts.push([nx, y + (4 + rnd() * 7)]);
+        x = nx;
+        nx = Math.max(18, x - (6 + rnd() * 11));
+        pts.push([nx, y + (rnd() * 2 - 1)]);
+        x = nx;
+      } else {                                         /* 缺一小块（边翘起来） */
+        nx = Math.max(20, x - (6 + rnd() * 10));
+        pts.push([nx, y - (3 + rnd() * 5)]);
+        x = nx;
+      }
+    }
+    pts.push([0, y + (rnd() * 4 - 1)]);
+
+    var out = [];
+    for (var i = 0; i < pts.length; i++) {
+      out.push(pts[i][0].toFixed(1) + 'px ' + pts[i][1].toFixed(1) + 'px');
+    }
+    return 'polygon(' + out.join(',') + ')';
+  }
+
+  function shapeBubble() {
+    var el = root.querySelector('.bd-keeper-say-inner');
+    if (!el) { return; }
+    var w = el.offsetWidth, h = el.offsetHeight;
+    if (!w || !h) { return; }
+    el.style.clipPath = tearPath(w, h, (Math.random() * 2147483647) | 0);
+  }
+
   var lastSaid = '';
   function sayOne() {
     build();
@@ -281,7 +350,13 @@
 
   function close() { say.hidden = true; }
   function toggle() {
-    if (say.hidden) { sayOne(); say.hidden = false; } else { close(); }
+    if (say.hidden) {
+      sayOne();
+      say.hidden = false;
+      requestAnimationFrame(shapeBubble);      /* 布局完才有宽高，才能算形状 */
+    } else {
+      close();
+    }
   }
 
   btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(); });
@@ -291,6 +366,8 @@
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' || e.keyCode === 27) { close(); }
   });
+  /* 换了窗口大小、文字折行变了，形状得重算一次（不然撕边会被拉到新尺寸上） */
+  window.addEventListener('resize', function () { if (!say.hidden) { shapeBubble(); } });
 
   /* ---------------- 起飞 ---------------- */
   if (STILL) { st.phase = 'idle'; st.x = 0; st.arc = 0; st.tilt = 0; }

@@ -70,10 +70,10 @@
     <canvas class="bd-keeper-canvas" width="1" height="1"></canvas>
   </button>
 
-  {{/* 对话框分两层：里面那层负责"纸"的样子（下沿用 clip-path 撕得不齐，
-       和便签一个做法），外面那层负责滤镜和旋转 —— 剪裁和 drop-shadow
-       不能放同一个元素上，否则阴影会被一起裁掉。
-       右下角那个小三角是"话是从我这儿出来的"那个角。 */}}
+  {{/* 对话框分两层：里面那层是"纸"（下沿撕得不齐，而且右下角还伸出一个角
+       指着拉鲁瓦 —— 撕边和角是**同一个形状**，所以在 JS 里一起算，见
+       board-keeper.js 的 tearPath()），外面那层负责滤镜和旋转。
+       剪裁和 drop-shadow 不能放同一个元素上，否则阴影会被一起裁掉。 */}}
   <div class="bd-keeper-say" id="bd-keeper-say" hidden>
     <div class="bd-keeper-say-inner">
     <div class="bd-keeper-face">
@@ -82,12 +82,8 @@
     <div class="bd-keeper-body">
       <p class="bd-keeper-name">拉鲁瓦</p>
       <p class="bd-keeper-text" id="bd-keeper-text"></p>
-      {{/* 素材署名。PMD Sprite Repository 是 CC BY-NC 4.0，要求署名 ——
-           站上别的宝可梦挂件都有，这里也带上。 */}}
-      <p class="bd-keeper-credit">素材：<a href="https://sprites.pmdcollab.org/" target="_blank" rel="noopener">PMD Sprite Repository</a>（CC BY-NC 4.0）</p>
     </div>
     </div>
-    <i class="bd-keeper-tail" aria-hidden="true"></i>
   </div>
 
   {{/* 访客数**不在页面里另放元素**：不蒜子的 id 全站唯一，

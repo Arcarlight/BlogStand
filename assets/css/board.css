@@ -975,25 +975,13 @@
   align-items: flex-start;
   gap: 10px;
   width: min(392px, 76vw);
-  padding: 10px 12px 15px;
+  /* 底部这 34px 是留给"撕边 + 指着拉鲁瓦的那个角"的 —— 它们和纸是**同一个
+     clip-path**，所以必须在元素盒子里面，不然会被裁掉。 */
+  padding: 10px 12px 34px;
   background: #f8f1de url(../images/board/paper.png) no-repeat;
   background-size: 48px 48px;
-  /* 下沿撕得不齐（和便签同一个做法：clip-path 抠锯齿）。
-     注意：drop-shadow 在父层、clip-path 在这层，不能合成一个元素。 */
-  clip-path: polygon(0 0, 100% 0, 100% 82%, 96% 95%, 90% 85%, 83% 96%, 75% 86%,
-                     66% 97%, 57% 87%, 48% 96%, 39% 86%, 30% 95%, 21% 85%,
-                     13% 94%, 6% 86%, 0 93%);
-}
-/* 指着拉鲁瓦的那个角 */
-.bd-keeper-tail {
-  position: absolute;
-  right: 20px;
-  top: 100%;
-  width: 24px;
-  height: 15px;
-  margin-top: -4px;
-  background: #f8f1de;
-  clip-path: polygon(0 0, 100% 0, 58% 100%);
+  /* clip-path 由 JS 现算（每次打开都重新撕一次，宽窄深浅都不一样，
+     不会像固定多边形那样一排等距锯齿）。注意 drop-shadow 在父层。 */
 }
 .bd-keeper-face {
   flex: 0 0 auto;
@@ -1021,19 +1009,19 @@
 
 @media (max-width: 700px) {
   .bd-keeper { right: 10px; bottom: 8px; }
-  .bd-keeper-say-inner { width: min(300px, 80vw); padding: 8px 9px 13px; gap: 8px; }
-  .bd-keeper-tail { right: 14px; }
+  .bd-keeper-say-inner { width: min(300px, 80vw); padding: 8px 9px 30px; gap: 8px; }
 }
 
-/* 拉鲁瓦对话框底下的素材署名（PMD 那套是 CC BY-NC 4.0，要署名） */
-.bd-keeper-credit {
-  margin: 6px 0 0;
+/* 拉鲁瓦的素材署名：放在板子页最底下（不在对话框里，站长说那样挤） */
+.bd-credit {
+  margin: 10px 2px 0;
   font-family: var(--bd-font-small);
   font-size: calc(var(--px) * 10 / 12);
   line-height: 1.5;
   color: #8a7550;
+  text-align: right;
 }
-.bd-keeper-credit a { color: #8a7550; }
+.bd-credit a { color: #8a7550; }
 
 /* 对话框弹出：缩放 + 回弹一点点，别硬生生"啪"地出现。
    注意 keyframes 里要带上那 -0.7deg 的歪，不然动画期间会突然正过来。 */
@@ -1042,12 +1030,7 @@
   55%  { opacity: 1; transform: rotate(-.7deg) scale(1.035) translateY(-3px); }
   100% { opacity: 1; transform: rotate(-.7deg) scale(1) translateY(0); }
 }
-@keyframes bd-keeper-tail-in {
-  from { opacity: 0; transform: translateY(-7px) scaleY(.6); }
-  to   { opacity: 1; transform: none; }
-}
 .bd-keeper-say:not([hidden]) { animation: bd-keeper-pop .3s cubic-bezier(.22, .9, .3, 1.25) both; }
-.bd-keeper-say:not([hidden]) .bd-keeper-tail { animation: bd-keeper-tail-in .24s .07s ease-out both; }
 /* 说过的话淡进来一下，和纸一起出现 */
 .bd-keeper-say:not([hidden]) .bd-keeper-text { animation: bd-keeper-fade .3s .08s ease-out both; }
 @keyframes bd-keeper-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -1055,6 +1038,5 @@
 /* 系统里开了"减少动效"就别弹了（拉鲁瓦的飞入在 JS 里也认这个设置） */
 @media (prefers-reduced-motion: reduce) {
   .bd-keeper-say:not([hidden]),
-  .bd-keeper-say:not([hidden]) .bd-keeper-tail,
   .bd-keeper-say:not([hidden]) .bd-keeper-text { animation: none; }
 }
