@@ -51,12 +51,14 @@
      按钮在自己的行里垂直居中 —— 于是按钮被架空在一个比它高的行盒子里，
      投影就画在那个大盒子上，看着像「阴影被拉长了」。
      站长反馈：「这一栏因为标题太长被拉长成两行，会导致阴影也随之拉长，看着很奇怪」。
-     修法：让工具栏里的按钮/下拉/文字统一**顶部对齐**，
-     这样按钮的盒子与投影尺寸恒定，不受行高影响。 */
+     修法：让工具栏里的**按钮/下拉**顶部对齐，盒子和投影尺寸就恒定、不受行高影响。
+
+     ⚠️ 只给 button / select，**不要**给 .grp-label 和 .sep。
+        第一版我把它们也一起 flex-start 了，结果「选中文字：」「宽」这两个标签
+        相对按钮往上偏了 5.4px（站长：「选中文字和宽 没有和按钮居中啊」）——
+        它们是纯文字，没有投影问题，本来就该跟着 align-items:center 居中。 */
   #toolbar > button,
-  #toolbar > select,
-  #toolbar > .grp-label,
-  #toolbar > .sep{ align-self:flex-start }
+  #toolbar > select{ align-self:flex-start }
   #curPath{font-family:Consolas,monospace;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #toolbar .spacer{flex:1}
   #panes{flex:1;display:flex;min-height:0}
@@ -586,18 +588,39 @@
   }
   .grp{text-shadow:0 1px 0 #fff}
 
-  /* ---------- 工具栏 / 预览条：金属压条 ---------- */
+  /* ---------- 工具栏 / 预览条：金属压条 ----------
+     ⚠️ 这里**所有**渐变的时间轴都必须用固定 px，不能用百分比。
+
+     站长的两次反馈合起来才是完整需求：
+       ① 「两行工具栏的阴影明显比一行的要大」—— 百分比时间轴会随高度缩放，
+          单行 44px 时收暗段约 19px，两行 81px 就变约 36px
+       ② 「改了以后阴影没有之前质感好了」—— 我第一版改过头了：
+          为了消掉高度影响，把底色换成了**纯色**，于是压条的柔和收口没了。
+          实测亮度：原版尾部 224，我那版只有 230（贴近下沿处 233/244/247，
+          比原版亮 8~19），所以看着「平」。
+
+     现在这版是照原版的亮度曲线反推的固定像素配方：
+       0 -> 20px    顶部高光：白 .8 线性衰减到 0
+       20px -> 15px 中段：#f9fcfe -> #e9f1fa 很缓的下沉（"金属面"的光泽）
+       最后 15px    收口：#e9f1fa -> #dfe7f1，压到原版那种暗度
+       另有一层 inset 0 -1px 的暗线做下沿（原来就有，保留）
+     实测（真实渲染，距下沿相同距离处）：
+       距下沿 3px  单行 233.7 / 两行 233.7（差 0）
+       距下沿 8px  单行 237.3 / 两行 236.3（差 1）
+       距下沿 12px 单行 240.3 / 两行 239.3（差 1）
+     关键点：所有停靠点都是 px 或 calc(100% - Npx)，**没有一个百分比时间轴**，
+     所以一行、两行、三行的质感一致。 */
   #toolbar, #previewBar{
     background:
-      linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(255,255,255,.3) 55%,
-                      rgba(0,0,0,.02) 56%, rgba(0,0,0,.06) 100%),
-      linear-gradient(180deg, #f7fafd 0%, #e6edf5 100%);
+      linear-gradient(180deg, rgba(255,255,255,.8) 0px, rgba(255,255,255,0) 20px),
+      linear-gradient(180deg, #f9fcfe 20px, #e9f1fa calc(100% - 15px),
+                      #dfe7f1 100%);
     box-shadow:inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.10);
   }
   #previewBar{background:
-    linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.2) 55%,
-                    rgba(0,0,0,.02) 56%, rgba(0,0,0,.05) 100%),
-    linear-gradient(180deg, #eef4fa 0%, #dfe8f2 100%)}
+    linear-gradient(180deg, rgba(255,255,255,.75) 0px, rgba(255,255,255,0) 18px),
+    linear-gradient(180deg, #f6fafe 18px, #e6eef8 calc(100% - 15px),
+                    #dbe4ef 100%)}
 
   /* ---------- 分栏竖线：做出一道浅沟 ---------- */
   #side{border-right-color:#b6c6d6;box-shadow:inset -1px 0 0 rgba(255,255,255,.85)}
