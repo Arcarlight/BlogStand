@@ -347,3 +347,10 @@
   cat = "pkmnflya"
   date = "2026-10-08"
   desc = "是在干什么呢...？"
+
+[[items]]
+  title = "熟睡的欧亚西莉亚"
+  file = "NeruOasilia.PNG"
+  cat = "pkmnflya"
+  date = "2026-10-12"
+  desc = "眠眠龙"
