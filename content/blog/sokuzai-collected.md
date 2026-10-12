@@ -33,4 +33,17 @@ TBTAK中有用到其中的音乐。</p>
 <p><strong><a href='https://lospec.com/palette-list/' target='_blank'>LOSPEC</a></strong></p>
 <p><strong><a href='https://www.amagoyateruteru.com/index.html' target='_blank'>雨小屋</a></strong></p>
 <p>这个是看岚少实况《八号男友》时发现的图像素材配布网站，公布了可以给MV用的VXA系素材！？而且好像还有很多别的素材，而且也有很多VXA的行走图/头图的范例，以后做游戏说不定都可以使用或者参考，也记录一下吧！</p>
+<p><strong><a href='https://p.yusukekamiyamane.com/' target='_blank'>Fugue Icons</a></strong></p>
+<p>伟大的大肥鱼在帮忙制作10s网站时候推荐的图标库。看了一眼不光网站上就有3500+个拟物化风格的图标，甚至只需要注个名就可以直接使用，不愧是10s的互联网精神...</p>
+<p>可以作为制作网络时使用的iconset。强烈推荐。</p>
+
+<p><strong><a href='https://kenney.nl/' target='_blank'>Kenney的游戏资源</a></strong></p>
+<p>由kenney独自一人绘制和制作的大型资源库。版权开放、素材全面，可以说也是伟大互联网的结晶了。不光包含iconset，甚至还包含SFX、FX和GUI、贴图素材，可以说相当之全面。欧亚西莉亚的大冒险也有用到其中的素材。</p>
+<p>大部分素材的license都是CC0，可以放心自在地使用。</p>
+
+<p><strong><a href='https://github.com/Nieobie/Game-Icon-Pack.git' target='_blank'>Game Icon Pack<span class="inner-voice">（对，就叫这个名字...）</span></a></strong></p>
+<p>在哔哩哔哩网上冲浪时意外发现的国人制作的免费图标包。量大管饱，并且非常全面，和kenney的iconset搭配起来也很舒服，可以作为游戏内素材使用。</p>
+<p>License也是CC0，可以毫无顾虑地使用。</p>
+
+
 <h2 id=-2>脚本素材</h2><p>Cattest使用的脚本也是我从整个因特网的各种千奇百怪的角落里搜到的...要真让我总结哪里可以下到所有的脚本，我也说不好～～</p>
