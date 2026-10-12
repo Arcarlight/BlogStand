@@ -545,6 +545,66 @@ def bigbush_pixel_factory():
     return get_from(_bush(BIGBUSH_W, BIGBUSH_H, SEED + 211, 22, 10, 14))
 
 
+# ---------------------------------------------------- 板子下角那种茂密树丛
+CORNER_W, CORNER_H = 112, 72
+
+
+def _bush_corner(W, H, seed):
+    """板子左下/右下角用来"压住墙角"的树丛。
+
+    **只画色块，不画一片片叶子。** 站长看过带叶子碎片的版本，说显乱 ——
+    他要的是干干净净的一坨：暗底、中绿主体、左上受光、下缘接地阴影。
+    轮廓的毛糙感靠各层色块半径的差异做，不靠往外飘的叶子。"""
+    rng = random.Random(seed)
+    buf = {}
+
+    def blob(cx, cy, r, c):
+        for y in range(int(cy - r), int(cy + r + 2)):
+            for x in range(int(cx - r), int(cx + r + 2)):
+                dx, dy = x - cx, y - cy
+                if (dx * dx + dy * dy) <= r * r + 0.5 and 0 <= x < W and 0 <= y < H:
+                    buf[(x, y)] = hexrgb(c) + (255,)
+
+    # ① 最暗的底盘：宽扁，把下缘撑满，边缘用半径差异做出毛糙感
+    for cx, cy, rr in ((0.50, 0.88, 0.30), (0.20, 0.86, 0.20), (0.80, 0.86, 0.20),
+                       (0.35, 0.90, 0.19), (0.65, 0.90, 0.19), (0.08, 0.90, 0.13),
+                       (0.92, 0.90, 0.13)):
+        blob(W * cx, H * cy, H * rr, BUSH_OUT)
+
+    # ② 主体：中绿，堆成一个鼓起来的大团
+    for cx, cy, rr in ((0.50, 0.62, 0.30), (0.26, 0.64, 0.23), (0.74, 0.64, 0.23),
+                       (0.38, 0.44, 0.21), (0.62, 0.44, 0.21), (0.50, 0.30, 0.17),
+                       (0.18, 0.74, 0.19), (0.82, 0.74, 0.19)):
+        blob(W * cx, H * cy, H * rr, BUSH_DARK)
+    for cx, cy, rr in ((0.48, 0.60, 0.25), (0.28, 0.62, 0.18), (0.72, 0.62, 0.18),
+                       (0.44, 0.38, 0.16), (0.58, 0.36, 0.14), (0.22, 0.72, 0.14),
+                       (0.78, 0.72, 0.14)):
+        blob(W * cx, H * cy, H * rr, BUSH_MID)
+
+    # ③ 受光面：光从左上来。只画在主体内部，别在顶上留飘着的亮块。
+    def inside(x, y, pad=2):
+        return pad <= x < W - pad and pad <= y < H - pad and (int(x), int(y)) in buf
+
+    for _ in range(90):
+        cx = rng.uniform(W * 0.10, W * 0.84); cy = rng.uniform(H * 0.24, H * 0.62)
+        if not inside(cx, cy, 4):
+            continue
+        blob(cx, cy, rng.uniform(4.0, 7.5),
+             rng.choice((BUSH_LIGHT, BUSH_LIGHT, BUSH_MID, BUSH_HI)))
+
+    # ④ 下缘压暗 + 接地阴影（不然整坨像悬在草地上）
+    for x in range(W):
+        for y in range(H - 3, H):
+            if (x, y) in buf:
+                buf[(x, y)] = hexrgb(BUSH_OUT) + (255,)
+    shadow_row(buf, W, H, 1, 2)
+    return buf
+
+
+def corner_bush_pixel_factory():
+    return get_from(_bush_corner(CORNER_W, CORNER_H, SEED + 409))
+
+
 # -------------------------------------------------------------------- 草地
 # 色和纹理都照站长的绿地参考图：底色 #b0c019，细密点纹，草丛满地
 GROUND_W, GROUND_H = 64, 130
@@ -867,6 +927,7 @@ def main():
         ("drape-young.png", DRAPE_W, DRAPE_H, drape_pixel_factory("drape-young")),
         ("bush.png", BUSH_W, BUSH_H, bush_pixel_factory()),
         ("bush-big.png", BIGBUSH_W, BIGBUSH_H, bigbush_pixel_factory()),
+        ("bush-corner.png", CORNER_W, CORNER_H, corner_bush_pixel_factory()),
         ("ground.png", GROUND_W, GROUND_H, ground_pixel_factory()),
         ("cobble.png", COBBLE_W, COBBLE_H, cobble_pixel_factory()),
         ("tuft.png", TUFT_W, TUFT_H, tuft_pixel_factory()),

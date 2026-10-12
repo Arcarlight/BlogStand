@@ -241,17 +241,20 @@
 /* 板子前面的大灌木：挡住下沿两角（参考图里就是被灌木挡着的） */
 .bd-bushfront {
   position: absolute;
-  z-index: 1;
-  bottom: calc(var(--bd-foot) - 50px);
-  width: 74px;
-  height: 50px;
-  background: url(../images/board/bush-big.png) no-repeat;
+  /* 压在板子下角上：要盖住墙角就得在上面（板子是 2） */
+  z-index: 3;
+  /* 顶沿伸到板底上方 32px：画框 16 + 内边距 8 = 24px 全部盖住，再压住一点
+     软木板的边 —— 便签底边在板底上方 30px，所以只蹭到纸的空白下沿，不压字。 */
+  bottom: calc(var(--bd-foot) - 40px);
+  width: 112px;                  /* = bush-corner.png 原始尺寸，1:1 不缩放 */
+  height: 72px;
+  background: url(../images/board/bush-corner.png) no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
 }
 
-.bd-bushfront-l { left: 44px; }
-.bd-bushfront-r { right: 44px; transform: scaleX(-1); }
+.bd-bushfront-l { left: 12px; }
+.bd-bushfront-r { right: 12px; transform: scaleX(-1); }
 
 /* 草里的小花 */
 .bd-flower {
@@ -837,9 +840,9 @@
 .bd-mini .bd-drape-d { right: 0; height: 62px; }
 .bd-mini .bd-drape-e { display: none; }
 .bd-mini .bd-drape-f { display: none; }
-.bd-mini .bd-bushfront { width: 52px; height: 35px; bottom: calc(var(--bd-foot) - 35px); }
-.bd-mini .bd-bushfront-l { left: 22px; }
-.bd-mini .bd-bushfront-r { right: 22px; }
+.bd-mini .bd-bushfront { bottom: calc(var(--bd-foot) - 44px); }   /* 缩略版画框薄，少压一点 */
+.bd-mini .bd-bushfront-l { left: 6px; }
+.bd-mini .bd-bushfront-r { right: 6px; }
 .bd-mini .bd-flower { display: none; }
 .bd-mini .bd-foliage { bottom: 18px; }
 .bd-mini .bd-sprig { bottom: 22px; }
@@ -907,9 +910,9 @@
   .bd-drape-b { left: -6px; height: 50px; }
   .bd-drape-c { right: 18px; height: 70px; }
   .bd-drape-d { right: -6px; height: 54px; }
-  .bd-bushfront { bottom: calc(var(--bd-foot) - 38px); width: 56px; height: 38px; }
-  .bd-bushfront-l { left: 2px; }
-  .bd-bushfront-r { right: 2px; }
+  .bd-bushfront { bottom: calc(var(--bd-foot) - 40px); }   /* 尺寸不变，1:1 */
+  .bd-bushfront-l { left: 4px; }
+  .bd-bushfront-r { right: 4px; }
   .bd-flower { display: none; }
   .bd-post-l { left: -12px; }
   .bd-post-r { right: -12px; }
