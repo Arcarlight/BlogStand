@@ -577,9 +577,16 @@ html.pxfont .gif-play-hint { font-size: var(--px-sm, 11px) !important; }
 /* 段首就是图的段落不缩进。text-indent 只作用于首行，所以只要把图从首行摘出来
    就安全了 —— 图后面换行才出现的（比如 <p><br><img>）本来就不吃这个缩进。
    用 :has() 而不是给 img 加 display:block，因为后者会把
-   <p><img><img></p> 这种并排的图拆成两行。 */
+   <p><img><img></p> 这种并排的图拆成两行。
+
+   ⚠️ 必须同时认 <picture>：tools/build-images.py 会把正文里的 <img> 换成
+   <picture><source …><img …></picture>，段首元素就从 img 变成了 picture ——
+   只写 img 的那版会漏掉，于是段首图又被推右 2em（24px），
+   整张图从白色卡片右边戳出去（2026-10-12 做正文图优化时踩的）。 */
 .entry-content p:has(> img:first-child),
-.entry-content p:has(> a:first-child > img:first-child) { text-indent: 0; }
+.entry-content p:has(> picture:first-child),
+.entry-content p:has(> a:first-child > img:first-child),
+.entry-content p:has(> a:first-child > picture:first-child) { text-indent: 0; }
 
 .entry-content blockquote {
   margin: 9px 0;

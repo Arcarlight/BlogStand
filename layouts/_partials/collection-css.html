@@ -266,14 +266,24 @@ body.theme-collection .box-review .comments-tip { color: #5b7358; }
 
    ⚠️ 图片段要豁免缩进：Hugo 默认把独占一行的图片包成 <p><img></p>，
       连它一起缩进的话图片会整体右移两格。:has() 现在的浏览器都支持；
-      万一不支持，最坏也只是图片右移两格，不影响阅读。 */
+      万一不支持，最坏也只是图片右移两格，不影响阅读。
+   ⚠️ 这里必须比 retro.css 那条多写一遍：上面 text-indent 带 !important，
+      retro.css 里「段首是图/picture 就不缩进」的规则压不住它。
+      另外要连 <picture> 一起认 —— tools/build-images.py 会把正文的 <img>
+      换成 <picture> 包裹，段首元素就不再是 img 了。 */
 body.theme-collection .entry-content p {
   text-indent: 2em !important;
   overflow-wrap: anywhere !important;
   word-break: break-word;
 }
 
-body.theme-collection .entry-content p:has(> img:only-child) { text-indent: 0 !important; }
+body.theme-collection .entry-content p:has(> img:first-child),
+body.theme-collection .entry-content p:has(> picture:first-child),
+body.theme-collection .entry-content p:has(> img:only-child),
+body.theme-collection .entry-content p:has(> a:first-child > img:first-child),
+body.theme-collection .entry-content p:has(> a:first-child > picture:first-child) {
+  text-indent: 0 !important;
+}
 
 /* 原生整块 HTML（<center> 包的图注之类）也一起自动换行 */
 body.theme-collection .entry-content { overflow-wrap: anywhere; }
