@@ -1003,3 +1003,13 @@
   .bd-keeper { right: 10px; bottom: 8px; }
   .bd-keeper-say { width: min(300px, 82vw); padding: 8px 9px 9px; gap: 8px; }
 }
+
+/* 拉鲁瓦对话框底下的素材署名（PMD 那套是 CC BY-NC 4.0，要署名） */
+.bd-keeper-credit {
+  margin: 6px 0 0;
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px) * 10 / 12);
+  line-height: 1.5;
+  color: #8a7550;
+}
+.bd-keeper-credit a { color: #8a7550; }
