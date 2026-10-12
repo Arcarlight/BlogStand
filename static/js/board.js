@@ -269,6 +269,13 @@
       var mine = readLocal();
       var merged = mine.concat(notes);      // 本机自己写的排最前
       if (want === 'recent') { merged = merged.slice(0, 3); }   // 取最新的三张
+      if (want === 'random') {                                    // 首页：随机抽 1~3 张
+        for (var k = merged.length - 1; k > 0; k--) {              // Fisher–Yates
+          var j = Math.floor(Math.random() * (k + 1));
+          var t = merged[k]; merged[k] = merged[j]; merged[j] = t;
+        }
+        merged = merged.slice(0, 1 + Math.floor(Math.random() * 3));
+      }
       cb(err, merged, !!err);
     };
 
@@ -335,11 +342,13 @@
     /* 图钉是纸的兄弟节点，不能放进纸里 —— 纸被 clip-path 裁过，钉帽会一起没掉 */
     box.appendChild(makePin(opt.img, n.id));
 
-    if (!opt.mini) {
+    /* onOpen 给了就接上点击 —— 缩略版也算：站长要求首页那块点开就地看详情，
+       不用非得跳到 /board/。 */
+    if (opt.onOpen) {
       box.setAttribute('tabindex', '0');
       box.setAttribute('role', 'button');
       box.setAttribute('aria-label', '放大看这张便签');
-      var open = function () { opt.onOpen && opt.onOpen(n); };
+      var open = function () { opt.onOpen(n); };
       box.addEventListener('click', open);
       box.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32) {
@@ -686,12 +695,18 @@
   function bootMini(host) {
     var img = attr(host, 'data-bd-img') || '/images/board';
     var list = host.querySelector('.bd-notes');
+    var modalRoot = document.getElementById('bd-modal');   // 首页也有这个弹层
     if (!list) { return; }
+    var modal = modalRoot ? new Modal(modalRoot) : null;
     loadNotes(host, function (err, data) {
       while (list.firstChild) { list.removeChild(list.firstChild); }
       var n = Math.min(data.length, 3);
-      for (var i = 0; i < n; i++) {           // data 是「新 → 旧」，取前三个
-        list.appendChild(makeNote(data[i], { img: img, mini: true }));
+      for (var i = 0; i < n; i++) {           // 随机抽出来的 1~3 张
+        list.appendChild(makeNote(data[i], {
+          img: img,
+          mini: true,
+          onOpen: function (note) { modal && showNote(modal, note, { img: img }); }
+        }));
       }
       if (!n) {
         list.appendChild(el('p', 'bd-empty', '布告栏还空着，进去贴第一张？'));

@@ -1,15 +1,19 @@
 {{/* ============ 首页最下面那块「布告栏」入口 ============
-     插在 content/_index.md 里（友情链接上面）。整块是一个通往 /board/ 的链接，
-     里面列出最近三张便签的缩略——渲染在 static/js/board.js 里。
+     插在 content/_index.md 里（友情链接上面）。这里列出**从所有便签里随机抽的
+     1~3 张**（data-bd-list="random"），点哪张就地弹出来看详情，不用跳到 /board/。
+     最后那行「推门进去 »」才是通往布告栏主页的链接。
+
+     ⚠️ 整块**不能**再套成一个 <a>：里面的便签会跟着变成链接内容，
+        鼠标一放到任何一张上，整块文字都变红加下划线（站长报过这个）。
      不套 .box：它是个"挂在页面上的物件"，外面再包一层文字框反而吵。
      ============================================================ */}}
 {{- $imgBase := "images/board" | absURL -}}
 {{- $src := "board/notes.json" | absURL -}}
 <div class="bd-mini-wrap">
-  <a class="bd bd-mini" href="{{ "board/" | absURL }}"
-     data-bd-src="{{ $src }}" data-bd-img="{{ $imgBase }}" data-bd-list="recent"
-{{ with site.Params.boardApi }}     data-bd-live="{{ . }}"
-{{ end }}     aria-label="进入布告栏">
+  <div class="bd bd-mini"
+       data-bd-src="{{ $src }}" data-bd-img="{{ $imgBase }}" data-bd-list="random"
+{{ with site.Params.boardApi }}       data-bd-live="{{ . }}"
+{{ end }}       role="group" aria-label="布告栏最近几张便签">
     <div class="bd-scene">
       <i class="bd-beam" aria-hidden="true"></i>
       <i class="bd-ground" aria-hidden="true"></i>
@@ -36,6 +40,17 @@
       <i class="bd-post bd-post-l" aria-hidden="true"><i class="bd-post-body"></i></i>
       <i class="bd-post bd-post-r" aria-hidden="true"><i class="bd-post-body"></i></i>
     </div>
-    <span class="bd-enter">布告栏 —— 推门进去，也可以自己贴一张 »</span>
-  </a>
+    <p class="bd-mini-foot">
+      <a class="bd-enter" href="{{ "board/" | absURL }}">推门进去，也可以自己贴一张 »</a>
+    </p>
+  </div>
+</div>
+
+{{/* 首页这块也要弹层（点便签就地看详情），所以这里也放一份。
+     注意 id 只能有一个：这个短代码只在首页用一次。 */}}
+<div class="bd bd-modal" id="bd-modal" hidden>
+  <div class="bd-modal-bg"></div>
+  <div class="bd-modal-note">
+    <div class="bd-modal-paper"><div class="bd-modal-scroll"></div></div>
+  </div>
 </div>

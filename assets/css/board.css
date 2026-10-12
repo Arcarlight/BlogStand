@@ -69,9 +69,13 @@
    像素图一律 1:1 显示（柱子靠"柱身平铺"来适应板子高度，不缩放）。 */
 .bd-scene {
   position: relative;
-  /* 左右 26px 是留给两根柱子的：柱子挂在场景的 padding 里，
-     所以既不会压到画框（不会出现接缝），也不会撑出外层方框。 */
-  padding: 16px 40px 130px;
+  /* --bd-foot = 板子底边到场景底边的距离（也就是"地平线"的高度）。
+     地上的东西全都按它来定位：**顶上沿正好落在地平线上、身子在草地这边**，
+     这样不管板子多高、首页缩略版多小，植物都不会爬到板子上。
+     （之前是写死的 bottom 数值，缩略版换了内边距就对不上，
+       石头直接压在便签上——站长看到的"穿模"就是这个。） */
+  --bd-foot: 130px;
+  padding: 16px 40px var(--bd-foot);
   /* 背后那面砖墙。1:1 平铺，和别的素材同一个像素大小。 */
   background-color: #b85228;
   background-image: url(../images/board/wall.png);
@@ -94,7 +98,7 @@
 .bd-post {
   position: absolute;
   top: 0;                        /* 顶端藏在顶梁后面，接缝自然消失 */
-  bottom: 130px;                 /* 底端落到地平线上 */
+  bottom: var(--bd-foot);        /* 柱脚落在地平线上 */
   width: 24px;
   z-index: 0;                    /* 在板子后面：柱子只是背景里的门框 */
   display: flex;
@@ -137,7 +141,8 @@
 
 .bd-bush {
   position: absolute;
-  bottom: 112px;
+  z-index: 1;
+  bottom: calc(var(--bd-foot) - 30px);   /* 30 = 它自己的高度 */
   width: 44px;
   height: 30px;
   background: url(../images/board/bush.png) no-repeat;
@@ -150,7 +155,8 @@
 
 .bd-rock {
   position: absolute;
-  bottom: 116px;
+  z-index: 1;
+  bottom: calc(var(--bd-foot) - 16px);
   width: 24px;
   height: 16px;
   background: url(../images/board/rock.png) no-repeat;
@@ -164,51 +170,51 @@
 /* 大石头（一大小两块挨着的那张） */
 .bd-rock2 {
   position: absolute;
-  bottom: 106px;
+  z-index: 1;
+  bottom: calc(var(--bd-foot) - 24px);
   width: 36px;
   height: 24px;
   background: url(../images/board/rock2.png) no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
-  z-index: 3;
 }
 
 .bd-rock2-a { left: 4%; }
 .bd-rock2-b { right: 6%; }
-.bd-rock2-c { left: 30%; bottom: 58px; }   /* 前面那块摆低一点，做出远近 */
+.bd-rock2-c { left: 30%; bottom: 54px; }   /* 前面那块摆低一点，做出远近 */
 
 /* 淡黄的卵石堆（参考图里地面上那些石头） */
 .bd-cobble {
   position: absolute;
-  bottom: 96px;
+  z-index: 1;
+  bottom: calc(var(--bd-foot) - 26px);
   width: 52px;
   height: 26px;
   background: url(../images/board/cobble.png) no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
-  z-index: 3;
 }
 
 .bd-cobble-a { left: 3%; }
-.bd-cobble-d { left: 34%; bottom: 112px; }
-.bd-cobble-b { right: 5%; bottom: 104px; }
-.bd-cobble-c { left: 64%; bottom: 34px; }      /* 前景那一堆，摆低一点做远近 */
+.bd-cobble-d { left: 34%; bottom: calc(var(--bd-foot) - 26px); }
+.bd-cobble-b { right: 5%; bottom: calc(var(--bd-foot) - 26px); }
+.bd-cobble-c { left: 64%; bottom: 30px; }      /* 前景那一堆，摆低一点做远近 */
 
 /* 长草 */
 .bd-tuft {
   position: absolute;
-  bottom: 120px;
+  z-index: 1;
+  bottom: calc(var(--bd-foot) - 22px);
   width: 22px;
   height: 24px;
   background: url(../images/board/tuft.png) no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
-  z-index: 3;
 }
 
 .bd-tuft-a { left: 22%; }
 .bd-tuft-b { right: 24%; }
-.bd-tuft-c { left: 46%; bottom: 48px; }
+.bd-tuft-c { left: 46%; bottom: 44px; }
 .bd-tuft-d { left: 12%; bottom: 66px; }
 .bd-tuft-e { right: 16%; bottom: 52px; }
 
@@ -235,13 +241,13 @@
 /* 板子前面的大灌木：挡住下沿两角（参考图里就是被灌木挡着的） */
 .bd-bushfront {
   position: absolute;
-  bottom: 110px;
+  z-index: 1;
+  bottom: calc(var(--bd-foot) - 50px);
   width: 74px;
   height: 50px;
   background: url(../images/board/bush-big.png) no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
-  z-index: 3;
 }
 
 .bd-bushfront-l { left: 44px; }
@@ -250,18 +256,18 @@
 /* 草里的小花 */
 .bd-flower {
   position: absolute;
-  bottom: 118px;
+  z-index: 1;
+  bottom: calc(var(--bd-foot) - 30px);
   width: 46px;
   height: 18px;
   background: url(../images/board/flower.png) no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
-  z-index: 3;
 }
 
 .bd-flower-a { left: 36%; }
 .bd-flower-b { right: 38%; transform: scaleX(-1); }
-.bd-flower-c { left: 56%; bottom: 62px; }
+.bd-flower-c { left: 56%; bottom: 58px; }
 
 /* 板子上沿那道拱形线脚：压在画框上沿，居中 */
 .bd-arch {
@@ -278,7 +284,7 @@
 }
 
 /* 板子在场景里压住下层，柱子才压得住它 */
-.bd-board { z-index: 1; }   /* 板子压住柱子 */
+.bd-board { z-index: 2; }   /* 板子压住地上的所有东西；柱子(z 0)在它后面 */
 
 /* 画框：一张九宫格像素图（tools/build-board-art.py 生成的木框），
    用 border-image 拼出来。每格 32px、按 32px 宽显示，一比一，不缩放。
@@ -301,6 +307,7 @@
   content: "";
   position: absolute;
   top: -26px;
+  z-index: 3;                    /* 必须大于 .bd-cork，否则被板面盖住（站长说"藤被挡住/截断"） */
   width: 44px;
   height: 60px;
   background-repeat: no-repeat;
@@ -314,7 +321,8 @@
 /* 下沿的小叶（草皮上那几丛） */
 .bd-sprig {
   position: absolute;
-  bottom: 116px;
+  z-index: 1;
+  bottom: calc(var(--bd-foot) - 28px);
   width: 34px;
   height: 28px;
   background: url(../images/board/sprig.png) no-repeat;
@@ -475,7 +483,10 @@
   box-shadow: 2px 2px 0 rgba(58, 34, 8, .3);
 }
 
-/* 纸色。米白/奶白是多数，彩色是少数（哪张是彩的由 JS 按 id 决定） */
+/* 纸色。米白/奶白是多数，彩色是少数（哪张是彩的由 JS 按 id 决定）。
+   另外给每个色系一个**更明显的 --bd-swatch**：便签纸本身是淡的，
+   但选择框只有 26px，用纸色根本看不出六个有什么区别（站长说"框是空的"）。 */
+
 .bd-c-white  { --bd-paper: var(--bd-p-white);  --bd-paper-l: var(--bd-p-white-l); }
 .bd-c-cream  { --bd-paper: var(--bd-p-cream);  --bd-paper-l: var(--bd-p-cream-l); }
 .bd-c-yellow { --bd-paper: var(--bd-p-yellow); --bd-paper-l: var(--bd-p-yellow-l); }
@@ -730,12 +741,22 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  background-color: var(--bd-paper);
-  background-image: url(../images/board/paper.png);
-  border: 2px solid var(--bd-paper-l);
+  /* 这里**不能**贴便签纸的纹理：paper.png 是不透明的，会把底色整个盖掉，
+     六个框看着就全是白的（站长报的"颜色框是空的"就是这个）。 */
+  background-image: none;
+  background-color: var(--bd-swatch, var(--bd-paper));
+  border: 2px solid #b08a52;          /* 中性描边：别再用纸色，否则跟色系糊在一起 */
   box-shadow: 2px 2px 0 rgba(58, 34, 8, .22);
   cursor: pointer;
 }
+
+/* 每个色系的"看得见的那个色"（选择框专用） */
+.bd-c-white  { --bd-swatch: #fbf7ee; }
+.bd-c-cream  { --bd-swatch: #eddfae; }
+.bd-c-yellow { --bd-swatch: #f3de8e; }
+.bd-c-pink   { --bd-swatch: #f3c6cd; }
+.bd-c-green  { --bd-swatch: #cfe4b4; }
+.bd-c-blue   { --bd-swatch: #c3dbef; }
 
 .bd-swatches button.on { border-color: #6b3a10; box-shadow: 2px 2px 0 rgba(58, 34, 8, .45), inset 0 0 0 2px #fff; }
 
@@ -796,7 +817,7 @@
 .bd-intro { margin: 0 0 10px; }
 .bd-intro > p { margin-bottom: 4px; }
 
-.bd-mini { display: block; margin: 4px 0 2px; text-decoration: none; }
+.bd-mini { display: block; margin: 4px 0 2px; }
 
 .bd-mini .bd-board {
   padding: 6px;
@@ -808,23 +829,23 @@
    宁可让它在小板上显得大一点 */
 .bd-mini .bd-board::before,
 .bd-mini .bd-board::after { top: -13px; left: -14px; right: -14px; }
-.bd-mini .bd-scene { padding: 14px 40px 66px; }
-.bd-mini .bd-post { top: 0; bottom: 64px; }
+.bd-mini .bd-scene { --bd-foot: 66px; padding: 14px 40px var(--bd-foot); }
+.bd-mini .bd-post { top: 0; }
 .bd-mini .bd-drape-a { left: 28px; height: 78px; }
 .bd-mini .bd-drape-b { left: 0; height: 58px; }
 .bd-mini .bd-drape-c { right: 28px; height: 86px; }
 .bd-mini .bd-drape-d { right: 0; height: 62px; }
 .bd-mini .bd-drape-e { display: none; }
 .bd-mini .bd-drape-f { display: none; }
-.bd-mini .bd-bushfront { width: 52px; height: 35px; bottom: 58px; }
+.bd-mini .bd-bushfront { width: 52px; height: 35px; bottom: calc(var(--bd-foot) - 35px); }
 .bd-mini .bd-bushfront-l { left: 22px; }
 .bd-mini .bd-bushfront-r { right: 22px; }
 .bd-mini .bd-flower { display: none; }
 .bd-mini .bd-foliage { bottom: 18px; }
 .bd-mini .bd-sprig { bottom: 22px; }
-.bd-mini .bd-rock { display: none; }        /* 缩略版地方小，石头不摆 */
-.bd-mini .bd-rock2 { bottom: 56px; }
+.bd-mini .bd-rock { display: none; }        /* 缩略版地方小，棕色石头不摆 */
 .bd-mini .bd-tuft { display: none; }
+.bd-mini .bd-cobble-b, .bd-mini .bd-cobble-c { display: none; }
 .bd-mini .bd-crest { top: -14px; }
 
 .bd-mini .bd-notes {
@@ -832,7 +853,11 @@
   gap: 22px 12px;
 }
 
-.bd-mini .bd-note { min-height: 92px; }
+/* 缩略版便签 = 正方形（aspect-ratio 跟着列宽走，不同宽度都是方的）。
+   正文在上、署名压到方块底边，中间留白反而像一张真便签。 */
+.bd-mini .bd-note { aspect-ratio: 1 / 1; min-height: 0; }
+.bd-mini .bd-paper { display: flex; flex-direction: column; }
+.bd-mini .bd-note-foot { margin-top: auto; }
 .bd-mini .bd-paper { padding: 15px 10px 8px; }
 .bd-mini .bd-note-body {
   -webkit-line-clamp: 2;
@@ -843,15 +868,16 @@
 .bd-mini .bd-note:hover .bd-paper-shadow { filter: drop-shadow(2px 3px 0 rgba(58, 34, 8, .34)); }
 
 .bd-enter {
-  display: block;
-  margin-top: 10px;
-  text-align: right;
+  display: inline-block;
+  margin-top: 0;
   font-family: var(--bd-font-small);
   font-size: calc(var(--px, 12px) * 11 / 12);
   color: #c94800;
 }
 
-.bd-mini:hover .bd-enter { text-decoration: underline; }
+.bd-mini-foot { margin: 10px 0 0; text-align: right; }
+.bd-enter { text-decoration: none; }
+.bd-enter:hover { text-decoration: underline; }
 
 /* ---------- 6. 窄屏 ---------- */
 
@@ -875,13 +901,13 @@
   /* 窄屏：柱子/灌木不许往外探，否则会把页面撑出横向滚动条 */
   /* 窄屏把左右留白收到 12px、板面内边距收到 8px，才放得下两列便签
      （单列的话便签会变成长条，就不是"接近正方形"了） */
-  .bd-scene { padding: 12px 12px 96px; }
+  .bd-scene { --bd-foot: 96px; padding: 12px 12px var(--bd-foot); }
   /* 窄屏放不下两边的植被留白，垂藤和大灌木收进画面内侧、缩小出现 */
   .bd-drape-a { left: 18px; height: 66px; }
   .bd-drape-b { left: -6px; height: 50px; }
   .bd-drape-c { right: 18px; height: 70px; }
   .bd-drape-d { right: -6px; height: 54px; }
-  .bd-bushfront { bottom: 80px; width: 56px; height: 38px; }
+  .bd-bushfront { bottom: calc(var(--bd-foot) - 38px); width: 56px; height: 38px; }
   .bd-bushfront-l { left: 2px; }
   .bd-bushfront-r { right: 2px; }
   .bd-flower { display: none; }
