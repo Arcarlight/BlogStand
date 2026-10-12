@@ -18,8 +18,25 @@
 （<https://github.com/chrisjbillington/fugue-2x-icons>，同一套图按 2 倍放大），
 显示时按 **16px** —— Retina（DPR 2）下正好 1:1，1x 屏就是普通缩小。
 
+`favicon.png` 是**编辑器的站点图标**（浏览器标签页上那个小图）。它来自站长放在
+工作区的 `favicon_editor.png`（64×64 像素画：青色的画笔 + 颜料罐），由 `ui.html`
+里的 `<link rel="icon" ... href="/editor-icons/favicon.png">` 引用。
+**换图标直接换这个文件就行**，不用动代码（这条路带 `Cache-Control: no-store`，刷新即生效）。
+
 换某个图标：把同名 PNG 换掉即可；想换成另一张，改 `ui.html` 里那张
 `FUGUE` 映射表（逻辑名 → 文件名）就行，不用动别的地方。
+
+## 侧栏组小标题的图标（2026-10-12 加的）
+
+`ui.html` 的 `renderTree()` 会给每个**组小标题**配一枚图标，映射写在两处：
+
+- `GRP_ICON_BY_NAME` —— 按组名：工具 / 首页与单页 / 博客 / 文集 / 日记
+- `GRP_ICON_BY_KIND` —— 按 kind 兜底：config / data / js / template
+  （草稿组的名字带数量「草稿（2）」，所以先看 `g.draft`，用 `thumbtack`）
+
+**页面行（子项）故意没有图标**：那一版按文件类型给过（.md/.html/.css…），
+站长看了一眼说「子项加太多一样的，有点喧宾夺主」，于是撤掉。
+想加回来：在 `renderTree` 前面补一个 `fileIcon()`，行模板里插 `${ico(fileIcon(f))}`。
 
 ## 名字对照（编辑器里叫什么 → 用的哪张图）
 

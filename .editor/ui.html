@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>星虹巢 · 本地编辑器</title>
+<!-- 站点图标：图本身在 .editor/icons/favicon.png（换掉那个文件即可，无需改这里；
+     由 server.mjs 的 /editor-icons/ 路由伺服） -->
+<link rel="icon" type="image/png" href="/editor-icons/favicon.png">
 <style>
   :root{
     --bg:#eef2f7; --panel:#fff; --line:#c9d6e5; --ink:#22303f; --dim:#7488a0;
@@ -64,7 +67,55 @@
   #panes{flex:1;display:flex;min-height:0}
 
   /* ---------- 侧栏树 ---------- */
-  .grp{padding:10px 12px 4px;font-size:11px;font-weight:bold;color:var(--dim);letter-spacing:1px}
+  /* ---------- 侧栏分组的小标题条：拟物化（同时是折叠开关） ----------
+     站长：「可以把工具这些可折叠的 tab 也加一下拟物化效果？不只是看箭头」，
+     随后又指出方向反了：「点击展开后应该是按下去的效果而非凸起」。
+     所以两个状态是：
+       **展开**（默认态，内容就在下面）→ 按下去的凹陷：顶部内阴影 + 压平的底色 + 底沿亮线
+       **折起来**→ 凸起：上亮下暗的渐变 + 顶部内白高光 + 底部内暗影 + 近投影
+     配方都是编辑器现成那套（按钮/压条），只用 background / box-shadow /
+     border-radius / color —— 不新增 border、不占位（描边用 inset 0 0 0 1px 画在内侧）。
+     ⚠️ 这是全编辑器唯一一处动了几何：它自己的上下 padding 从 10/4 改成 6/6，
+        为的是左右对称、像一条 tab。`#tree` 里其它行（.row）一个像素都没动。 */
+  .grp{
+    display:flex;align-items:center;gap:5px;padding:6px 12px 6px 10px;
+    font-size:11px;font-weight:bold;color:#42566e;letter-spacing:1px;
+    cursor:pointer;user-select:none;border-radius:3px;
+    text-shadow:0 1px 0 rgba(255,255,255,.8);
+    /* 展开 = 按下去（底色比侧栏面板再暗一档，才压得住） */
+    background:linear-gradient(180deg, #d9e3ef 0%, #dfe8f3 55%, #e9f0f9 100%);
+    box-shadow:
+      inset 0 2px 4px rgba(46,78,116,.18),      /* 顶部内阴影：凹陷 */
+      inset 0 0 0 1px rgba(150,175,205,.66),    /* 一圈内描边（代替 border） */
+      inset 0 -1px 0 rgba(255,255,255,.85);     /* 底沿亮线 */
+  }
+  .grp:hover{color:var(--accent);text-shadow:0 1px 0 rgba(255,255,255,.95)}
+  /* 按下那一刻：凹陷加深（折起来的那条按下去也有反馈） */
+  .grp:active{
+    box-shadow:
+      inset 0 2px 5px rgba(46,78,116,.26),
+      inset 0 0 0 1px rgba(150,175,205,.8),
+      inset 0 -1px 0 rgba(255,255,255,.8);
+  }
+  /* 折起来 = 凸起：一条可以按下去的按钮 */
+  .grp.folded{
+    color:#4a5f78;
+    background:linear-gradient(180deg, #ffffff 0%, #f4f8fd 45%, #e6eef9 46%, #d8e3f1 100%);
+    box-shadow:
+      inset 0 1px 0 #ffffff,                    /* 顶沿高光 */
+      inset 0 0 0 1px rgba(150,175,205,.72),    /* 一圈内描边 */
+      inset 0 -2px 2px rgba(46,78,116,.12),     /* 底部内侧暗影：塑料的厚度 */
+      0 1px 2px rgba(6,24,48,.12);              /* 近投影：抬离底色 */
+  }
+  /* 折叠箭头（纯 CSS 画的字符，展开 ▾ / 折叠 ▸） */
+  .grp .grp-arrow{width:8px;flex:none;font-size:9px;line-height:1;text-align:center;opacity:.75}
+  .grp .grp-arrow::before{content:"▾"}
+  .grp.folded .grp-arrow::before{content:"▸"}
+  /* 组小标题前面那枚图标：字只有 11px，图标也收一档。压在浅色条上，
+     比原来（浮在空白上）可以稍亮一点点，否则会被渐变压住。
+     页面行（子项）没有图标 —— 试过，太花，去掉了。 */
+  .grp .ico{width:13px;height:13px;opacity:.85}
+  .grpbody[hidden]{display:none}
   .row{
     display:flex;align-items:center;gap:6px;padding:4px 12px 4px 18px;cursor:pointer;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -570,7 +621,29 @@
   }
 
   /* ---------- 侧栏树 ---------- */
-  #side{background:linear-gradient(180deg, #ffffff 0%, #f7fafd 100%)}
+  /* 侧栏底子 = 一块**凹进去的面板**。
+     站长：「tab 加了拟物化效果后，侧栏的背景反而显得因为没有效果而突兀了」。
+     原来这里是「白 → #f7fafd」的极淡渐变，几乎就是纯白 —— tab 的凸/凹没有底子
+     可参照，看着就假。现在换成：比内容区暗一档的冷灰面板 + 上沿一条受光带
+     + 顶/右两条接缝内阴影，读起来像被压出来的一道槽：
+     凸起的 tab 明显亮于它，按下去的 tab 明显暗于它。
+     只用 background / box-shadow（不新增 border、不动任何尺寸）。
+     ⚠️ 接缝阴影写在这里，下面「分栏竖线」那段就**不要**再给 #side 写 box-shadow
+        —— 同一属性后来的会把它整个覆盖掉。 */
+  #side{
+    background:
+      /* 上沿的受光带：贴着顶栏那一段亮，往下 90px 衰减掉 */
+      linear-gradient(180deg, rgba(255,255,255,.85) 0px, rgba(255,255,255,.28) 36px,
+                              rgba(255,255,255,0) 90px),
+      /* 面板本体：冷灰，越往下越暗一点 */
+      linear-gradient(180deg, #eef3f9 0%, #eaf0f7 55%, #e5ecf4 100%);
+    box-shadow:
+      inset 0 2px 5px rgba(30,48,68,.10),        /* 贴着顶栏的接缝 */
+      inset -3px 0 7px rgba(30,48,68,.07),       /* 贴着编辑区的接缝 */
+      inset -1px 0 0 rgba(255,255,255,.70);      /* 右沿亮线 */
+  }
+  /* 底部那行署名：已有的规则在下面「滚动条」那一段上面（#credits 的渐变 + 顶沿亮线），
+     这里不要再写一条 —— 同优先级下后写的赢，写了也是死代码。 */
   /* ⚠️ 不给 .row 加 margin/padding —— 原来没有，加了会改宽度、推挤内容 */
   .row{border-radius:3px}
   .row:hover{
@@ -623,7 +696,9 @@
                     #dbe4ef 100%)}
 
   /* ---------- 分栏竖线：做出一道浅沟 ---------- */
-  #side{border-right-color:#b6c6d6;box-shadow:inset -1px 0 0 rgba(255,255,255,.85)}
+  /* #side 的接缝阴影写在上面「侧栏」那段里（同一处的立体感放一起）。
+     这里只留竖线颜色 —— 再给 #side 写 box-shadow 会把它整个覆盖掉。 */
+  #side{border-right-color:#b6c6d6}
   #previewPane{border-left-color:#b6c6d6;box-shadow:inset 1px 0 0 rgba(255,255,255,.85)}
 
   /* ---------- 编辑区：像一张凹进去的稿纸 ---------- */
@@ -857,6 +932,10 @@ const FUGUE = {
   plus:'plus', eye:'eye', 'external-link':'external', check:'tick', upload:'upload',
   bold:'edit-bold', italics:'edit-italic', expand:'application-resize', image:'image',
   thumbtack:'pin', save:'disk', trash:'bin', search:'magnifier', folder:'folder',
+  /* 侧栏**组小标题**上的图标（见 renderTree）。
+     页面行（子项）**不加** —— 试过：一整列同样的图标太喧宾夺主，站长看过之后
+     让去掉（2026-10-12）。所以这一组名字只给组用。 */
+  home:'home', newspaper:'newspaper', blueprint:'blueprint', table:'table',
 };
 const ico = (name) => '<img class="ico" src="/editor-icons/fugue/'
   + (FUGUE[name] || name) + '.png" alt="" draggable="false">';
@@ -893,11 +972,76 @@ function shortName(p) {
   return b;
 }
 
+/* 侧栏树上的**组小标题**图标。
+   按组名给（草稿组的名字带数量，认名字会认不到，所以先看 g.draft），
+   对不上名字的再按 kind 兜底。图标取自 Fugue（见 .editor/icons/README.md）。
+
+   页面行那一层**故意不加图标**：2026-10-12 试过按文件类型给（.md/.html/.css…），
+   站长看了一眼说「子项加太多一样的，有点喧宾夺主」—— 于是撤掉，只留组标题。
+   想加回来的话，在这里补一个 fileIcon()，再在 renderTree 的行模板里插 ${ico(...)}。 */
+const GRP_ICON_BY_NAME = {
+  '工具': 'gear', '首页与单页': 'home', '博客': 'newspaper', '文集': 'book', '日记': 'calendar',
+};
+const GRP_ICON_BY_KIND = { config: 'gear', data: 'table', js: 'script', template: 'blueprint' };
+
+function grpIcon(g) {
+  if (g.draft) return 'thumbtack';
+  return GRP_ICON_BY_NAME[g.group] || GRP_ICON_BY_KIND[g.kind] || 'folder';
+}
+
+/* ---------- 侧栏分组折叠 ----------
+   一列 55 个页面 + 16 个工具太长了，组小标题点一下就折起来（再点展开）。
+   折叠状态按组名存 localStorage（草稿组的名字带数量，所以先去掉「（3）」再当 key），
+   刷新、或者保存后重渲染，都还是折着。
+   打开某个文件时会自动展开它所在的那一组 —— 不然你不知道自己在编辑哪一页。 */
+const GRP_FOLD_KEY = 'editor.grpFolded';
+
+function grpKey(g) {
+  return String(g.group || '').replace(/[（(]\d+[)）]/g, '').trim();
+}
+function foldedMap() {
+  try { return JSON.parse(localStorage.getItem(GRP_FOLD_KEY) || '{}') || {}; } catch { return {}; }
+}
+function isFolded(key) { return !!foldedMap()[key]; }
+function setFolded(key, on) {
+  const m = foldedMap();
+  if (on) m[key] = 1; else delete m[key];
+  try { localStorage.setItem(GRP_FOLD_KEY, JSON.stringify(m)); } catch { /* 存不了就算了 */ }
+}
+function applyFold(head, body, on) {
+  body.hidden = !!on;
+  head.classList.toggle('folded', !!on);
+}
+/** 组小标题（可点） */
+function grpHead(key, label, iconName) {
+  const on = isFolded(key);
+  return `<div class="grp${on ? ' folded' : ''}" data-gkey="${esc(key)}" title="点一下折叠 / 展开">`
+    + `<span class="grp-arrow"></span>${ico(iconName)}<span class="grp-t">${esc(label)}</span></div>`;
+}
+/** 组体（紧跟在标题后面，折叠时整个隐藏） */
+function grpOpen(key) {
+  return `<div class="grpbody" data-gkey="${esc(key)}"${isFolded(key) ? ' hidden' : ''}>`;
+}
+function toggleGroup(head) {
+  const body = head.nextElementSibling;
+  if (!body || !body.classList.contains('grpbody')) return;
+  const on = !head.classList.contains('folded');
+  applyFold(head, body, on);
+  setFolded(head.dataset.gkey || '', on);
+}
+function unfoldGroupOf(row) {
+  const body = row && row.closest('.grpbody');
+  if (!body || !body.hidden) return;
+  applyFold(body.previousElementSibling, body, false);
+  setFolded(body.dataset.gkey || '', false);
+}
+
 function renderTree() {
   const el = $('#tree');
   let h = '';
   h += '<div class="row create" data-act="new">' + ico('plus') + '新建页面</div>';
-  h += '<div class="grp">工具</div>';
+  h += grpHead('工具', '工具', grpIcon({ group: '工具' }));
+  h += grpOpen('工具');
   h += '<div class="row tool" data-panel="collection">' + ico('book') + '文集</div>';
   h += '<div class="row tool" data-panel="music">' + ico('music') + '音乐</div>';
   h += '<div class="row tool" data-panel="gallery">' + ico('paint-brush') + '画廊</div>';
@@ -913,9 +1057,12 @@ function renderTree() {
   h += '<div class="row tool" data-panel="sidebar">' + ico('pencil-ruler') + '侧栏排序</div>';
   h += '<div class="row tool" data-panel="scripts">' + ico('code') + '脚本管理</div>';
   h += '<div class="row tool" data-panel="nav">' + ico('calendar-alt') + '日记日历</div>';
+  h += '</div>';
   for (const g of TREE) {
     if (!g.files.length) continue;
-    h += `<div class="grp">${esc(g.group)}</div>`;
+    const key = grpKey(g);
+    h += grpHead(key, g.group, grpIcon(g));
+    h += grpOpen(key);
     for (const f of g.files) {
       // data-group 是拖动排序用的（只允许同组内换位置）；草稿组不参与，不给拖
       const drag = g.draft ? '' : ' draggable="true"';
@@ -923,6 +1070,7 @@ function renderTree() {
       h += `<div class="row" data-file="${esc(f)}" data-group="${esc(g.group)}"${drag}`
         + ` title="${tip}">${esc(shortName(f))}</div>`;
     }
+    h += '</div>';
   }
   el.innerHTML = h;
 }
@@ -990,8 +1138,17 @@ $('#tree').addEventListener('dragend', () => {
 
 function markActive(sel) {
   document.querySelectorAll('.row').forEach((r) => r.classList.remove('active'));
-  if (sel) sel.classList.add('active');
+  if (!sel) return;
+  sel.classList.add('active');
+  // 打开的文件如果折着，先把那一组展开 —— 不然看不到自己在编辑哪一页
+  unfoldGroupOf(sel);
 }
+
+/* 点组小标题 = 折叠 / 展开（见 grpHead / toggleGroup） */
+$('#tree').addEventListener('click', (e) => {
+  const head = e.target.closest('.grp');
+  if (head) toggleGroup(head);
+});
 
 document.addEventListener('click', async (e) => {
   const row = e.target.closest('.row');
@@ -3778,7 +3935,7 @@ async function bootstrap() {
   renderTree();
   if (CUR) {
     const r = document.querySelector(`.row[data-file="${CSS.escape(CUR)}"]`);
-    if (r) r.classList.add('active');
+    markActive(r);        // 顺手展开它所在的那一组（见 unfoldGroupOf）
   }
   // 首次打开时按地址栏的 #锚点 直达：
   //   #settings / #links / #buttons / #scripts / #nav   打开工具面板
