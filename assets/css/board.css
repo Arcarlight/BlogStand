@@ -931,3 +931,75 @@
   .bd-modal-scroll { max-height: 82vh; padding: 22px 16px 16px; }
   .bd-mini .bd-notes { grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); }
 }
+
+
+/* ============================================================
+   拉鲁瓦 —— 布告栏的管理员（超音波幼虫）
+   页面右下角草地上飞进来的那只。点它出对话框。
+   位置用场景坐标（右下角草地），所以和板子、墙角树丛同一套参照。
+   ============================================================ */
+.bd-keeper {
+  position: absolute;
+  right: 24px;
+  bottom: 12px;                  /* 落在草地上 */
+  z-index: 4;                    /* 板子(2)、墙角树丛(3) 之上 */
+  pointer-events: none;          /* 容器不吃事件，只有它本人那一下 */
+}
+.bd-keeper-btn {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  /* 注意：**不要**给 transform 加 transition —— JS 每帧都在写 transform，
+     加了会和动画打架（抖）。 */
+}
+.bd-keeper-canvas { display: block; image-rendering: pixelated; }
+.bd-keeper-btn:focus-visible { outline: 2px solid #c94800; outline-offset: 3px; }
+
+/* 对话框：飘在它上面的一张小纸，右侧对齐 */
+.bd-keeper-say {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  width: min(392px, 76vw);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px 11px;
+  background: #f8f1de url(../images/board/paper.png) no-repeat;
+  background-size: 48px 48px;
+  border: 3px solid #6b3a10;
+  box-shadow: 4px 4px 0 rgba(58, 34, 8, .28);
+  pointer-events: auto;
+}
+.bd-keeper-say[hidden] { display: none; }
+.bd-keeper-face {
+  flex: 0 0 auto;
+  padding: 2px;
+  background: #fffaf0;
+  border: 2px solid #c9a05a;
+}
+.bd-keeper-face-canvas { display: block; image-rendering: pixelated; }
+.bd-keeper-body { min-width: 0; }
+.bd-keeper-name {
+  margin: 0 0 3px;
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px) * 10 / 12);
+  line-height: 1.4;
+  color: #a8500f;
+}
+.bd-keeper-text {
+  margin: 0;
+  font-family: 'FusionPixelBoard12', var(--song-stack, SimSun, "宋体", sans-serif);
+  font-size: var(--px);
+  line-height: 1.65;
+  color: #3d2c14;
+  word-break: break-word;
+}
+
+@media (max-width: 700px) {
+  .bd-keeper { right: 10px; bottom: 8px; }
+  .bd-keeper-say { width: min(300px, 82vw); padding: 8px 9px 9px; gap: 8px; }
+}

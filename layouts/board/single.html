@@ -60,6 +60,9 @@
         <i class="bd-flower bd-flower-b" aria-hidden="true"></i>
         <i class="bd-post bd-post-l" aria-hidden="true"><i class="bd-post-body"></i></i>
         <i class="bd-post bd-post-r" aria-hidden="true"><i class="bd-post-body"></i></i>
+
+        {{/* 布告栏管理员拉鲁瓦：必须放在 .bd-scene 里面，因为它是按场景坐标定位的 */}}
+        {{ partial "board-keeper.html" . }}
       </div>
 
       <div class="bd-write" id="bd-write" role="button" tabindex="0" aria-label="写下便签">
@@ -88,6 +91,7 @@
 
   </div>
 </div>
+
 
 {{/* 放大 / 写便签用的弹层。同一时刻只会用它装一样东西。 */}}
 <div class="bd bd-modal" id="bd-modal" hidden>

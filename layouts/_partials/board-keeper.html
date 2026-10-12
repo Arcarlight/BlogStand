@@ -1,0 +1,91 @@
+{{/* ============================================================
+     拉鲁瓦 —— 布告栏的管理员（超音波幼虫 / Vibrava #329）
+
+     只在 /board/ 这一页出现（不在首页缩略版里，站长说的"点进告示板页面后"）。
+     页面加载后它从右边飞进来，停在右下角的草地上，隔一会儿动一下翅膀；
+     点它弹出对话框：头图 + 一句闲聊。
+
+     素材直接用站上那套 PMD 精灵表（static/pkmn/sprite/329.png，由
+     tools/build-pkmn.py 生成，PMDCollab SpriteCollab，CC BY-NC 4.0），
+     元数据从 static/pkmn/index.json 里读，所以图换了这里不用改。
+
+     行号约定（index.json 的 _doc 里写着）：0=Idle下 1=Walk左 2=Walk右 3=脸图
+     台词：手写的在 data/board-keeper.toml，自动带数据的在 board-keeper.js 里拼。
+     ============================================================ */}}
+{{/* 注意：toml 文件名里有连字符，不能写 site.Data.board-keeper（会被当成减号），得用 index */}}
+{{- $keeper := index site.Data "board-keeper" -}}
+{{- $lines := slice -}}
+{{- range $keeper.lines -}}
+  {{- $ok := true -}}
+  {{- with .from }}{{ if lt (now.Format "2006-01-02") . }}{{ $ok = false }}{{ end }}{{ end -}}
+  {{- with .to }}{{ if gt (now.Format "2006-01-02") . }}{{ $ok = false }}{{ end }}{{ end -}}
+  {{- if $ok }}{{ $lines = $lines | append .text }}{{ end -}}
+{{- end -}}
+
+{{/* 精灵元数据 + 给 JS 用的那几条"现成的事实"（都在构建时算好，页面不用再请求） */}}
+{{- $meta := dict -}}
+{{- if fileExists "static/pkmn/index.json" -}}
+  {{- $idx := os.ReadFile "static/pkmn/index.json" | transform.Unmarshal -}}
+  {{- $m := index $idx.sheet "329" -}}
+  {{- if $m -}}
+    {{- $meta = dict
+      "name"  "拉鲁瓦"
+      "dex"   "329"
+      "sheet" ("pkmn/sprite/329.png" | absURL)
+      "cw"    $m.cw
+      "ch"    $m.ch
+      "rows"  (dict "idle" 0 "walkL" 1 "walkR" 2 "face" 3)
+      "idle"  (dict "n" $m.i.n "d" $m.i.d)
+      "walk"  (dict "n" $m.wl.n "d" $m.wl.d)
+      "face"  (dict "n" (len $m.f.c) "d" (slice) "w" $m.f.w "h" $m.f.h)
+    -}}
+  {{- end -}}
+{{- end -}}
+
+{{/* 最近一条更新日志 */}}
+{{- $cl := site.Data.changelog.items | default slice -}}
+{{- $lastUp := dict -}}
+{{- range $cl -}}
+  {{- if or (not $lastUp.date) (gt .date $lastUp.date) -}}
+    {{- $lastUp = dict "date" .date "title" .title -}}
+  {{- end -}}
+{{- end -}}
+
+{{/* 最近一篇日记（正文页里日期最新的那篇） */}}
+{{- $lastPost := dict -}}
+{{- range first 1 (where site.RegularPages "Section" "blog") -}}
+  {{- $lastPost = dict "date" (.Date.Format "2006-01-02") "title" .Title -}}
+{{- end -}}
+
+{{- $meta = merge $meta (dict
+  "lines"     $lines
+  "lastUp"    $lastUp
+  "lastPost"  $lastPost
+  "credit"    "PMD Sprite Repository"
+) -}}
+
+{{ with $meta.sheet }}
+<div class="bd-keeper" id="bd-keeper">
+  <button class="bd-keeper-btn" type="button" aria-label="拉鲁瓦，布告栏的管理员（点它说话）">
+    <canvas class="bd-keeper-canvas" width="1" height="1"></canvas>
+  </button>
+
+  <div class="bd-keeper-say" id="bd-keeper-say" hidden>
+    <div class="bd-keeper-face">
+      <canvas class="bd-keeper-face-canvas" width="1" height="1"></canvas>
+    </div>
+    <div class="bd-keeper-body">
+      <p class="bd-keeper-name">拉鲁瓦</p>
+      <p class="bd-keeper-text" id="bd-keeper-text"></p>
+    </div>
+  </div>
+
+  {{/* 访客数**不在页面里另放元素**：不蒜子的 id 全站唯一，
+       侧栏那个「访客统计」挂件里已经有了。再放一份同 id 的会打架
+       （它只填第一个，随机填到哪份全看 DOM 顺序）—— JS 直接读侧栏那份。 */}}
+</div>
+{{/* 这段 JSON 必须 | safeJS：不加的话 Hugo 会把 <script> 当 JS 上下文，
+       把整段 JSON 再当成一个字符串字面量编码一遍（外面裹引号、内部转义），
+       JS 那边 JSON.parse 出来是个字符串，M.sheet 直接是 undefined。 */}}
+<script type="application/json" id="bd-keeper-meta">{{ $meta | jsonify | safeJS }}</script>
+{{ end }}

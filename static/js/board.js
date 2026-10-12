@@ -133,11 +133,17 @@
 
   /* 时间：后端给 ISO 串，这里只负责显示成"2026-10-12 21:07"。
      已经是这种格式（假数据）就原样用。 */
+  /* 时间要写成人话：`2026-10-13 02:17` 这种一看就是机器生成的。
+     今年不写年份，往年才写： 10月13日 02:17 / 2025年9月1日 12:00 */
   function fmtTime(v) {
     if (!v) { return ''; }
     var s = String(v);
     var m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-    if (m) { return m[1] + '-' + m[2] + '-' + m[3] + ' ' + m[4] + ':' + m[5]; }
+    if (m) {
+      var y = +m[1], mo = +m[2], d = +m[3];
+      var sameYear = (y === new Date().getFullYear());
+      return (sameYear ? '' : y + '年') + mo + '月' + d + '日 ' + m[4] + ':' + m[5];
+    }
     return s;
   }
 
@@ -620,6 +626,13 @@
       /* notes 是「新 → 旧」：后端的 id DESC、静态那份样例也是这个顺序。
          顺着插，新的自然在最上面。**别再倒着插** —— 那样刚贴完新的是第一张，
          一刷新就翻成最旧的在最上面（只有连着真后端刷新才看得出来）。 */
+      /* 通知一声：板子上有哪些便签（拉鲁瓦要拿"上次有人贴便签是什么时候"来说话）。
+         window 上也挂一份，万一监听器注册得比这次渲染晚，还能补上。 */
+      try {
+        window.__boardNotes = notes;
+        document.dispatchEvent(new CustomEvent('board:notes', { detail: { notes: notes } }));
+      } catch (e) {}
+
       for (var i = 0; i < notes.length; i++) {
         list.appendChild(makeNote(notes[i], {
           img: img,

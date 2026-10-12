@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="{{ $bd.RelPermalink }}">
     {{ end }}
     <script src="{{ "js/board.js" | absURL }}" defer></script>
+{{ if eq .Type "board" }}<script src="{{ "js/board-keeper.js" | absURL }}" defer></script>{{ end }}
   {{ end }}
 
   {{/* ============ 像素字体：整倍缩放 ============
