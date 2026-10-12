@@ -94,7 +94,6 @@
   }
 
   var faceFrame = (M.face && M.face.d && M.face.d[0]) || M.faceCol || 0;
-  var faceDone = false;
 
   var last = 0;
   function loop(ts) {
@@ -115,12 +114,13 @@
     draw(ctx, sheet, st.phase === 'fly' ? M.rows.walkL : M.rows.idle, st.frame,
          st.phase === 'fly' ? WALK.n : IDLE.n);
 
-    if (!say.hidden && !faceDone) {
+    if (!say.hidden) {
       /* 头图那 4 格其实是**四种天气/场景**的同一张脸（背景各不一样），
-         连着播会一直在闪，所以只画第一格、画一次就够。
-         （帧序号在元数据的 face.d 里要是空的就固定用 0。） */
+         连着播会一直在闪，所以固定画第一格。
+         **别加"只画一次"的开关**：对话框可能在精灵图下载完之前就打开，
+         那一次画的是空画布 —— 之后就再也不画了，头图永远是白的
+         （本地快、线上慢，所以只在线上看得出来）。每帧重画一下最省心。 */
       draw(faceCtx, sheet, M.rows.face, faceFrame, 1);
-      faceDone = true;
     }
     requestAnimationFrame(loop);
   }
