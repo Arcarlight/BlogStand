@@ -958,23 +958,43 @@
 .bd-keeper-canvas { display: block; image-rendering: pixelated; }
 .bd-keeper-btn:focus-visible { outline: 2px solid #c94800; outline-offset: 3px; }
 
-/* 对话框：飘在它上面的一张小纸，右侧对齐 */
+/* 对话框：几乎贴着它头顶的一小张手撕纸，右下角有个角指着它。
+   位置：right/bottom 都是负一点点，让纸压住它翅膀上沿，看着是"从它那儿出来的"。 */
 .bd-keeper-say {
   position: absolute;
-  right: 0;
-  bottom: calc(100% + 10px);
-  width: min(392px, 76vw);
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px 11px;
-  background: #f8f1de url(../images/board/paper.png) no-repeat;
-  background-size: 48px 48px;
-  border: 3px solid #6b3a10;
-  box-shadow: 4px 4px 0 rgba(58, 34, 8, .28);
+  right: -8px;
+  bottom: calc(100% - 6px);          /* 贴住，别悬在半空 */
+  transform: rotate(-.7deg);          /* 稍微歪一点，别那么规整 */
+  transform-origin: 92% 100%;
+  filter: drop-shadow(3px 4px 0 rgba(58, 34, 8, .26));
   pointer-events: auto;
 }
 .bd-keeper-say[hidden] { display: none; }
+.bd-keeper-say-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: min(392px, 76vw);
+  padding: 10px 12px 15px;
+  background: #f8f1de url(../images/board/paper.png) no-repeat;
+  background-size: 48px 48px;
+  /* 下沿撕得不齐（和便签同一个做法：clip-path 抠锯齿）。
+     注意：drop-shadow 在父层、clip-path 在这层，不能合成一个元素。 */
+  clip-path: polygon(0 0, 100% 0, 100% 82%, 96% 95%, 90% 85%, 83% 96%, 75% 86%,
+                     66% 97%, 57% 87%, 48% 96%, 39% 86%, 30% 95%, 21% 85%,
+                     13% 94%, 6% 86%, 0 93%);
+}
+/* 指着拉鲁瓦的那个角 */
+.bd-keeper-tail {
+  position: absolute;
+  right: 20px;
+  top: 100%;
+  width: 24px;
+  height: 15px;
+  margin-top: -4px;
+  background: #f8f1de;
+  clip-path: polygon(0 0, 100% 0, 58% 100%);
+}
 .bd-keeper-face {
   flex: 0 0 auto;
   padding: 2px;
@@ -1001,7 +1021,8 @@
 
 @media (max-width: 700px) {
   .bd-keeper { right: 10px; bottom: 8px; }
-  .bd-keeper-say { width: min(300px, 82vw); padding: 8px 9px 9px; gap: 8px; }
+  .bd-keeper-say-inner { width: min(300px, 80vw); padding: 8px 9px 13px; gap: 8px; }
+  .bd-keeper-tail { right: 14px; }
 }
 
 /* 拉鲁瓦对话框底下的素材署名（PMD 那套是 CC BY-NC 4.0，要署名） */
@@ -1013,3 +1034,27 @@
   color: #8a7550;
 }
 .bd-keeper-credit a { color: #8a7550; }
+
+/* 对话框弹出：缩放 + 回弹一点点，别硬生生"啪"地出现。
+   注意 keyframes 里要带上那 -0.7deg 的歪，不然动画期间会突然正过来。 */
+@keyframes bd-keeper-pop {
+  0%   { opacity: 0; transform: rotate(-.7deg) scale(.84) translateY(12px); }
+  55%  { opacity: 1; transform: rotate(-.7deg) scale(1.035) translateY(-3px); }
+  100% { opacity: 1; transform: rotate(-.7deg) scale(1) translateY(0); }
+}
+@keyframes bd-keeper-tail-in {
+  from { opacity: 0; transform: translateY(-7px) scaleY(.6); }
+  to   { opacity: 1; transform: none; }
+}
+.bd-keeper-say:not([hidden]) { animation: bd-keeper-pop .3s cubic-bezier(.22, .9, .3, 1.25) both; }
+.bd-keeper-say:not([hidden]) .bd-keeper-tail { animation: bd-keeper-tail-in .24s .07s ease-out both; }
+/* 说过的话淡进来一下，和纸一起出现 */
+.bd-keeper-say:not([hidden]) .bd-keeper-text { animation: bd-keeper-fade .3s .08s ease-out both; }
+@keyframes bd-keeper-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* 系统里开了"减少动效"就别弹了（拉鲁瓦的飞入在 JS 里也认这个设置） */
+@media (prefers-reduced-motion: reduce) {
+  .bd-keeper-say:not([hidden]),
+  .bd-keeper-say:not([hidden]) .bd-keeper-tail,
+  .bd-keeper-say:not([hidden]) .bd-keeper-text { animation: none; }
+}

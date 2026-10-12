@@ -27,8 +27,12 @@
   if (!M.sheet) { return; }
 
   var SCALE = 2;                       /* 和站上其它 PMD 精灵一样，2 倍大小（整数倍，像素不糊） */
-  var FLY_PX = 190;                    /* 从右边多远的地方飞进来 */
-  var FLY_SPEED = 210;                 /* px/秒 */
+  var FLY_PX = 250;                    /* 从右边多远的地方飞进来 */
+  var FLY_MS = 3400;                   /* 飞多久（原来 0.9 秒直着冲进来，太快了） */
+  /* 系统里开了"减少动效"就干脆别飞了，直接站到位置上 */
+  var STILL = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var FLY_ARC = 34;                    /* 途中往上抬多高：直线看着像被扔过来，抬一下才有弧 */
+  var FLY_TILT = 9;                    /* 飞行中身子歪几度，落地回正 */
 
   var btn = root.querySelector('.bd-keeper-btn');
   var cv = root.querySelector('.bd-keeper-canvas');
@@ -62,6 +66,8 @@
   var st = {
     phase: 'fly',        /* fly → idle */
     x: FLY_PX,           /* 离落脚点还有多远（px），右为正 */
+    arc: 0,              /* 飞行弧线抬起来的高度（往上为负） */
+    tilt: 0,             /* 飞行中的倾斜 */
     t: 0,                /* 飞行/浮动计时 */
     frame: 0,
     frameT: 0
@@ -100,17 +106,30 @@
     var dt = last ? Math.min(80, ts - last) : 16;
     last = ts;
 
+    var bob = 0;
     if (st.phase === 'fly') {
-      st.x -= FLY_SPEED * dt / 1000;
-      if (st.x <= 0) { st.x = 0; st.phase = 'idle'; st.frame = 0; st.frameT = 0; }
+      /* 曲线进场：横向走缓出（越靠近落点越慢），途中用正弦抬一下再落下来，
+         身子跟着歪一点。直线 + 匀速看着像被弹过来的。 */
+      st.t += dt;
+      var p = Math.min(1, st.t / FLY_MS);
+      /* easeInOutCubic：慢慢起飞 → 中段快一点 → 最后慢慢贴上去。
+         纯 easeOut 的话第一下还是很冲（0.25 的时间就飞掉一半路）。 */
+      var eased = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      st.x = FLY_PX * (1 - eased);
+      st.arc = -FLY_ARC * Math.sin(Math.PI * p);
+      st.tilt = -FLY_TILT * Math.sin(Math.PI * p);
+      if (p >= 1) {
+        st.phase = 'idle'; st.x = 0; st.arc = 0; st.tilt = 0;
+        st.t = 0; st.frame = 0; st.frameT = 0;
+      }
       step(WALK, dt);
     } else {
       st.t += dt;
       step(IDLE, dt);
+      bob = Math.round(Math.sin(st.t / 620) * 3);  /* 歇着的时候轻轻上下浮动 */
     }
-    /* 飞行时朝左（从右边过来），歇着的时候原地上下浮动一点点 */
-    var bob = st.phase === 'idle' ? Math.round(Math.sin(st.t / 620) * 3) : 0;
-    btn.style.transform = 'translate(' + Math.round(st.x) + 'px,' + bob + 'px)';
+    btn.style.transform = 'translate(' + Math.round(st.x) + 'px,' + Math.round(st.arc + bob) + 'px)'
+      + (st.tilt ? ' rotate(' + st.tilt.toFixed(2) + 'deg)' : '');
     draw(ctx, sheet, st.phase === 'fly' ? M.rows.walkL : M.rows.idle, st.frame,
          st.phase === 'fly' ? WALK.n : IDLE.n);
 
@@ -151,13 +170,13 @@
     return (+m[1]) + '年' + (+m[2]) + '月' + (+m[3]) + '日';
   }
 
-  var state = { lastNoteAt: '', noteCount: 0, sawNotes: false };
+  var state = { notes: [], sawNotes: false };
+  var COLOR_CN = { white: '米白', cream: '奶白', yellow: '淡黄', pink: '粉色', green: '绿色', blue: '蓝色' };
 
   document.addEventListener('board:notes', function (e) {
     var d = (e && e.detail) || {};
     state.sawNotes = true;
-    state.noteCount = (d.notes || []).length;
-    state.lastNoteAt = d.notes && d.notes[0] ? (d.notes[0].at || '') : '';
+    state.notes = d.notes || [];
   });
 
   function num(sel) {
@@ -172,11 +191,57 @@
   function build() {
     pool = [];
 
-    if (state.lastNoteAt) {
-      pool.push('上一次有人贴便签，是在 ' + ago(state.lastNoteAt) + '那一会哦！');
+    var ns = state.notes || [];
+
+    if (ns.length && ns[0].at) {
+      pool.push('上一次有人贴便签，是在 ' + ago(ns[0].at) + '那一会哦！');
     } else if (state.sawNotes) {
       pool.push('板子上还一张便签都没有呢……你要不要当第一个？');
     }
+
+    /* 板上这些便签本身就有很多话可说 —— 数一数、看一眼，都是真的 */
+    if (ns.length) {
+      var chars = 0;
+      for (var i = 0; i < ns.length; i++) { chars += String(ns[i].body || '').length; }
+      pool.push('板子上现在挂着 ' + ns.length + ' 张便签，加起来 ' + chars + ' 个字。');
+
+      var who = String(ns[0].name || '').replace(/^\s+|\s+$/g, '');
+      pool.push(who ? '最近写的那张，是 ' + who + ' 留的。'
+                    : '最近那张没留名字，是匿名贴的 —— 也挺好。');
+
+      var replied = 0, colors = {};
+      for (var j = 0; j < ns.length; j++) {
+        if (ns[j].reply && ns[j].reply.body) { replied++; }
+        var c = ns[j].color || 'white';
+        colors[c] = (colors[c] || 0) + 1;
+      }
+      if (replied) { pool.push('虹星回过的便签，现在有 ' + replied + ' 张了。'); }
+      else if (ns.length >= 2) { pool.push('这些便签虹星还没回过……她大概在忙。'); }
+
+      if (ns.length >= 2 && ns[ns.length - 1].at) {
+        pool.push('最早那张已经贴了 ' + ago(ns[ns.length - 1].at) + '啦，还挂在那儿。');
+      }
+
+      var top = '', topN = 0;
+      for (var k in colors) { if (colors[k] > topN) { topN = colors[k]; top = k; } }
+      if (top === 'white' || top === 'cream') {
+        pool.push('看来大家还是最爱米白色的纸呀。');
+      } else if (COLOR_CN[top]) {
+        pool.push('最近彩色的便签多起来了，' + COLOR_CN[top] + '那张最多。');
+      }
+    }
+
+    /* 按现在的时辰挑一句招呼 —— 这个也是真的（看的是你自己表上的时间） */
+    var hour = new Date().getHours();
+    pool.push(
+      hour < 5  ? '这个点还没睡呀？夜里的板子最安静了。' :
+      hour < 9  ? '早呀。早上的风从砖墙那边过来，有点凉。' :
+      hour < 12 ? '上午好。这会儿板子上还没什么动静。' :
+      hour < 14 ? '中午了，去吃点什么吧，板子我帮你看着。' :
+      hour < 18 ? '下午好。这会儿光最好，便签上的字看得最清楚。' :
+      hour < 22 ? '晚上好。天黑了以后，藤蔓的影子会爬到板子上。' :
+                  '夜里的板子归我管，你早点睡哦。'
+    );
 
     /* 访客数读侧栏「访客统计」挂件里不蒜子填好的那两个数（页面上只有这一份）。
        它还没填完时是 "------"，num() 会算成 0，那就干脆不说这条。 */
@@ -228,6 +293,7 @@
   });
 
   /* ---------------- 起飞 ---------------- */
+  if (STILL) { st.phase = 'idle'; st.x = 0; st.arc = 0; st.tilt = 0; }
   sheet.src = M.sheet;
   requestAnimationFrame(loop);
 
