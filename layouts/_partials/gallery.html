@@ -75,6 +75,15 @@
             {{ $thumb := index $thumbs $f | default $f }}
             {{ $src := printf "images/%s" $thumb | absURL }}
             {{ $full := printf "images/%s" $f | absURL }}
+            {{/* 这张图旁边有没有 webp 兄弟（上传时顺手出的那份）：有就让灯箱用 <picture>，
+                 老浏览器回落 data-full 指的原图。原图本身是 .webp 的项跳过 —— 兄弟就是它自己。 */}}
+            {{ $webpFull := "" }}
+            {{ if ne (lower (path.Ext $f)) ".webp" }}
+              {{ $webpRel := printf "%s.webp" (strings.TrimSuffix (path.Ext $f) $f) }}
+              {{ if fileExists (printf "static/images/%s" $webpRel) }}
+                {{ $webpFull = printf "images/%s" $webpRel | absURL }}
+              {{ end }}
+            {{ end }}
             {{ $w := 0 }}{{ $h := 0 }}
             {{ with (imageConfig (printf "static/images/%s" $f)) }}{{ $w = .Width }}{{ $h = .Height }}{{ end }}
             {{ $ratio := "1" }}
@@ -85,6 +94,7 @@
               <a class="gal-link" href="{{ $full }}" data-full="{{ $full }}"
                  data-title="{{ .title }}"{{ with .date }} data-date="{{ . }}"{{ end }}
                  {{ with $desc }}data-desc="{{ . }}"{{ end }}
+                 {{ with $webpFull }}data-full-webp="{{ . }}"{{ end }}
                  data-thumb="{{ $src }}">
                 <span class="gal-pic">
                   <img src="{{ $src }}" alt="{{ .title }}" loading="lazy"

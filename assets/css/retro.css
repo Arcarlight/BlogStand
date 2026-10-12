@@ -1219,6 +1219,16 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
   margin: 0;
 }
 
+/* 灯箱里的大图外面套了 <picture>（为了优先用 webp），这一层要当一个
+   「和原来一样」的容器：跟着图片尺寸走、居中，别自己撑宽或压缩父级。 */
+.gal-lb-pic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 0;
+}
+
 .gal-lb-img {
   max-width: 100% !important;
   max-height: calc(100vh - 120px);

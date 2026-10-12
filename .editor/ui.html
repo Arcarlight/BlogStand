@@ -2456,14 +2456,18 @@ async function pickExistingImages(opts) {
     if (!chosen.size) { toast('先点几张图选中', 'err'); return; }
     const files = [...chosen];
     if (opts && opts.onPick) { opts.onPick(files); return; }
-    // 没给回调就走「插入 <img>」的老路（正文里插图用）
+    // 没给回调就走「插入图片」的老路（正文里插图用）
     const w = imgWidthValue();
+    const wpOf = new Map(all.map((it) => [it.file, !!it.webp]));
     let out = '';
     files.forEach((f) => {
-      out += makeImg('/images/' + f, f.replace(/^.*\//, '').replace(/\.[^.]+$/, ''), w) + '\n';
+      const stem = f.replace(/^.*\//, '').replace(/\.[^.]+$/, '');
+      const wp = wpOf.get(f) ? '/images/' + f.replace(/\.[^.]+$/, '.webp') : null;
+      out += makePicture('/images/' + f, wp, stem, w) + '\n';
     });
     insertText(out);
-    toast('已插入 ' + files.length + ' 个 <img>', 'ok');
+    toast('已插入 ' + files.length + ' 个图' +
+      (files.some((f) => wpOf.get(f)) ? '（其中几张带 webp，已写成 <picture>）' : ''), 'ok');
   });
 }
 
@@ -3226,12 +3230,72 @@ $('#editor').addEventListener('keydown', (e) => {
   else if (k === 'k') { e.preventDefault(); linkRange(); }
 });
 
+/* 上传图片的完整流程（正文插图 / 拖拽 / 选择都走这里）：
+     ① 问一次：标题、简介、要不要同步进画廊（可设分类和封面）
+     ② 逐张上传 —— 服务端会缩尺寸，并在原图旁边出一张 webp 兄弟
+     ③ 插入 <picture>（有 webp 就用，老浏览器回落原图）
+     ④ 勾了同步就把它们登记进 data/gallery.toml，并补一张缩略图
+
+   「同步到画廊」**不复制文件**，只是登记一条指向它的记录：画廊本来就支持引用
+   static/images 下任意位置的图（面板里的「选已有图」就是这么干的），复制一份
+   只会让仓库里多出一份一模一样的字节。 */
+function stemOf(name) {
+  return String(name || '').replace(/^.*\//, '').replace(/\.[^.]+$/, '');
+}
+
 async function uploadImages(files) {
   const imgs = [...files].filter((f) => /^image\//.test(f.type));
   if (!imgs.length) { if (files.length) toast('只能上传图片文件', 'err'); return; }
-  toast(`正在上传 ${imgs.length} 张图片…`);
+
+  const one = imgs.length === 1;
+  let secs = [];
+  try {
+    const d = await apiGet('/api/list/gallery');
+    secs = (d.sections || []).map((s) => ({ v: s.id, t: s.name || s.id }));
+  } catch { /* 读不到画廊分类就不问这一项 */ }
+
+  const fields = [];
+  if (one) {
+    fields.push({ key: 'title', label: '标题', value: stemOf(imgs[0].name), ph: '留空就用文件名',
+                  hint: '画廊里显示的名字；同时当作正文里的 alt' });
+    fields.push({ key: 'desc', label: '简介', value: '', ph: '可选',
+                  hint: '画廊点开大图时显示的那行说明' });
+  }
+  fields.push({ key: 'sync', label: '同步到画廊', type: 'checkbox', value: false,
+                hint: one ? '在 /gallery/ 里也登记一张（不复制文件）'
+                          : '标题先按文件名登记，之后可在「画廊」面板改' });
+  if (secs.length) {
+    fields.push({ key: 'cat', label: '画廊分类', type: 'select', value: secs[0].v, options: secs });
+  }
+  fields.push({ key: 'cover', label: '设为该分类封面', type: 'checkbox', value: false });
+
+  const ans = await modal({
+    title: one ? '插入图片' : `插入 ${imgs.length} 张图片`,
+    okText: '上传并插入',
+    fields,
+    bind: () => {
+      const cb = document.getElementById('mf_sync');
+      if (!cb) return;
+      const sync = () => {
+        for (const k of ['cat', 'cover']) {
+          const el = document.getElementById('mf_' + k);
+          if (!el) continue;
+          el.disabled = !cb.checked;
+          const row = el.closest('.field');
+          if (row) row.style.opacity = cb.checked ? '' : '.45';
+        }
+      };
+      cb.addEventListener('change', sync);
+      sync();
+    },
+  });
+  if (!ans) return;                       // 取消 = 什么都不做
+
   const w = imgWidthValue();
+  toast(`正在上传 ${imgs.length} 张图片…`);
   let out = '';
+  const done = [];
+  let bytesBefore = 0, bytesAfter = 0;
   try {
     for (const f of imgs) {
       const data = await new Promise((res, rej) => {
@@ -3241,12 +3305,66 @@ async function uploadImages(files) {
         r.readAsDataURL(f);
       });
       const r = await apiPost('/api/upload', { name: f.name, data });
-      out += makeImg(r.url, f.name.replace(/\.[^.]+$/, ''), w) + '\n';
+      const title = (one && ans.title) ? String(ans.title) : stemOf(f.name);
+      const desc = one ? String(ans.desc || '') : '';
+      out += makePicture(r.url, r.webp && r.webp.url, title, w) + '\n';
+      done.push({ r, title, desc, name: f.name, big: f.size > 3 * 1024 * 1024 });
+      bytesBefore += r.origBytes || 0;
+      bytesAfter += r.bytes || 0;
     }
     insertText(out);
-    const wtxt = w ? `，宽度 ${w}${/%$/.test(w) ? '' : 'px'}` : '，原尺寸';
-    toast(`已存入 static/images/，并在光标处插入 ${imgs.length} 个 <img>${wtxt}`, 'ok');
+
+    let synced = 0, syncErr = '';
+    if (ans.sync && done.length) {
+      try { synced = await syncToGallery(done, { cat: ans.cat, cover: !!ans.cover }); }
+      catch (e) { syncErr = e.message; }
+    }
+
+    const wtxt = w ? `宽度 ${w}${/%$/.test(w) ? '' : 'px'}` : '原尺寸';
+    const bits = [`已插入 ${done.length} 张（${wtxt}）`];
+    if (bytesBefore > bytesAfter) bits.push(`尺寸压缩省 ${Math.round(100 * (1 - bytesAfter / bytesBefore))}%`);
+    const withWebp = done.filter((x) => x.r.webp).length;
+    if (withWebp) bits.push(`${withWebp} 张带 webp 兄弟`);
+    if (ans.sync) bits.push(synced ? `已登记进画廊 ${synced} 张` : '画廊里已经都有，没重复登记');
+    if (syncErr) bits.push('画廊登记失败：' + syncErr);
+    const big = done.filter((x) => x.big).length;
+    if (big) bits.push(`有 ${big} 张超过 3 MB —— 仓库和读者都在为它买单`);
+    toast(bits.join('，'), (syncErr || big) ? 'err' : 'ok');
   } catch (e) { toast('上传失败: ' + e.message, 'err'); }
+}
+
+/** 把刚上传的图登记进 data/gallery.toml（不复制文件），并补缩略图 */
+async function syncToGallery(done, opts) {
+  const d = await apiGet('/api/list/gallery');
+  const sections = (d.sections || []).map((x) => Object.assign({}, x));
+  const items = (d.items || []).map((x) => Object.assign({}, x));
+  const have = new Set(items.map((it) => String(it.file || '')));
+  const now = new Date();
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  let added = 0;
+  for (const x of done) {
+    const file = x.r.imagesRel || '';
+    if (!file || have.has(file)) continue;
+    items.push({
+      title: x.title || stemOf(x.name),
+      file,
+      cat: opts.cat || (sections[0] && sections[0].id) || '',
+      date,
+      desc: x.desc || '',
+      cover: !!opts.cover && added === 0,     // 一类一个封面就够，只在第一张上打勾
+    });
+    have.add(file);
+    added++;
+  }
+  if (!added) return 0;
+  await apiPost('/api/list/gallery', {
+    sections: sections.map((s) => ({ id: s.id, name: s.name, desc: s.desc })),
+    items,
+  });
+  // 缩略图：直接往画廊传的时候服务端会顺手出；正文插图落在 static/images/，这里补一次
+  const rels = done.map((x) => x.r.imagesRel).filter(Boolean);
+  if (rels.length) await apiPost('/api/gallery/thumbs', { files: rels }).catch(() => {});
+  return added;
 }
 
 /* ---------- 图片宽度 ----------
@@ -3265,6 +3383,18 @@ function makeImg(url, alt, w) {
   if (w) attrs.push(/%$/.test(w) ? `style="width:${w}"` : `width="${w}"`);
   attrs.push('loading="lazy"');
   return `<img ${attrs.join(' ')} />`;
+}
+
+/* 插图两种写法：
+     · 有 webp 兄弟（上传时服务端顺手出的）→ <picture>：支持 webp 的浏览器
+       （97%+）只下 webp，老浏览器回落 <img src> 指的原图
+     · 没有 → 就跟以前一样裸 <img>
+   外面套一层 <p>：和站里既有内容一致，也让「段首缩进」的例外规则认得出来
+   （retro.css / collection-css.html 里都有 p:has(> picture:first-child)）。 */
+function makePicture(url, webpUrl, alt, w) {
+  const img = makeImg(url, alt, w);
+  if (!webpUrl) return img;
+  return `<p><picture><source type="image/webp" srcset="${webpUrl}" />${img}</picture></p>`;
 }
 
 /** 改一个 <img> 标签上的宽度：两种写法都先清掉，再按需要写回去 */

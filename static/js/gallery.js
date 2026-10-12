@@ -40,7 +40,8 @@
       '  <button type="button" class="gal-lb-prev" aria-label="上一张" title="上一张（←）">' + ICON.prev + '</button>' +
       '  <button type="button" class="gal-lb-next" aria-label="下一张" title="下一张（→）">' + ICON.next + '</button>' +
       '  <figure class="gal-lb-fig">' +
-      '    <img class="gal-lb-img" alt="">' +
+      '    <picture class="gal-lb-pic"><source type="image/webp" class="gal-lb-src">' +
+      '      <img class="gal-lb-img" alt=""></picture>' +
       '    <figcaption class="gal-lb-cap"><span class="gal-lb-title"></span>' +
       '      <span class="gal-lb-date"></span>' +
       '      <span class="gal-lb-count"></span></figcaption>' +
@@ -82,7 +83,11 @@
     idx = (i + items.length) % items.length;
     var it = items[idx];
     var img = overlay.querySelector('.gal-lb-img');
-    img.src = it.full;                       // 到这一刻才请求原图
+    var src = overlay.querySelector('.gal-lb-src');
+    // 有 webp 兄弟就交给 <source>（浏览器自己挑），老浏览器回落 <img src> 的原图
+    if (it.webp) src.setAttribute('srcset', it.webp);
+    else src.removeAttribute('srcset');
+    img.src = it.full;                       // 到这一刻才请求大图
     img.alt = it.title || '';
     overlay.querySelector('.gal-lb-title').textContent = it.title || '';
     var d = overlay.querySelector('.gal-lb-date');
@@ -114,7 +119,9 @@
     overlay.hidden = true;
     document.documentElement.classList.remove('gal-lb-open');
     var img = overlay.querySelector('.gal-lb-img');
+    var src = overlay.querySelector('.gal-lb-src');
     img.removeAttribute('src');               // 放掉大图
+    if (src) src.removeAttribute('srcset');
     img.alt = '';
     var ds = overlay.querySelector('.gal-lb-desc');
     ds.textContent = '';
@@ -128,6 +135,7 @@
     var list = links.map(function (a) {
       return {
         full: a.getAttribute('data-full') || a.getAttribute('href'),
+        webp: a.getAttribute('data-full-webp') || '',
         title: a.getAttribute('data-title') || '',
         date: a.getAttribute('data-date') || '',
         desc: a.getAttribute('data-desc') || ''

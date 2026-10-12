@@ -1290,10 +1290,15 @@ function runThumbScript(srcRel, dstRel) {
    一张 1917x1325 的 PNG（1.1 MB）原样进 static/images/，读者也原样下载 1.1 MB。
    所以把压缩放到上传路径上，所有入口（正文插图、画廊、拖拽）一次覆盖。
 
-   脚本只做一件事：**尺寸超过上限就缩到上限**，保持原格式。
-   （为什么不顺手转 webp：画廊缩略图命名是按原文件名推的，而且 gallery.html
-     对 .webp 项直接跳过缩略图生成 —— 改扩展名会把已经修好的问题踩回去。
-     为什么不搞调色板量化：那是每次上传都自动跑的有损操作，照片会明显劣化。）
+   两件事，一次做完：
+     ① 原图那一份：**尺寸超过上限就缩到上限**，保持原格式（老行为不变）。
+     ② webp 兄弟：原图旁边多存一张同名 .webp。正文插 <picture> 时用它 ——
+        支持 webp 的浏览器（97%+）只下 webp，不支持的拿原图兜底。
+        为什么不改名、不直接换格式：画廊缩略图是按原文件名推路径的，而且
+        gallery.html 对 .webp 项跳过缩略图生成 —— 所以**原图必须留在原地保持
+        原名**，webp 只做「旁边那一份」，两条路径互不干扰（这个坑 2026-09 踩过）。
+        （为什么不顺手做调色板量化：那是每次上传都自动跑的有损操作，照片会明显
+          劣化；webp 按「PNG 颜色少 → 无损 / 照片 → 有损 q82」分，见脚本抬头。）
 
    压不小 / 不该压（webp、gif、尺寸没超）时脚本自己返回 changed:false，
    这里就原样用上传的字节。失败也**只记录不抛错** —— 压缩是优化，不该拦住上传。 */
@@ -1303,24 +1308,30 @@ function compressUpload(buf, ext) {
   const stamp = crypto.randomBytes(6).toString('hex');
   const src = path.join(tmpDir, `up-${stamp}${ext || '.png'}`);
   const dst = path.join(tmpDir, `up-${stamp}-out${ext || '.png'}`);
+  const webp = path.join(tmpDir, `up-${stamp}.webp`);
+  const out = { buf, info: {}, webpBuf: null, webpInfo: null };
   try {
     fs.mkdirSync(tmpDir, { recursive: true });
     fs.writeFileSync(src, buf);
-    const r = execFileSync(PYTHON, [script, src, dst],
+    const r = execFileSync(PYTHON, [script, src, dst, '--webp', webp],
       { encoding: 'utf8', cwd: ROOT, windowsHide: true, timeout: 120000,
         env: { ...process.env, PYTHONUTF8: '1' } });
     const info = JSON.parse(String(r).trim());
-    if (info && info.ok && info.changed && fs.existsSync(dst)) {
-      return { buf: fs.readFileSync(dst), info };
+    out.info = info || {};
+    if (info && info.ok && info.changed && fs.existsSync(dst)) out.buf = fs.readFileSync(dst);
+    if (info && info.ok && info.webp && fs.existsSync(webp)) {
+      out.webpBuf = fs.readFileSync(webp);
+      out.webpInfo = info.webp;
     }
-    return { buf, info: info || {} };
+    return out;
   } catch (e) {
     const raw = String((e.stdout || e.stderr || e.message || '')).trim();
     let detail = raw;
     try { detail = JSON.parse(raw).error || raw; } catch { /* 原样 */ }
-    return { buf, info: { ok: false, error: String(detail).slice(0, 200) } };
+    out.info = { ok: false, error: String(detail).slice(0, 200) };
+    return out;
   } finally {
-    for (const f of [src, dst]) { try { fs.unlinkSync(f); } catch { /* 没就没 */ } }
+    for (const f of [src, dst, webp]) { try { fs.unlinkSync(f); } catch { /* 没就没 */ } }
   }
 }
 
@@ -2461,13 +2472,17 @@ async function handle(req, res, url) {
         if (!st) continue;
         const thumbRel = thumbRelFor(r);
         const hasThumb = await fsp.stat(safePath(thumbRel)).catch(() => null);
+        // 这张图旁边有没有 webp 兄弟（上传时顺手出的那份）—— 有的话
+        // 「插入已有的图」也能插成 <picture>，老浏览器回落原图。
+        const hasWebp = ext !== '.webp'
+          && !!(await fsp.stat(full.replace(/\.[^.]+$/, '.webp')).catch(() => null));
         // 面板要拿它当预览图：有缩略图用缩略图，否则用原图。
         // 前缀必须是 /images/ —— 编辑器自己也供这条路径（见上面那个分支），
         // 所以不依赖预览服务器开着。
         const preview = hasThumb
           ? '/' + thumbRel.replace(/^static\//, '')
           : '/images/' + r;
-        list.push({ file: r, bytes: st.size, thumb: !!hasThumb, preview: preview });
+        list.push({ file: r, bytes: st.size, thumb: !!hasThumb, preview: preview, webp: hasWebp });
       }
     }
     await walk(root, '');
@@ -2542,17 +2557,31 @@ async function handle(req, res, url) {
     // 这里再兜一道，免得任何情况下把图搞坏）
     if (bufOut.length >= buf.length) bufOut = buf;
     const cInfo = comp.info || {};
+    const webpBuf = comp.webpBuf;
+    const webpInfo = comp.webpInfo;
 
-    // 重名就加序号
+    /* 重名就加序号 —— 原图和它的 webp 兄弟必须**同一个主干名**，
+       所以两个路径都得是空的才算名字可用。 */
     const dot = clean.lastIndexOf('.');
     const stem = clean.slice(0, dot), ext = clean.slice(dot);
+    const webpNameOf = (f) => f.replace(/\.[^.]+$/, '') + '.webp';
     let final = clean, n = 1;
-    while (await fsp.stat(safePath(`${dir}/${final}`)).catch(() => null)) {
+    while (await fsp.stat(safePath(`${dir}/${final}`)).catch(() => null)
+           || (webpBuf && await fsp.stat(safePath(`${dir}/${webpNameOf(final)}`)).catch(() => null))) {
       final = `${stem}-${n++}${ext}`;
     }
     await fsp.writeFile(safePath(`${dir}/${final}`), bufOut);
 
     const rel = `${dir}/${final}`;
+    // webp 兄弟写失败就当没有（正文退回裸 <img>），不影响上传本身
+    let webpRel = null;
+    if (webpBuf) {
+      const wrel = `${dir}/${webpNameOf(final)}`;
+      try {
+        await fsp.writeFile(safePath(wrel), webpBuf);
+        webpRel = wrel;
+      } catch { webpRel = null; }
+    }
     const out = {
       ok: true, url: '/' + rel.replace(/^static\//, ''), rel, bytes: bufOut.length,
       origBytes: buf.length,
@@ -2561,6 +2590,17 @@ async function handle(req, res, url) {
       savePct: buf.length ? Math.round(100 * (1 - bufOut.length / buf.length)) : 0,
       from: cInfo.from, to: cInfo.to, pixel: cInfo.pixel,
       compressNote: cInfo.reason || cInfo.error || '',
+      // 画廊 data/gallery.toml 里的 file 用的是「相对 static/images/」那截
+      imagesRel: rel.replace(/^static\/images\//, ''),
+      // webp 兄弟：正文插 <picture> 用它，老浏览器回落 url；没出就是 null
+      webp: webpRel ? {
+        url: '/' + webpRel.replace(/^static\//, ''),
+        rel: webpRel,
+        bytes: webpBuf.length,
+        lossless: !!(webpInfo && webpInfo.lossless),
+        savePct: webpInfo ? webpInfo.saving_pct : null,
+      } : null,
+      webpNote: webpRel ? '' : (cInfo.webp_reason || ''),
     };
 
     // 画廊那种大图：顺手压一张缩略图（统一放 gallery/thumbs/）

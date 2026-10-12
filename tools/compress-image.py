@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """压缩上传的图片 —— 「上传那一刻」就把过大的图压下来。
 
-    python tools/compress-image.py <输入文件> <输出文件> [--long-edge 1600] [--quality 85]
+    python tools/compress-image.py <输入文件> <输出文件> [--long-edge 1600] [--quality 85] [--webp 输出.webp]
     python tools/compress-image.py --in-place <文件> [--long-edge 1600]
 
 为什么要有这个脚本
@@ -37,9 +37,38 @@
 · **动图（GIF）和非静态图一律不动**，避免破坏动画。
 · 小于 MIN_BYTES 的图不折腾 —— 几 KB 的文件省不出什么，重编码只会有损。
 
+顺手出一张 webp（给了 --webp 才做）
+-----------------------------------
+上传时**存两份**：原图（上面那套规则压过的）+ 旁边一张同名 .webp。
+正文里插的是 `<picture><source type="image/webp" src=…webp><img src=…原图>`，
+支持 webp 的浏览器（97%+）只下 webp，不支持的拿原图 —— 所以原图是**兜底**，
+webp 才是常态。为什么不像别的站那样「干脆只存 webp」：原图还能当兜底、
+也能留着以后重新出派生图，多一个文件的代价换这两个好处，值。
+
+webp 用什么编码：
+  · JPEG（照片）    -> 有损 q82（默认，--webp-quality 可改）
+  · PNG 颜色数少    -> **无损**，而且**不缩尺寸**（边长 ≤ 2048 时）。截图 / 平涂插画 /
+                       像素画都在这一类：有损会在硬边上留振铃、在纯色块里放噪点，
+                       而点阵风最怕这个；这类图的无损 webp 通常还比 PNG 小，等于白赚。
+                       为什么不缩：本来也就 2000px 上下，读者那边最多显示 634px，
+                       缩了只会把线条糊掉、又省不下多少（实测 8 色 2000x1200：
+                       原尺寸无损 879 KB，缩到 1400 再有损 738 KB —— 差 19%，
+                       但一个是原像素无损、一个有振铃）。
+  · PNG 颜色数多    -> 有损 q82（照片存成了 PNG 的情况）
+  · 边长 > 2048     -> 有损 q82（超大截图/图形，先缩到上限再说）
+  · 动图 / 已是 webp -> 一张都不出（保持原状）
+压完**不比原图小就不写** webp（负优化不如不加），JSON 里会说明原因。
+
+判「图形还是照片」用的是**源图**的颜色数，不是缩完那张 —— LANCZOS 会把平涂的
+硬边插值出上百万种颜色，按缩完的判会把图形误判成照片（这个坑实测踩过一次）。
+
 输出：一行 JSON（编辑器按这个判断）
     {"ok": true, "changed": true,  "before": 1174318, "after": 841000,
-     "from": [1917,1325], "to": [1600,1106], "format": "PNG", "pixel": 1}
+     "from": [1917,1325], "to": [1600,1106], "format": "PNG", "pixel": 1,
+     "webp": {"bytes": 214833, "lossless": true, "saving_pct": 74,
+              "from": [1917,1325], "to": [1400,968]}}
+    {"ok": true, "changed": false, "reason": "尺寸本来就不超上限，不动",
+     "webp": null, "webp_reason": "webp 没有更小（9.1 KB vs 8.4 KB），只用原图"}
     {"ok": true, "changed": false, "reason": "尺寸本来就不超上限，不动"}
 """
 import argparse
@@ -64,6 +93,13 @@ QUALITY = 85
 MIN_BYTES = 60 * 1024
 # 这些格式不碰：webp/svg 已经是压缩格式，gif 是动图（只取第一帧会毁掉动画）。
 SKIP_EXT = {".webp", ".svg", ".gif", ".ico", ".avif"}
+
+# webp 兄弟文件的参数
+WEBP_QUALITY = 82            # 有损（照片 / JPEG / 颜色很多的 PNG）
+WEBP_METHOD = 6              # 0(快) ~ 6(小)
+WEBP_LOSSLESS_COLORS = 5000  # 颜色数不超过这个就当「图形」→ 无损；超过当「照片」→ 有损
+WEBP_KEEP_FULL_EDGE = 2048   # 图形不缩尺寸的上限。2048 已经远超实际显示（栏宽 628
+                             # 的 3 倍），这类图缩了只会糊线条又省不下多少
 
 
 def integer_upscale_factor(im):
@@ -134,76 +170,147 @@ def encode(im, fmt, quality):
     return buf.getvalue()
 
 
-def compress(src, dst=None, long_edge=LONG_EDGE, quality=QUALITY):
-    """压一张图。dst 为 None 时只算不写（仍会返回结果）。"""
+def count_colors(im, cap):
+    """数颜色数；超过 cap 返回 None。只用来判断「图形」还是「照片」。"""
+    cols = im.convert("RGB").getcolors(maxcolors=cap)
+    return None if cols is None else len(cols)
+
+
+def atomic_write(path, data):
+    """先写 .tmp 再 os.replace —— 目标位置不会出现半截文件。"""
+    tmp = path + ".tmp"
+    os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
+    with open(tmp, "wb") as fh:
+        fh.write(data)
+    os.replace(tmp, path)
+
+
+def encode_webp(im, lossless, quality):
+    """出一种 webp 字节。走不走无损由调用方按「图形 / 照片」决定。
+
+    为什么图形走无损：截图 / 平涂插画 / 像素画的有损编码会在硬边上留振铃、
+    在纯色块里放噪点 —— 那正是点阵风最怕的；这类图的无损 webp 通常还比 PNG 小。
+    """
+    out = im if im.mode in ("RGB", "RGBA") else im.convert("RGBA")
+    buf = io.BytesIO()
+    if lossless:
+        out.save(buf, "WEBP", lossless=True, method=WEBP_METHOD)
+    else:
+        out.save(buf, "WEBP", lossless=False, quality=quality, method=WEBP_METHOD)
+    return buf.getvalue()
+
+
+def compress(src, dst=None, long_edge=LONG_EDGE, quality=QUALITY,
+             webp_dst=None, webp_quality=WEBP_QUALITY):
+    """压一张图。dst 为 None 时只算不写（仍会返回结果）。
+
+    两件事，互相独立：
+      ① 原图那一份 —— 只做「尺寸超过上限就缩到上限」，保持原格式（老行为）。
+      ② webp 兄弟 —— 给了 webp_dst 就在旁边出一张同名 .webp（正文插 <picture>，
+         支持 webp 的浏览器只下它，不支持的拿原图兜底）。
+    webp 按「理想尺寸」出（缩过的那张），和兜底原图尺寸可能不同 —— 长宽比一样，
+    不影响排版，只是 webp 更小。
+    """
     ext = os.path.splitext(src)[1].lower()
     before = os.path.getsize(src)
     fmt = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG"}.get(ext)
 
     if ext in SKIP_EXT:
-        return {"ok": True, "changed": False, "reason": "这种格式不压（%s）" % ext}
+        return {"ok": True, "changed": False, "webp": None,
+                "reason": "这种格式不压（%s）" % ext}
     if fmt is None:
-        return {"ok": True, "changed": False, "reason": "不认识的格式 %s，原样保留" % ext}
+        return {"ok": True, "changed": False, "webp": None,
+                "reason": "不认识的格式 %s，原样保留" % ext}
 
     im, frames = load_source(src)
     if frames > 1:
-        return {"ok": True, "changed": False, "reason": "动图（%d 帧），不压以免破坏动画" % frames}
+        return {"ok": True, "changed": False, "webp": None,
+                "reason": "动图（%d 帧），不压以免破坏动画" % frames}
     if before < MIN_BYTES:
-        return {"ok": True, "changed": False, "reason": "只有 %.1f KB，不值得压" % (before / 1024)}
+        return {"ok": True, "changed": False, "webp": None,
+                "reason": "只有 %.1f KB，不值得压" % (before / 1024)}
 
     w0, h0 = im.size
+    # 「图形」还是「照片」—— 用**源图**的颜色数判，别用缩完那张：
+    # LANCZOS 会把平涂的硬边插值出上百万种颜色，按缩完的判会把图形误判成照片。
+    graphic = fmt == "PNG" and count_colors(im, WEBP_LOSSLESS_COLORS) is not None
+    res = {"ok": True, "changed": False, "webp": None}
+    work = im
+    kept = True                     # 兜底那份是不是原样保留的原图
+    pixel = 1
 
-    # 尺寸本来就不超上限、且文件不大 —— 完全不动。
-    # 不做「无意义的重编码」：那只会引入一次有损损失、却省不下多少
-    # （实测把 1434x1410 的 PNG 重存一遍只小 3%）。
-    if max(w0, h0) <= long_edge:
-        return {"ok": True, "changed": False,
-                "reason": "尺寸 %dx%d 没超上限 %d，不动" % (w0, h0, long_edge)}
+    if max(w0, h0) > long_edge:
+        pixel = integer_upscale_factor(im)
 
-    pixel = integer_upscale_factor(im)
+        # 只缩不放
+        scale = long_edge / float(max(w0, h0))
+        nw, nh = max(1, round(w0 * scale)), max(1, round(h0 * scale))
+        # 像素画按整数倍缩，避免出现半格 —— 那会让点阵边缘糊或错位
+        if pixel > 1:
+            px_w = max(pixel, int(round(nw / float(pixel))) * pixel)
+            px_h = max(pixel, int(round(nh / float(pixel))) * pixel)
+            nw, nh = px_w, px_h
 
-    # 只缩不放
-    scale = long_edge / float(max(w0, h0))
-    nw, nh = max(1, round(w0 * scale)), max(1, round(h0 * scale))
-    # 像素画按整数倍缩，避免出现半格 —— 那会让点阵边缘糊或错位
-    if pixel > 1:
-        px_w = max(pixel, int(round(nw / float(pixel))) * pixel)
-        px_h = max(pixel, int(round(nh / float(pixel))) * pixel)
-        nw, nh = px_w, px_h
+        work = im.resize((nw, nh), Image.NEAREST if pixel > 1 else Image.LANCZOS)
+        data = encode(work, fmt, quality)
 
-    work = im.resize((nw, nh), Image.NEAREST if pixel > 1 else Image.LANCZOS)
-    data = encode(work, fmt, quality)
+        # 没有变小就保留原图 —— 重编码只会让它更大（有的图本来就已经优化过）
+        if len(data) >= before:
+            res["reason"] = ("缩完反而更大（%.1f KB -> %.1f KB），保留原图"
+                             % (before / 1024, len(data) / 1024))
+            res["after"] = len(data)
+        else:
+            kept = False
+            res.update({"changed": True, "before": before, "after": len(data),
+                        "from": [w0, h0], "to": [nw, nh], "format": fmt, "pixel": pixel})
+            if dst is None:
+                res["dry"] = True
+            else:
+                atomic_write(dst, data)
+    else:
+        # 尺寸本来就不超上限 —— 原图完全不动。
+        # 不做「无意义的重编码」：那只会引入一次有损损失、却省不下多少
+        # （实测把 1434x1410 的 PNG 重存一遍只小 3%）。
+        res["reason"] = "尺寸 %dx%d 没超上限 %d，不动" % (w0, h0, long_edge)
 
-    # 没有变小就保留原图 —— 重编码只会让它更大（有的图本来就已经优化过）
-    if len(data) >= before:
-        return {"ok": True, "changed": False,
-                "reason": "缩完反而更大（%.1f KB -> %.1f KB），保留原图"
-                          % (before / 1024, len(data) / 1024),
-                "before": before, "after": len(data)}
+    # ---------- webp 兄弟 ----------
+    if webp_dst is not None:
+        fallback = before if kept else res["after"]
+        # 用哪张图、走不走无损，都在这里定：
+        #   图形且本来就不大 → 原尺寸 + 无损（线条清晰、像素零损失）
+        #   其余（照片 / 超大图） → 缩到上限 + 有损 q82（靠尺寸和量化省）
+        if graphic and max(w0, h0) <= WEBP_KEEP_FULL_EDGE:
+            src_im, lossless = im, True
+        else:
+            src_im, lossless = work, False
+        wb = encode_webp(src_im, lossless, webp_quality)
+        if len(wb) < fallback:
+            atomic_write(webp_dst, wb)
+            res["webp"] = {
+                "bytes": len(wb), "lossless": lossless,
+                "saving": fallback - len(wb),
+                "saving_pct": round(100.0 * (1 - len(wb) / float(fallback))),
+                "from": [w0, h0], "to": [src_im.size[0], src_im.size[1]],
+            }
+        else:
+            res["webp_reason"] = ("webp 没有更小（%.1f KB vs %.1f KB），只用原图"
+                                  % (len(wb) / 1024, fallback / 1024))
 
-    if dst is None:
-        return {"ok": True, "changed": True, "dry": True,
-                "before": before, "after": len(data),
-                "from": [w0, h0], "to": [nw, nh], "format": fmt, "pixel": pixel}
-
-    tmp = dst + ".tmp"
-    os.makedirs(os.path.dirname(os.path.abspath(dst)) or ".", exist_ok=True)
-    with open(tmp, "wb") as fh:
-        fh.write(data)
-    os.replace(tmp, dst)
-    return {"ok": True, "changed": True,
-            "before": before, "after": len(data),
-            "from": [w0, h0], "to": [nw, nh], "format": fmt, "pixel": pixel}
+    return res
 
 
 def main():
-    ap = argparse.ArgumentParser(description="压缩上传的图片（保持原格式）")
+    ap = argparse.ArgumentParser(description="压缩上传的图片（保持原格式；可选再出一张 webp）")
     ap.add_argument("src")
     ap.add_argument("dst", nargs="?")
     ap.add_argument("--long-edge", type=int, default=LONG_EDGE)
     ap.add_argument("--quality", type=int, default=QUALITY)
     ap.add_argument("--in-place", action="store_true",
                     help="压完直接替换原文件（先写临时文件再原子替换）")
+    ap.add_argument("--webp", default=None, metavar="路径",
+                    help="顺便出一张 webp（上传时会放在原图旁边、同名 .webp）")
+    ap.add_argument("--webp-quality", type=int, default=WEBP_QUALITY,
+                    help="有损 webp 的质量（默认 %(default)s；PNG 走无损时用不到）")
     args = ap.parse_args()
 
     if not os.path.isfile(args.src):
@@ -217,7 +324,8 @@ def main():
         dst = None
 
     try:
-        r = compress(args.src, dst, args.long_edge, args.quality)
+        r = compress(args.src, dst, args.long_edge, args.quality,
+                     webp_dst=args.webp, webp_quality=args.webp_quality)
     except Exception as e:                              # pragma: no cover
         r = {"ok": False, "error": "%s: %s" % (type(e).__name__, e)}
     sys.stdout.write(json.dumps(r, ensure_ascii=False))
