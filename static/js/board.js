@@ -171,7 +171,47 @@
     return arr;
   }
 
+  /* ---------------- 我在这个浏览器里贴过哪些 ----------------
+     贴上去之后把便签 id 记下来，这样自己那张能自己撤掉（后端只认这个随机串）。 */
+  var TOKEN_KEY = 'nijiboshi.board.token';
+  var MINE_KEY = 'nijiboshi.board.mine';
+
+  function myToken() {
+    var t = '';
+    try { t = window.localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+    if (!t) {
+      t = '';
+      for (var i = 0; i < 4; i++) { t += Math.random().toString(36).slice(2, 10); }
+      try { window.localStorage.setItem(TOKEN_KEY, t); } catch (e) {}
+    }
+    return t;
+  }
+
+  function myNotes() {
+    try {
+      var raw = window.localStorage.getItem(MINE_KEY);
+      var o = raw ? JSON.parse(raw) : {};
+      return (o && typeof o === 'object') ? o : {};
+    } catch (e) { return {}; }
+  }
+
+  function rememberMine(id) {
+    var m = myNotes();
+    m[String(id)] = 1;
+    try { window.localStorage.setItem(MINE_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+
+  function isMine(id) { return !!myNotes()[String(id)]; }
+
   /* ---------------- 取数据 ---------------- */
+
+  /* data-bd-live 写「根地址」（https://xxx.pages.dev）或者「完整接口地址」
+     （https://xxx.pages.dev/api/notes）都行 —— 两种写法都有人写，
+     这里统一推成接口地址，省得以后换一种写法就 404。 */
+  function apiNotes(live) {
+    var base = String(live || '').replace(/\/+$/, '');
+    return /\/api\/notes$/.test(base) ? base : base + '/api/notes';
+  }
 
   function getJSON(url, cb) {
     var xhr = new XMLHttpRequest();
@@ -187,6 +227,25 @@
     };
     xhr.onerror = function () { cb(new Error('network')); };
     try { xhr.send(); } catch (e) { cb(e); }
+  }
+
+  /* 写接口（贴便签 / 撤下来）。后端约定返回 {"ok":true,...} 或 {"ok":false,"error":"…"} */
+  function postJSON(url, method, payload, cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.open(method || 'POST', url, true);
+    xhr.setRequestHeader('content-type', 'application/json');
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) { return; }
+      var data = null;
+      try { data = JSON.parse(xhr.responseText); } catch (e) {}
+      if (xhr.status >= 200 && xhr.status < 300 && data && data.ok !== false) {
+        cb(null, data);
+      } else {
+        cb(new Error((data && data.error) || ('HTTP ' + xhr.status)));
+      }
+    };
+    xhr.onerror = function () { cb(new Error('连不上服务器')); };
+    try { xhr.send(JSON.stringify(payload)); } catch (e) { cb(e); }
   }
 
   function normalize(data) {
@@ -208,8 +267,8 @@
     var done = function (err, notes) {
       // 本机暂存的排在最后（自己刚写的，看得到就行）
       var mine = readLocal();
-      var merged = notes.concat(mine);
-      if (want === 'recent') { merged = merged.slice(-3); }
+      var merged = mine.concat(notes);      // 本机自己写的排最前
+      if (want === 'recent') { merged = merged.slice(0, 3); }   // 取最新的三张
       cb(err, merged, !!err);
     };
 
@@ -222,7 +281,7 @@
     };
 
     if (live) {
-      getJSON(live, function (err, data) {
+      getJSON(apiNotes(live), function (err, data) {
         if (err) { fromStatic(); return; }   // 后端不通就吃静态那份
         done(null, normalize(data));
       });
@@ -371,6 +430,24 @@
       r.appendChild(el('div', 'bd-reply-body', n.reply.body));
       modal.body.appendChild(r);
     }
+
+    /* 自己贴的那张：给一个撤下来的按钮（后端只认本机这个随机串） */
+    if (opt.onDelete && isMine(n.id)) {
+      var del = el('button', 'bd-btn bd-btn-del', '撤下来');
+      del.type = 'button';
+      del.title = '把你自己贴的这一张拿下来';
+      del.addEventListener('click', function () {
+        del.disabled = true;
+        del.textContent = '正在拿下来…';
+        opt.onDelete(n, function (err) {
+          del.disabled = false;
+          del.textContent = err ? '没拿下来，再试一次' : '撤下来';
+        });
+      });
+      var acts = el('div', 'bd-actions');
+      acts.appendChild(del);
+      modal.body.appendChild(acts);
+    }
     return modal.note;
   }
 
@@ -384,12 +461,15 @@
     var form = el('div', 'bd-note-form');
     form.appendChild(el('div', 'bd-form-hint', opt.hint || '在这儿写下你想贴的话'));
 
+    var t0 = new Date().getTime();          // 打开表单的时刻，太快提交的当脚本
+
     /* 名字 */
     var fName = el('label', 'bd-field');
     fName.appendChild(el('span', null, '你的名字（留空就是匿名）'));
     var name = el('input');
     name.type = 'text';
     name.maxLength = 24;
+    name.setAttribute('autocomplete', 'nickname');
     name.setAttribute('placeholder', '匿名');
     fName.appendChild(name);
     form.appendChild(fName);
@@ -431,6 +511,17 @@
     fBody.appendChild(body);
     form.appendChild(fBody);
 
+    /* 蜜罐：正常人看不见也填不到；填了就说明是脚本。
+       **必须放在正文后面**：它要是排在第一个 input，浏览器的自动填充
+       很可能正好填到它，真人写的便签就会被静默拒掉（E2E 测试抓到过）。 */
+    var hp = el('input', 'bd-hp');
+    hp.type = 'text';
+    hp.name = 'hp';
+    hp.tabIndex = -1;
+    hp.setAttribute('autocomplete', 'off');
+    hp.setAttribute('aria-hidden', 'true');
+    form.appendChild(hp);
+
     var err = el('p', 'bd-err');
     err.hidden = true;
     form.appendChild(err);
@@ -460,17 +551,36 @@
         err.textContent = '太长了，超了 ' + (text.length - BODY_MAX) + ' 个字。';
         return;
       }
-      var note = {
-        id: 'local-' + (new Date().getTime()),
-        name: String(name.value).replace(/^\s+|\s+$/g, '').slice(0, 24),
-        color: color,
-        body: text,
-        at: nowCN(),
-        local: true
-      };
-      if (opt.onSubmit) { opt.onSubmit(note); }
-      modal.close();
-      onPosted && onPosted(note);
+      var who = String(name.value).replace(/^\s+|\s+$/g, '').slice(0, 24);
+
+      /* 没接后端：还是老样子，贴在本机浏览器里，页面上会标出来 */
+      if (!opt.live) {
+        var local = { id: 'local-' + (new Date().getTime()), name: who, color: color,
+                      body: text, at: nowCN(), local: true };
+        if (opt.onSubmit) { opt.onSubmit(local); }
+        modal.close();
+        onPosted && onPosted(local);
+        return;
+      }
+
+      /* 接了后端：真发出去。发失败就把表单留着，别让人白写一遍 */
+      ok.disabled = true;
+      ok.textContent = '正在贴…';
+      err.hidden = true;
+      postJSON(apiNotes(opt.live), 'POST', {
+        name: who, color: color, body: text, token: myToken(), hp: hp.value, t0: t0
+      }, function (e2, res) {
+        ok.disabled = false;
+        ok.textContent = '贴上去';
+        if (e2) {
+          err.hidden = false;
+          err.textContent = '没贴上：' + (e2.message || '不知道哪儿出错了') + '。内容还在，可以再试一次。';
+          return;
+        }
+        if (res && res.note) { rememberMine(res.note.id); }
+        modal.close();
+        onPosted && onPosted((res && res.note) || null);
+      });
     });
 
     modal.body.appendChild(form);
@@ -482,6 +592,7 @@
 
   function bootBoard(host) {
     var img = attr(host, 'data-bd-img') || '/images/board';
+    var live = attr(host, 'data-bd-live');
     var list = host.querySelector('.bd-notes');
     var cork = host.querySelector('.bd-cork');
     var tip = host.querySelector('.bd-tip');
@@ -497,14 +608,34 @@
 
     function render() {
       while (list.firstChild) { list.removeChild(list.firstChild); }
-      for (var i = notes.length - 1; i >= 0; i--) {           // 新的贴前面
+      /* notes 是「新 → 旧」：后端的 id DESC、静态那份样例也是这个顺序。
+         顺着插，新的自然在最上面。**别再倒着插** —— 那样刚贴完新的是第一张，
+         一刷新就翻成最旧的在最上面（只有连着真后端刷新才看得出来）。 */
+      for (var i = 0; i < notes.length; i++) {
         list.appendChild(makeNote(notes[i], {
           img: img,
-          onOpen: function (n) { modal && showNote(modal, n, { img: img }); }
+          onOpen: function (n) {
+            if (!modal) { return; }
+            showNote(modal, n, { img: img, onDelete: live ? removeMine : null });
+          }
         }));
       }
       var empty = host.querySelector('.bd-empty');
       if (empty) { empty.hidden = notes.length > 0; }
+    }
+
+    /* 自己撤掉自己贴的那张（软删：后端只是把它藏起来） */
+    function removeMine(note, done) {
+      postJSON(apiNotes(live), 'DELETE', { id: note.id, token: myToken() },
+        function (e2) {
+          if (e2) { done && done(e2); return; }
+          for (var i = 0; i < notes.length; i++) {
+            if (String(notes[i].id) === String(note.id)) { notes.splice(i, 1); break; }
+          }
+          render();
+          modal && modal.close();
+          done && done(null);
+        });
     }
 
     loadNotes(host, function (err, data, offline) {
@@ -523,15 +654,20 @@
       var openCompose = function () {
         showCompose(modal, {
           img: img,
+          live: live,
           color: 'white',
           onSubmit: function (note) { addLocal(note); }
         }, function (note) {
-          notes.push(note);
+          if (note) { notes.unshift(note); }     // 新 → 旧，所以插在头
           render();
           if (tip) {
             while (tip.firstChild) { tip.removeChild(tip.firstChild); }
-            tip.appendChild(el('span', 'bd-warn',
-              '这张便签现在只贴在你自己的浏览器里 —— 布告栏还没接到服务器。'));
+            if (live) {
+              tip.appendChild(el('span', null, '贴好了。板子上现在能看到你那一张。'));
+            } else {
+              tip.appendChild(el('span', 'bd-warn',
+                '这张便签现在只贴在你自己的浏览器里 —— 布告栏还没接到服务器。'));
+            }
           }
         });
       };
@@ -554,7 +690,7 @@
     loadNotes(host, function (err, data) {
       while (list.firstChild) { list.removeChild(list.firstChild); }
       var n = Math.min(data.length, 3);
-      for (var i = data.length - 1; i >= data.length - n; i--) {
+      for (var i = 0; i < n; i++) {           // data 是「新 → 旧」，取前三个
         list.appendChild(makeNote(data[i], { img: img, mini: true }));
       }
       if (!n) {

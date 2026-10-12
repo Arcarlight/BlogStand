@@ -766,6 +766,26 @@
 
 .bd-err { color: #c0392b; }
 
+/* 蜜罐字段：放在屏幕外，脚本会去填它，真人看不见 */
+.bd-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 「撤下来」：自己贴的那张才出现 */
+.bd-btn-del {
+  color: #8c3200;
+  background: #fdeee6;
+  border-color: #d9865c;
+}
+
+.bd-btn-del:hover { background: #fff3ec; }
+.bd-btn-del:disabled { opacity: .6; cursor: default; }
+
 /* ---------- 5. 首页那块（缩小版） ---------- */
 
 /* 首页那块外面留出空间：藤和压顶会伸到板子外面，而首页内容是包在

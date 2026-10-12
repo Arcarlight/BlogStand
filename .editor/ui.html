@@ -1131,6 +1131,7 @@ function renderTree() {
   h += '<div class="row tool" data-panel="updates">' + ico('refresh') + '更新日志</div>';
   h += '<div class="row tool" data-panel="changelog">' + ico('notebook') + '更新历史</div>';
   h += '<div class="row tool" data-panel="notices">' + ico('comment-quote') + '公告栏</div>';
+  h += '<div class="row tool" data-panel="board">' + ico('pin') + '布告栏</div>';
   h += '<div class="row tool" data-panel="diancie">' + ico('diamond') + '蒂安希听到了</div>';
   h += '<div class="row tool" data-panel="pkmn">' + ico('message-dots') + '宝可梦台词</div>';
   h += '<div class="row tool" data-panel="sidebar">' + ico('pencil-ruler') + '侧栏排序</div>';
@@ -1515,6 +1516,7 @@ async function openPanel(which) {
     if (which === 'updates')  return await renderUpdates();
     if (which === 'changelog') return await renderChangelog();
     if (which === 'notices')  return await renderNotices();
+    if (which === 'board')    return await renderBoard();
     if (which === 'diancie')  return await renderDiancie();
     if (which === 'sidebar')  return await renderSidebar();
     if (which === 'scripts')  return await renderScripts();
@@ -1944,6 +1946,117 @@ async function renderChangelog() {
 }
 
 /* --- 公告栏（侧栏那块「公告」，和顶部滚动公告不是一回事） --- */
+/* ============ 布告栏 ============
+   站上 /board/ 那些便签的数据在后端（board-api/：Cloudflare Pages Functions + D1）。
+   这个面板管两件事：
+     1. 填后端地址 + 管理令牌 —— 只写本机 .editor/board.json（已 gitignore），
+        不进仓库；令牌泄露等于把整块板子的生杀权交出去，所以别提交、别贴给人看。
+     2. 看便签、回复、隐藏（= 撤下来，数据和回复都留着）。
+   ============================================================ */
+async function renderBoard() {
+  let cfg;
+  try { cfg = await apiGet('/api/board/config'); }
+  catch (e) { showPanel('<h2 class="sec">布告栏</h2><p class="hint">读不到配置：' + esc(e.message) + '</p>'); return; }
+
+  /* ---- 还没配好后端：填地址和令牌 ---- */
+  const drawCfg = (c) => {
+    let h = '<h2 class="sec">布告栏</h2>';
+    h += '<p class="hint">站上 <code>/board/</code> 的便签存在 Cloudflare 上（仓库里的 <code>board-api/</code>）。' +
+         '这里填后端地址和管理令牌 —— 令牌只写进本机 <code>.editor/board.json</code>（已 gitignore），' +
+         '既不会进仓库，也不会出现在站点上。</p>';
+    h += '<div class="field"><label>后端地址</label><input id="bdApi" value="' + esc(c.api || '') +
+         '" placeholder="https://xxx.pages.dev" style="width:420px"></div>';
+    h += '<div class="field"><label>管理令牌</label><input id="bdToken" type="password" placeholder="' +
+         (c.hasToken ? '已保存（想换再填）' : 'ADMIN_TOKEN 的值') + '" style="width:320px"></div>';
+    h += '<p><button class="primary" id="bdSave">保存并连接</button>';
+    if (c.api && c.hasToken) h += ' <button id="bdCancel">算了</button>';
+    h += '</p>';
+    h += '<div class="note">后端还没部署？<code>board-api/README.md</code> 里是三步：' +
+         '注册 Cloudflare → <code>wrangler login</code> → <code>wrangler pages deploy</code>，' +
+         '然后把地址填到站点 <code>hugo.toml</code> 的 <code>boardApi</code>。</div>';
+    showPanel(h);
+    $('#bdSave').addEventListener('click', async () => {
+      try {
+        await apiPost('/api/board/config', { api: $('#bdApi').value, token: $('#bdToken').value });
+        toast('存好了', 'ok');
+        renderBoard();
+      } catch (e) { toast('没存上：' + e.message, 'err'); }
+    });
+    if ($('#bdCancel')) $('#bdCancel').addEventListener('click', () => renderBoard());
+  };
+
+  if (!cfg.api || !cfg.hasToken) { drawCfg(cfg); return; }
+
+  /* ---- 配好了：列便签 ---- */
+  let all = [];
+  const drawList = (onlyUnreplied) => {
+    const list = onlyUnreplied ? all.filter((n) => !(n.reply && n.reply.body)) : all;
+    let h = '<h2 class="sec">布告栏</h2>';
+    h += '<p class="hint">板上共 <b>' + all.length + '</b> 张' +
+         (onlyUnreplied ? '（只看没回复的：' + list.length + ' 张）' : '') +
+         '。回复会贴在便签下面；「隐藏」是撤下来但不删，数据和回复都留着。</p>';
+    h += '<p><button id="bdReload">刷新</button> <button id="bdSetting">后端设置</button> ' +
+         '<button id="bdOnly">' + (onlyUnreplied ? '看全部' : '只看没回复的') + '</button></p>';
+    if (!list.length) h += '<p class="hint">' + (onlyUnreplied ? '都回复过了。' : '板子上还什么都没有。') + '</p>';
+    list.forEach((n) => {
+      const hidden = n.status === 'hidden';
+      h += '<div style="border:1px solid ' + (hidden ? '#d8d8d8' : '#c9d6e4') + ';background:' +
+           (hidden ? '#f6f6f6' : '#fff') + ';padding:8px 10px;margin:8px 0">';
+      h += '<div style="font-size:12px;color:#5b6b7c">#' + esc(String(n.id)) + ' · ' + esc(n.at || '') +
+           ' · ' + (n.name ? esc(n.name) : '匿名') + (hidden ? ' · <b>已隐藏</b>' : '') + '</div>';
+      h += '<div style="white-space:pre-wrap;margin:6px 0;line-height:1.6">' + esc(n.body) + '</div>';
+      if (n.reply && n.reply.body) {
+        h += '<div style="background:#fff8ec;border-left:3px solid #c94800;padding:6px 8px;margin:6px 0">' +
+             '<b>站长回复</b>（' + esc(n.reply.at || '') + '）<div style="white-space:pre-wrap">' +
+             esc(n.reply.body) + '</div></div>';
+      }
+      h += '<textarea rows="2" data-reply="' + esc(String(n.id)) +
+           '" placeholder="回复这张便签（留空点回复 = 不改动已有的）" style="width:100%;box-sizing:border-box"></textarea>';
+      h += '<p style="margin:6px 0 0"><button data-do="reply" data-id="' + esc(String(n.id)) + '">回复</button> ' +
+           '<button data-do="' + (hidden ? 'show' : 'hide') + '" data-id="' + esc(String(n.id)) + '"' +
+           (hidden ? '' : ' class="danger"') + '>' + (hidden ? '恢复' : '隐藏') + '</button></p>';
+      h += '</div>';
+    });
+    showPanel(h);
+
+    $('#bdReload').addEventListener('click', () => renderBoard());
+    $('#bdSetting').addEventListener('click', () => drawCfg(cfg));
+    $('#bdOnly').addEventListener('click', () => drawList(!onlyUnreplied));
+    document.querySelectorAll('[data-do]').forEach((b) => b.addEventListener('click', async () => {
+      const id = Number(b.dataset.id);
+      try {
+        if (b.dataset.do === 'reply') {
+          const ta = document.querySelector('[data-reply="' + id + '"]');
+          const body = (ta && ta.value || '').trim();
+          if (!body) { toast('回复是空的', 'err'); return; }
+          b.disabled = true;
+          await apiPost('/api/board/reply', { id, body });
+          toast('回复好了', 'ok');
+        } else {
+          b.disabled = true;
+          await apiPost('/api/board/hide', { id, hidden: b.dataset.do === 'hide' });
+          toast(b.dataset.do === 'hide' ? '已隐藏' : '已恢复', 'ok');
+        }
+        renderBoard();
+      } catch (e) {
+        b.disabled = false;
+        toast('没成功：' + e.message, 'err');
+      }
+    }));
+  };
+
+  try {
+    const data = await apiGet('/api/board/list?status=all');
+    all = (data && data.notes) || [];
+  } catch (e) {
+    showPanel('<h2 class="sec">布告栏</h2><p class="hint">读不到板子上的便签：' + esc(e.message) +
+              '</p><p><button id="bdSetting2">后端设置</button></p>');
+    $('#bdSetting2').addEventListener('click', () => drawCfg(cfg));
+    return;
+  }
+  drawList(false);
+}
+
 async function renderNotices() {
   const d = await apiGet('/api/list/notices');
   const today = new Date().toISOString().slice(0, 10);
@@ -3981,7 +4094,7 @@ function renderCollectionWith(books, articles) {
 
 /* ---------- 启动 ---------- */
 let BOOTED = false;
-const PANELS = ['settings', 'collection', 'links', 'buttons', 'scripts', 'nav', 'pkmn', 'diancie'];
+const PANELS = ['settings', 'collection', 'links', 'buttons', 'scripts', 'nav', 'pkmn', 'diancie', 'board'];
 
 /** 恢复上次用的图片宽度、给顶栏的新建按钮接线 */
 function initToolbar() {

@@ -67,6 +67,17 @@ timeZone = "Asia/Shanghai"
   # 侧边栏「关于站长」的自我介绍
   aboutDesc = "喜欢艺术创作的沙漠蜻蜓，正在和日常斗智斗勇！"
 
+  # ---- 布告栏的后端 ----
+  # 布告栏「看便签 / 贴便签」走这个地址（Cloudflare Pages Functions + D1）。
+  # 留空 = 还没接后端：页面上便签读 static/board/notes.json 那份样例，
+  # 自己贴的只存在本机浏览器里，并用橙色虚线标出来。
+  # 填上之后：读便签优先走它，读不到自动回落到静态那份（所以后端挂了也还能看）；
+  # 写便签走 POST /api/notes，撤回自己那张走 DELETE /api/notes。
+  # 写「根地址」（https://xxx.pages.dev）或者完整接口地址
+  # （https://xxx.pages.dev/api/notes）都行，前端两种都认。
+  # 部署步骤见 board-api/README.md。
+  boardApi = "https://nijiboshi-board.pages.dev"
+
   # ---- 页脚 ----
   footerText = "Best viewed in 1024×768 with Internet Explorer 8 or Firefox 3.6"
   icp        = ""

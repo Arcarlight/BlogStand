@@ -1,0 +1,38 @@
+# ============================================================
+# board-api / wrangler.toml —— Cloudflare Pages 项目配置
+# ------------------------------------------------------------
+# 本地跑（不用登录）：
+#     ./dev.sh                       # 默认 http://127.0.0.1:8788
+#     PORT=9000 ./dev.sh
+#     RESET=1 ./dev.sh               # 先清掉本地 D1 再建表
+#
+# 线上跑（deploy.sh 会带着你走，也可以照 README.md 手动来）：
+#   1. wrangler login
+#   2. wrangler d1 create board      -> 把返回的 database_id 填到下面
+#   3. wrangler pages secret put ADMIN_TOKEN / IP_SALT
+#   4. wrangler pages deploy public --project-name <项目名>
+#
+# ⚠️ 这里**不要**再写 vars 段来放 ADMIN_TOKEN / IP_SALT。
+#    线上那两个是用 `wrangler pages secret put` 建的 secret，而 vars 和 secret
+#    **共用同一个绑定命名空间**，同名会让部署直接失败：
+#        Failed to publish your Function. Got error:
+#        Binding name 'ADMIN_TOKEN' already in use.
+#    （2026-10-13 第一次部署就撞上了。）本地开发用的值放 .dev.vars
+#    ——它已 gitignore，dev.sh 会从 .dev.vars.example 自动生成一份。
+#
+# 另外：本地 D1 是按 database_id 分文件的。dev.sh 和 test-local.sh 都**从这个
+# 文件里读** database_name / database_id，别在脚本里另写一份，否则会出现
+# 「表建好了，请求却报 no such table: notes」——两条命令认的不是同一个库。
+# ============================================================
+
+name = "nijiboshi-board"          # Pages 项目名（要和 deploy.sh 用的那个一致）
+compatibility_date = "2026-10-01"
+
+# 本地 pages dev 的静态文件根。这个项目没有前端页面（页面在博客仓库里），
+# 留一个只有占位文件的目录，wrangler 才肯跑。
+pages_build_output_dir = "public"
+
+[[d1_databases]]
+binding = "DB"                    # 代码里就是 env.DB
+database_name = "board"
+database_id = "24ffb4bb-3d5a-475a-b22e-79e5fa35c8e3"   # 线上库（deploy.sh 自动填的）

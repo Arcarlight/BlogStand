@@ -2252,6 +2252,47 @@ async function syncNavigator(opts = {}) {
    请求处理
    ============================================================ */
 
+/* ---------- 布告栏（站上 /board/ 页面的数据） ----------
+   便签的数据在 Cloudflare 上（board-api/：Pages Functions + D1）。
+   编辑器这边只做三件事：把「后端地址 + 管理令牌」存在本机
+   （.editor/board.json，已 gitignore，**别提交**）、把管理员的读写转发过去、
+   把结果原样交给界面。令牌只在本机，不进站点、不进仓库。 */
+const BOARD_CFG = path.join(__dirname, 'board.json');
+
+async function readBoardCfg() {
+  try { return JSON.parse(await fsp.readFile(BOARD_CFG, 'utf8')); } catch { return {}; }
+}
+
+async function writeBoardCfg(cfg) {
+  await fsp.writeFile(BOARD_CFG, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+}
+
+function boardNeed(cfg) {
+  if (!cfg || !cfg.api) throw new Error('还没填布告栏的后端地址（怎么部署见 board-api/README.md）');
+  if (!cfg.token) throw new Error('还没填管理令牌');
+}
+
+async function boardFetch(cfg, method, route, body) {
+  const init = { method, headers: { 'x-board-token': cfg.token } };
+  if (body !== undefined) {
+    init.headers['content-type'] = 'application/json';
+    init.body = JSON.stringify(body);
+  }
+  let r;
+  try {
+    r = await fetch(cfg.api.replace(/\/+$/, '') + route, init);
+  } catch (e) {
+    throw new Error('连不上布告栏后端：' + (e.message || e));
+  }
+  const text = await r.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch (e) { data = null; }
+  if (!r.ok || (data && data.ok === false)) {
+    throw new Error((data && data.error) || ('后端返回 ' + r.status));
+  }
+  return data;
+}
+
 async function readBody(req) {
   const chunks = [];
   let size = 0;
@@ -2735,6 +2776,43 @@ async function handle(req, res, url) {
     const next = writeMenu(await readText('hugo.toml'), clean);
     await writeText('hugo.toml', next);
     return json(res, 200, { ok: true, count: clean.length, items: parseMenu(next) });
+  }
+
+  /* ---------- 布告栏：配置 + 管理转发 ---------- */
+  if (p === '/api/board/config' && req.method === 'GET') {
+    const c = await readBoardCfg();
+    return json(res, 200, { api: c.api || '', hasToken: !!c.token });
+  }
+  if (p === '/api/board/config' && req.method === 'POST') {
+    const { api, token } = await readBody(req);
+    const c = await readBoardCfg();
+    const next = {
+      api: String(api === undefined ? (c.api || '') : api).trim().replace(/\/+$/, ''),
+      // 令牌留空 = 不改动已存的那个（界面上不显示它，免得被顺手看走）
+      token: (token === undefined || token === '') ? (c.token || '') : String(token).trim(),
+    };
+    await writeBoardCfg(next);
+    return json(res, 200, { ok: true, api: next.api, hasToken: !!next.token });
+  }
+  if (p === '/api/board/list' && req.method === 'GET') {
+    const c = await readBoardCfg();
+    boardNeed(c);
+    const status = url.searchParams.get('status') || 'all';
+    return json(res, 200, await boardFetch(c, 'GET', '/api/admin/list?status=' + encodeURIComponent(status)));
+  }
+  if (p === '/api/board/reply' && req.method === 'POST') {
+    const c = await readBoardCfg();
+    boardNeed(c);
+    const { id, body } = await readBody(req);
+    return json(res, 200, await boardFetch(c, 'POST', '/api/admin/reply',
+      { id: Number(id), body: String(body || '') }));
+  }
+  if (p === '/api/board/hide' && req.method === 'POST') {
+    const c = await readBoardCfg();
+    boardNeed(c);
+    const { id, hidden } = await readBody(req);
+    return json(res, 200, await boardFetch(c, 'POST', '/api/admin/hide',
+      { id: Number(id), hidden: !!hidden }));
   }
 
   /* ---------- 文集：分册 + 文章归属 + 标签 ---------- */

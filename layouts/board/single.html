@@ -19,7 +19,7 @@
     {{/* 板上是一个"场景"：两根黄绿木柱 + 顶梁（门框），板子挂在里面，
          上沿一道拱形线脚，底下草皮、灌木、石头。素材都由
          tools/build-board-art.py 生成，位置全在 assets/css/board.css 里。 */}}
-    <div class="bd" data-bd-src="{{ $src }}" data-bd-img="{{ $imgBase }}" data-bd-list="all">
+    <div class="bd" data-bd-src="{{ $src }}" data-bd-img="{{ $imgBase }}" data-bd-list="all"{{ with site.Params.boardApi }} data-bd-live="{{ . }}"{{ end }}>
       <div class="bd-scene">
         <i class="bd-beam" aria-hidden="true"></i>
         <i class="bd-ground" aria-hidden="true"></i>

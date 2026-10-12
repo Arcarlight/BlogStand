@@ -1,5 +1,8 @@
 # ---------- Hugo 构建产物 ----------
-public/
+# 锚定到仓库根：写成 `public/` 会把**任何一层**的 public 都忽略掉，
+# 而 board-api/public/ 是后端部署要用的静态根目录（里面那个 README.txt
+# 是让目录能进 git 的唯一东西，git 不跟踪空目录）。踩过。
+/public/
 resources/_gen/
 .hugo_build.lock
 
@@ -27,6 +30,18 @@ __pycache__/
 # 一旦被提交进仓库，任何一次 pull 都会让启动器以为有重启请求 —— 在
 # 「开机自动 pull」的配合下可能变成重启循环。（踩过一次，2026-10-05 的 18b058d）
 .editor/restart-needed
+
+# 布告栏后端的本地运行产物：.wrangler 里是本地 D1（SQLite，测试时会塞满
+# 便签和限流计数），.dev.pid 是本地起服务留的进程号文件。都不该进仓库。
+board-api/.wrangler/
+board-api/.dev.pid
+board-api/.dev.vars
+# 注意：board-api/public/README.txt **不能** ignore —— git 不跟踪空目录，
+# 它是让 public/ 存在的唯一东西，而 wrangler pages deploy 要求这个静态根目录存在。
+
+# 布告栏后端的管理令牌。它只属于你这台机器 —— 一旦提交，任何人都能拿它
+# 删站上所有便签。（后端地址可以公开，令牌绝对不行。）
+.editor/board.json
 
 # 编辑器保存前的自动备份（防写坏）。它是本地兜底，不该进仓库。
 data/*.toml.bak

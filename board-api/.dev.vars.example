@@ -1,0 +1,5 @@
+# 本地开发用的假值 —— 复制成 .dev.vars 就会被 `wrangler pages dev` 自动读取。
+# dev.sh 会在 .dev.vars 不存在时自动帮你复制一份。
+# 这两个值只在本地起服务时生效，永远不要跟线上的 secret 混用。
+ADMIN_TOKEN=dev-admin-token
+IP_SALT=dev-salt-change-me

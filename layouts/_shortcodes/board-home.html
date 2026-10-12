@@ -8,7 +8,8 @@
 <div class="bd-mini-wrap">
   <a class="bd bd-mini" href="{{ "board/" | absURL }}"
      data-bd-src="{{ $src }}" data-bd-img="{{ $imgBase }}" data-bd-list="recent"
-     aria-label="进入布告栏">
+{{ with site.Params.boardApi }}     data-bd-live="{{ . }}"
+{{ end }}     aria-label="进入布告栏">
     <div class="bd-scene">
       <i class="bd-beam" aria-hidden="true"></i>
       <i class="bd-ground" aria-hidden="true"></i>
