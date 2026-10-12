@@ -165,7 +165,13 @@ _FONTTOOLS_WARNED = False          # 「没装 fontTools」只提醒一次，别
 
 
 def _font_unicode_ranges(css_text: str) -> dict:
-    """从 retro.css 里读每个 @font-face 的 unicode-range（没有这条 = 全部码位）"""
+    """从 retro.css 里读每个 @font-face 的 unicode-range（没有这条 = 全部码位）
+
+    ⚠️ 只对**静态写死**的那几条 @font-face 有效（MSGothicJP / Mona12Emoji 等）。
+    点阵宋体分块之后，它的 @font-face 是模板 `{{ range .files }}` 生成出来的，
+    CSS 源码里只有 `{{ .name }}` / `{{ .range }}`，这里永远看不到 —— 那部分的
+    范围要读 `data/pixel-font.toml`，见 _font_manifests()。
+    """
     out: dict[str, set | None] = {}
     for m in re.finditer(r"@font-face\s*\{(.*?)\}", css_text, re.S):
         block = m.group(1)
@@ -189,8 +195,47 @@ def _font_unicode_ranges(css_text: str) -> dict:
     return out
 
 
+def _parse_range(rng: str) -> set[int] | None:
+    """把 "U+4E00-4E01,U+4E03,…" 这种 unicode-range 解析成码位集合"""
+    rng = (rng or "").strip()
+    if not rng:
+        return None
+    cps: set[int] = set()
+    for part in rng.split(","):
+        mm = re.match(r"U\+([0-9A-Fa-f]+)(?:-([0-9A-Fa-f]+))?$", part.strip())
+        if not mm:
+            continue
+        a = int(mm.group(1), 16)
+        b = int(mm.group(2), 16) if mm.group(2) else a
+        cps.update(range(a, b + 1))
+    return cps
+
+
+def _font_manifests() -> dict:
+    """data/pixel-*.toml 里登记的字体块：文件名 -> 码位集合（None = 不限制）
+
+    为什么必须读它们：点阵宋体（和缺口字体）是**分块**的，`simsun12-pixel.woff2`
+    只是第一块，后面还有 -2/-3/-4/-5；哪些文件、各自覆盖哪些码位，只写在
+    data/pixel-font.toml / pixel-gap-font.toml 里，CSS 源码里看不到。
+    只认 PIXEL_FONTS 那份静态清单的话，会把「字在别的块里」误判成「字体里没有」
+    ——2026-10-12 就因此误报了 枝/摔/罩/蒙/澡 五个常用字。
+    """
+    out: dict[str, set | None] = {}
+    for path in sorted((ROOT / "data").glob("pixel-*.toml")):
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for it in data.get("files", []):
+            name = str(it.get("name", "")).strip()
+            if not name:
+                continue
+            out[name] = _parse_range(str(it.get("range", "")))
+    return out
+
+
 def pixel_charset() -> set | None:
-    """三份点阵字体合起来能渲染的字符集合；判断不了就返回 None（那就不检查）"""
+    """点阵字体栈合起来能渲染的字符集合；判断不了就返回 None（那就不检查）"""
     global _CHARSET, _FONTTOOLS_WARNED
     if _CHARSET is not None:
         return _CHARSET
@@ -208,8 +253,13 @@ def pixel_charset() -> set | None:
         ranges = _font_unicode_ranges(CSS_FILE.read_text(encoding="utf-8"))
     except OSError:
         ranges = {}
+    # 分块表里的范围优先（CSS 源码里那些是模板生成的，读不到）
+    manifests = _font_manifests()
+    ranges.update(manifests)
+    # 字体清单 = 分块表里登记的全部 + 静态那几份（去重，顺序稳定）
+    files = list(dict.fromkeys(list(manifests.keys()) + PIXEL_FONTS))
     safe: set[int] = set()
-    for fn in PIXEL_FONTS:
+    for fn in files:
         p = ROOT / "static" / "fonts" / fn
         if not p.exists():
             continue
@@ -999,6 +1049,11 @@ def write_talk(pool: list[dict], credits_by_dex: dict, strict: bool = True,
     print("台词：")
     for item in pool:
         dex, name = item["dex"], item["name"]
+        # hide = true 的是**不进侧栏放养区随机池**的（蒂安希 719 / 小碎钻 703，
+        # js/pkmn.js 按这个字段过滤）——它们不在地上走，本来就不需要台词文件。
+        # 以前这里一律要求有 toml，于是名单一加它们，--talk 就直接报错收场。
+        if item.get("hide") and not (TALK_DIR / f"{dex}.toml").exists():
+            continue
         if not (TALK_DIR / f"{dex}.toml").exists():
             if strict:
                 raise SystemExit(f"缺少台词文件：data/pkmn-talk/{dex}.toml")
