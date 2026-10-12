@@ -112,9 +112,12 @@
   .grp .grp-arrow::before{content:"▾"}
   .grp.folded .grp-arrow::before{content:"▸"}
   /* 组小标题前面那枚图标：字只有 11px，图标也收一档。压在浅色条上，
-     比原来（浮在空白上）可以稍亮一点点，否则会被渐变压住。
-     页面行（子项）没有图标 —— 试过，太花，去掉了。 */
+     比原来（浮在空白上）可以稍亮一点点，否则会被渐变压住。 */
   .grp .ico{width:13px;height:13px;opacity:.85}
+  /* 页面行（子项）的图标：比工具行略小略淡 —— 它是次级信息，
+     同一组里会连着出现好几枚，太实了就又「喧宾夺主」了。
+     选中的那一行由上面的 `.row.active .ico{opacity:1}` 恢复全不透明。 */
+  .row[data-file] .ico{width:15px;height:15px;opacity:.78}
   .grpbody[hidden]{display:none}
   .row{
     display:flex;align-items:center;gap:6px;padding:4px 12px 4px 18px;cursor:pointer;
@@ -932,10 +935,9 @@ const FUGUE = {
   plus:'plus', eye:'eye', 'external-link':'external', check:'tick', upload:'upload',
   bold:'edit-bold', italics:'edit-italic', expand:'application-resize', image:'image',
   thumbtack:'pin', save:'disk', trash:'bin', search:'magnifier', folder:'folder',
-  /* 侧栏**组小标题**上的图标（见 renderTree）。
-     页面行（子项）**不加** —— 试过：一整列同样的图标太喧宾夺主，站长看过之后
-     让去掉（2026-10-12）。所以这一组名字只给组用。 */
+  /* 侧栏树上用的图标（见 renderTree）：组小标题 + 页面行 */
   home:'home', newspaper:'newspaper', blueprint:'blueprint', table:'table',
+  doc:'document-text', css:'paint-can',
 };
 const ico = (name) => '<img class="ico" src="/editor-icons/fugue/'
   + (FUGUE[name] || name) + '.png" alt="" draggable="false">';
@@ -972,21 +974,51 @@ function shortName(p) {
   return b;
 }
 
-/* 侧栏树上的**组小标题**图标。
-   按组名给（草稿组的名字带数量，认名字会认不到，所以先看 g.draft），
-   对不上名字的再按 kind 兜底。图标取自 Fugue（见 .editor/icons/README.md）。
+/* 侧栏树上的图标。图标都取自 Fugue（见 .editor/icons/README.md）。
 
-   页面行那一层**故意不加图标**：2026-10-12 试过按文件类型给（.md/.html/.css…），
-   站长看了一眼说「子项加太多一样的，有点喧宾夺主」—— 于是撤掉，只留组标题。
-   想加回来的话，在这里补一个 fileIcon()，再在 renderTree 的行模板里插 ${ico(...)}。 */
+   ① 组小标题：按组名给（草稿组的名字带数量，认名字会认不到，所以先看 g.draft），
+      对不上名字的再按 kind 兜底。
+
+   ② 页面行（子项）：2026-10-12 的定稿过程 ——
+      第一版按文件类型给了（.md/.html/.css…），站长说「子项加太多一样的，有点
+      喧宾夺主」→ 撤掉；后来加了分组折叠（同一时刻露出来的图标少多了），站长又说
+      「加了折叠以后再给子项加图标就不会太吵了」→ 加回来，并留两种口味可切换：
+        'group' 内容页按**所在组**给（文集=书、日记=日历… 和组标题同一枚，
+                整棵树的观感最连贯）
+        'type'  内容页一律按**文件类型**给（所有 .md 都是同一张纸，最中性）
+      非 .md 的文件（.js/.css/.toml/.html）两种口味一样，都按类型给。
+      另外两种特例，都优先于上面的口味：
+        `_index.md`（区块首页，平时不用改）→ 文件夹
+        草稿 → 图钉 */
+let ROW_ICON_MODE = 'group';
+
 const GRP_ICON_BY_NAME = {
   '工具': 'gear', '首页与单页': 'home', '博客': 'newspaper', '文集': 'book', '日记': 'calendar',
 };
 const GRP_ICON_BY_KIND = { config: 'gear', data: 'table', js: 'script', template: 'blueprint' };
+const MD_ICON_BY_GROUP = { '首页与单页': 'doc', '博客': 'newspaper', '文集': 'book', '日记': 'calendar' };
+const FORM_ICON_BY_EXT = { '.js': 'script', '.css': 'css', '.toml': 'table', '.html': 'blueprint', '.xml': 'blueprint' };
 
 function grpIcon(g) {
   if (g.draft) return 'thumbtack';
   return GRP_ICON_BY_NAME[g.group] || GRP_ICON_BY_KIND[g.kind] || 'folder';
+}
+
+function fileIcon(f, group, draft) {
+  const base = String(f).split('/').pop().toLowerCase();
+  const ext = (String(f).match(/\.[^.]+$/) || [''])[0].toLowerCase();
+  /* 区块首页（section index）：`_index.md` 是那一节的骨架（整站首页、博客/日记/文集的
+     列表页），平时根本不用改 —— 给它一枚**文件夹**，跟「你经常改的那些页面」
+     一眼就能分开（站长 2026-10-12 提的）。放在最前：它是「不用改」这个身份，
+     比草稿状态更该先看出来。 */
+  if (base === '_index.md') return 'folder';
+  if (ext === '.md') {
+    if (draft) return 'thumbtack';
+    if (ROW_ICON_MODE === 'type') return 'doc';
+    return MD_ICON_BY_GROUP[group] || 'doc';
+  }
+  if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'].includes(ext)) return 'image';
+  return FORM_ICON_BY_EXT[ext] || 'folder';
 }
 
 /* ---------- 侧栏分组折叠 ----------
@@ -1068,7 +1100,7 @@ function renderTree() {
       const drag = g.draft ? '' : ' draggable="true"';
       const tip = esc(f) + (g.draft ? '' : '（按住可以拖动排序）');
       h += `<div class="row" data-file="${esc(f)}" data-group="${esc(g.group)}"${drag}`
-        + ` title="${tip}">${esc(shortName(f))}</div>`;
+        + ` title="${tip}">${ico(fileIcon(f, g.group, g.draft))}${esc(shortName(f))}</div>`;
     }
     h += '</div>';
   }
