@@ -47,6 +47,16 @@
   #work{flex:1;display:flex;flex-direction:column;min-width:0}
   #toolbar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
   #toolbar button{flex:none;padding:4px 9px}
+  /* 工具栏一旦换行，行高会由「行内最高的元素」决定，而 align-items:center 又让
+     按钮在自己的行里垂直居中 —— 于是按钮被架空在一个比它高的行盒子里，
+     投影就画在那个大盒子上，看着像「阴影被拉长了」。
+     站长反馈：「这一栏因为标题太长被拉长成两行，会导致阴影也随之拉长，看着很奇怪」。
+     修法：让工具栏里的按钮/下拉/文字统一**顶部对齐**，
+     这样按钮的盒子与投影尺寸恒定，不受行高影响。 */
+  #toolbar > button,
+  #toolbar > select,
+  #toolbar > .grp-label,
+  #toolbar > .sep{ align-self:flex-start }
   #curPath{font-family:Consolas,monospace;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #toolbar .spacer{flex:1}
   #panes{flex:1;display:flex;min-height:0}
@@ -316,9 +326,9 @@
       inset 0 1px 0 #fff,                        /* 顶部受光 */
       inset 0 0 0 1px rgba(255,255,255,.55),     /* 一圈内亮描边（玻璃边） */
       inset 0 -2px 2px rgba(46,78,116,.16),      /* 底部内侧暗影 */
-      0 1px 0 rgba(255,255,255,.35),             /* 底沿亮线，把按钮从蓝底「抬」出来 */
-      0 2px 3px rgba(6,24,48,.42),               /* 近投影 */
-      0 4px 9px rgba(6,24,48,.32);               /* 远投影 = 厚度感 */
+      0 1px 0 rgba(255,255,255,.30),             /* 底沿亮线，把按钮从蓝底「抬」出来 */
+      0 1px 2px rgba(6,24,48,.30),               /* 近投影（与普通按钮同档，别太重） */
+      0 3px 5px rgba(6,24,48,.14);               /* 远投影：只留一点点 */
     color:#17324f;
     text-shadow:0 1px 0 rgba(255,255,255,.85);
   }
@@ -333,10 +343,10 @@
       inset 0 1px 0 #fff,
       inset 0 0 0 1px rgba(255,255,255,.7),
       inset 0 -2px 2px rgba(46,78,116,.14),
-      0 1px 0 rgba(255,255,255,.45),
-      0 0 0 1px rgba(150,190,235,.45),
-      0 2px 4px rgba(6,24,48,.45),
-      0 5px 12px rgba(6,24,48,.35);
+      0 1px 0 rgba(255,255,255,.40),
+      0 0 0 1px rgba(150,190,235,.40),
+      0 1px 3px rgba(6,24,48,.32),
+      0 3px 7px rgba(6,24,48,.16);
     color:#0f2a45;
   }
   /* 按下去：翻成凹的 + 下沉，并且投影收掉（按进去就没有厚度了） */
@@ -415,45 +425,51 @@
   button:disabled .ico{opacity:.45;filter:grayscale(1)}
 
   /* ---------- 主按钮（发布）：玻璃糖 ----------
-     ⚠️ 第一版站长反馈「黄色的发布按钮好像还是没有凸起来的感觉」，对。
-        原因：橙色整体偏亮，渐变两端色差被吃掉了，高光/底沿都看不出来。
-        加强了三处（仍然只碰 background / border-color / box-shadow）：
-          · 渐变上端提到近白、下端压到更深的橙褐，拉开明暗
-          · 顶部内高光加厚到 2px，底部暗带加深到 3px
-          · 外投影加远投影一档（厚度），并加一圈细白外描边把按钮从蓝底上「切」出来 */
+     ⚠️ 两轮反馈都记在这里：
+     ① 「黄色的发布按钮好像还是没有凸起来的感觉」—— 橙色整体偏亮，
+        渐变两端色差被吃掉了，高光/底沿都看不出来。所以把渐变上端提到近白、
+        下端压到深橙褐，顶部内高光加厚到 2px、底部暗带加深到 3px。
+     ② 「主要视窗内的黄色按钮阴影太强了，感觉和旁边的按钮不是一个世界的」—— 对。
+        我上一轮给了**两档外投影**（`0 2px 3px .45` + `0 5px 12px .35`），
+        而普通按钮只有 `0 1px 2px .20`，量级差了 5 倍以上；
+        而且色相偏暖褐，和旁边按钮的中性灰投影摆在一起就更突兀。
+        现在把外投影收到与普通按钮同一档：`0 1px 2px` + `0 3px 5px`，
+        颜色也从纯棕改成中性偏暖（`46,32,14`）。
+        立体感主要交给**内部**表达（顶部厚高光 / 底部内暗影 / 内亮描边）——
+        这正是旁边按钮的做法，于是两边看着终于是同一个世界了。 */
   button.primary{
     background:
       /* 上半的近白高光 + 底部暗带（做出塑料的厚度） */
       linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.34) 44%,
                       rgba(255,255,255,.06) 48%, rgba(255,255,255,0) 63%,
-                      rgba(120,60,0,.18) 100%),
-      linear-gradient(180deg, #ffe9a8 0%, #ffc255 46%, #f59a00 52%, #bd6f00 100%);
+                      rgba(120,60,0,.16) 100%),
+      linear-gradient(180deg, #ffe9a8 0%, #ffc255 46%, #f59a00 52%, #c47800 100%);
     border-color:#8a5200;
     color:#43260a;
     text-shadow:0 1px 0 rgba(255,255,255,.6);
     box-shadow:
       inset 0 2px 0 rgba(255,255,255,.95),        /* 顶部厚高光 */
       inset 0 0 0 1px rgba(255,255,255,.35),      /* 内亮描边 */
-      inset 0 -2px 3px rgba(90,45,0,.35),         /* 底部内暗影 */
-      0 1px 0 rgba(255,255,255,.35),              /* 底沿亮线 */
-      0 2px 3px rgba(40,20,0,.45),                /* 近投影 */
-      0 5px 12px rgba(40,20,0,.35);               /* 远投影 = 厚度 */
+      inset 0 -2px 3px rgba(90,45,0,.32),         /* 底部内暗影 */
+      0 1px 0 rgba(255,255,255,.30),              /* 底沿亮线（很淡，够托起来就行） */
+      0 1px 2px rgba(46,32,14,.30),               /* 近投影：与普通按钮同档 */
+      0 3px 5px rgba(46,32,14,.16);               /* 远投影：只留一点点 */
   }
   button.primary:hover{
     background:
       linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.45) 44%,
                       rgba(255,255,255,.10) 48%, rgba(255,255,255,0) 63%,
-                      rgba(120,60,0,.14) 100%),
-      linear-gradient(180deg, #fff3c4 0%, #ffcd70 46%, #ffa61c 52%, #cc7a00 100%);
+                      rgba(120,60,0,.12) 100%),
+      linear-gradient(180deg, #fff3c4 0%, #ffcd70 46%, #ffa61c 52%, #d18300 100%);
     border-color:#7a4800;
     box-shadow:
       inset 0 2px 0 rgba(255,255,255,1),
       inset 0 0 0 1px rgba(255,255,255,.45),
-      inset 0 -2px 3px rgba(90,45,0,.30),
-      0 1px 0 rgba(255,255,255,.45),
-      0 0 0 1px rgba(255,200,120,.5),
-      0 2px 4px rgba(40,20,0,.5),
-      0 6px 15px rgba(40,20,0,.4);
+      inset 0 -2px 3px rgba(90,45,0,.28),
+      0 1px 0 rgba(255,255,255,.4),
+      0 0 0 1px rgba(255,200,120,.45),            /* 悬停时一圈很淡的暖光，代替厚重投影 */
+      0 1px 3px rgba(46,32,14,.34),
+      0 3px 7px rgba(46,32,14,.18);
   }
   /* 按下去：整个翻成凹的，投影收掉（按进去就没有厚度了） */
   button.primary:active{
