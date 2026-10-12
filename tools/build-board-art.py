@@ -465,6 +465,7 @@ def vine_bottom_pixel_factory(mirror=False):
 
 # ------------------------------------------------------------------ 垂藤
 DRAPE_W, DRAPE_H = 46, 116
+DRAPE_LONG, DRAPE_MID, DRAPE_SHORT = 116, 88, 74   # 三份垂藤的长度
 DRAPE_STYLES = {
     "drape": dict(sway=5, pal=(LEAF_OUTLINE, LEAF_LIGHT, LEAF_MID, LEAF_DARK),
                   leaves=[(10, 14, -25, 11, 6), (18, 26, 165, 10, 5.5), (11, 40, -15, 10, 5.5),
@@ -481,18 +482,29 @@ DRAPE_STYLES = {
 }
 
 
-def drape_pixel_factory(style="drape"):
+def drape_pixel_factory(style="drape", height=None):
+    """垂下来的藤。height 给不同长度各生成一份素材 ——
+
+    **别在 CSS 里用元素高度去"裁"同一张长图**：background-size 是 auto（不缩放），
+    元素比素材矮就会从下往上截，叶子断在半截，看着就是"藤被切断"（站长报过）。
+    所以这里按长度出图，CSS 高度与素材一致，谁也不裁谁。"""
     cfg = DRAPE_STYLES[style]
-    W, H = DRAPE_W, DRAPE_H
+    W, H = DRAPE_W, (height or DRAPE_H)
+
+    # 只保留**整片都装得下**的叶子：不然叶子会被画布切成半截（站长看到的就是这个）。
+    leaves = [l for l in cfg["leaves"] if l[1] + l[3] + 1 <= H]
+    # 茎画到「最后一片叶子下面一点」就收，免得末尾拖一根光杆。
+    stem_h = H if not leaves else min(H, int(max(l[1] for l in leaves)) + 6)
+
     buf = {}
     stem = hexrgb(VINE_STEM) + (255,)
-    for i in range(H):
+    for i in range(stem_h):
         x = 12 + int(round(cfg["sway"] * math.sin(i / 20.0)))
         for dx in (0, 1):
             if 0 <= x + dx < W:
                 buf[(x + dx, i)] = stem
     outline, light, mid, dark = cfg["pal"]
-    for cx, cy, ang, hl, hw in cfg["leaves"]:
+    for cx, cy, ang, hl, hw in leaves:
         _leaf(buf, cx, cy, ang, hl, hw, W, H, outline, light, mid, dark)
     return get_from(buf)
 
@@ -922,9 +934,10 @@ def main():
         ("vine-right.png", VINE_W, VINE_H, vine_right_pixel_factory()),
         ("vine-bot-left.png", VINE_W, VINE_H, vine_bottom_pixel_factory(False)),
         ("vine-bot-right.png", VINE_W, VINE_H, vine_bottom_pixel_factory(True)),
-        ("drape.png", DRAPE_W, DRAPE_H, drape_pixel_factory("drape")),
-        ("drape-dark.png", DRAPE_W, DRAPE_H, drape_pixel_factory("drape-dark")),
-        ("drape-young.png", DRAPE_W, DRAPE_H, drape_pixel_factory("drape-young")),
+        # 三份长度不同的垂藤，各自 1:1（CSS 的高度必须等于这里的尺寸）
+        ("drape.png", DRAPE_W, DRAPE_LONG, drape_pixel_factory("drape", DRAPE_LONG)),
+        ("drape-dark.png", DRAPE_W, DRAPE_MID, drape_pixel_factory("drape-dark", DRAPE_MID)),
+        ("drape-young.png", DRAPE_W, DRAPE_SHORT, drape_pixel_factory("drape-young", DRAPE_SHORT)),
         ("bush.png", BUSH_W, BUSH_H, bush_pixel_factory()),
         ("bush-big.png", BIGBUSH_W, BIGBUSH_H, bigbush_pixel_factory()),
         ("bush-corner.png", CORNER_W, CORNER_H, corner_bush_pixel_factory()),

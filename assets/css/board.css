@@ -224,19 +224,22 @@
   position: absolute;
   top: -6px;
   width: 46px;
-  height: 110px;
+  /* 高度**必须等于素材自己的高度**（drape 116 / drape-dark 88 / drape-young 74）。
+     background-size 是 auto（不缩放），元素比素材矮就会从下往上把图裁掉，
+     叶子断在半截 —— 站长看到"藤蔓被切断"就是这个原因。 */
+  height: 116px;
   background: url(../images/board/drape.png) no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
   z-index: 3;
 }
 
-.bd-drape-a { left: 44px; height: 118px; }
-.bd-drape-b { left: 2px; height: 88px; background-image: url(../images/board/drape-dark.png); }
-.bd-drape-c { right: 44px; height: 132px; background-image: url(../images/board/drape-young.png); transform: scaleX(-1); }
-.bd-drape-d { right: 2px; height: 96px; transform: scaleX(-1); }
+.bd-drape-a { left: 44px; }
+.bd-drape-b { left: 2px; height: 88px; background-image: url(../images/board/drape-dark.png); }   /* 88 = 素材高度 */
+.bd-drape-c { right: 44px; height: 74px; background-image: url(../images/board/drape-young.png); transform: scaleX(-1); }
+.bd-drape-d { right: 2px; transform: scaleX(-1); }
 .bd-drape-e { left: 92px; height: 74px; background-image: url(../images/board/drape-young.png); }
-.bd-drape-f { right: 92px; height: 82px; background-image: url(../images/board/drape-dark.png); transform: scaleX(-1); }
+.bd-drape-f { right: 92px; height: 88px; background-image: url(../images/board/drape-dark.png); transform: scaleX(-1); }
 
 /* 板子前面的大灌木：挡住下沿两角（参考图里就是被灌木挡着的） */
 .bd-bushfront {
@@ -834,10 +837,10 @@
 .bd-mini .bd-board::after { top: -13px; left: -14px; right: -14px; }
 .bd-mini .bd-scene { --bd-foot: 66px; padding: 14px 40px var(--bd-foot); }
 .bd-mini .bd-post { top: 0; }
-.bd-mini .bd-drape-a { left: 28px; height: 78px; }
-.bd-mini .bd-drape-b { left: 0; height: 58px; }
-.bd-mini .bd-drape-c { right: 28px; height: 86px; }
-.bd-mini .bd-drape-d { right: 0; height: 62px; }
+.bd-mini .bd-drape-a { left: 28px; }
+.bd-mini .bd-drape-b { left: 0; }
+.bd-mini .bd-drape-c { right: 28px; }
+.bd-mini .bd-drape-d { right: 0; }
 .bd-mini .bd-drape-e { display: none; }
 .bd-mini .bd-drape-f { display: none; }
 .bd-mini .bd-bushfront { bottom: calc(var(--bd-foot) - 44px); }   /* 缩略版画框薄，少压一点 */
@@ -906,10 +909,10 @@
      （单列的话便签会变成长条，就不是"接近正方形"了） */
   .bd-scene { --bd-foot: 96px; padding: 12px 12px var(--bd-foot); }
   /* 窄屏放不下两边的植被留白，垂藤和大灌木收进画面内侧、缩小出现 */
-  .bd-drape-a { left: 18px; height: 66px; }
-  .bd-drape-b { left: -6px; height: 50px; }
-  .bd-drape-c { right: 18px; height: 70px; }
-  .bd-drape-d { right: -6px; height: 54px; }
+  .bd-drape-a { left: 18px; }
+  .bd-drape-b { left: -6px; }
+  .bd-drape-c { right: 18px; }
+  .bd-drape-d { right: -6px; }
   .bd-bushfront { bottom: calc(var(--bd-foot) - 40px); }   /* 尺寸不变，1:1 */
   .bd-bushfront-l { left: 4px; }
   .bd-bushfront-r { right: 4px; }
