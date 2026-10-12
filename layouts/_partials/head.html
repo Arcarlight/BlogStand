@@ -17,6 +17,21 @@
     <link rel="stylesheet" href="{{ $css.RelPermalink }}">
   {{ end }}
 
+  {{/* 布告栏：只有 /board/ 那页和首页那块入口用得到，别的页面不进这两样。
+       —— 注意这里的地址一律用 absURL：站点部署在 /BlogStand/ 子目录下，
+          而这个文件里用到的是 data-bd-* 属性，不是 href/src，
+          canonifyURLs 不会去改它们，relURL 给出的路径又会丢掉子目录
+          （retro.css 里那条注释踩的是同一个坑）。 */}}
+  {{ if or (eq .Type "board") .IsHome }}
+    {{ with resources.Get "css/board.css" }}
+    {{/* 也当模板跑一遍：布告栏字体的 unicode-range 从 data/pixel-board-font.toml 取，
+        和 tools/build-board-font.py 的重切结果永远一致（别在这儿写死） */}}
+    {{ $bd := . | resources.ExecuteAsTemplate "css/board.css" $ }}
+    <link rel="stylesheet" href="{{ $bd.RelPermalink }}">
+    {{ end }}
+    <script src="{{ "js/board.js" | absURL }}" defer></script>
+  {{ end }}
+
   {{/* ============ 像素字体：整倍缩放 ============
        VonwaonBitmap 的设计栅格是 12px，只有满足
           字号(CSS px) × devicePixelRatio = 12 的整数倍

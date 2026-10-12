@@ -1,0 +1,100 @@
+{{ define "main" }}
+{{- $imgBase := "images/board" | absURL -}}
+{{- $src := "board/notes.json" | absURL -}}
+{{/* ============ 布告栏 ============
+     便签的渲染、放大、写便签都在 static/js/board.js 里；
+     这里只搭骨架，并把三样东西交给 JS：
+       data-bd-src  便签数据（第一步是 static/board/notes.json，
+                    第二步会换成 Pages Function 的地址，静态那份留着当兜底）
+       data-bd-img  图钉图片目录
+       data-bd-list all = 全列出来；首页那块用 recent
+     图钉、软木塞底纹由 tools/build-board-art.py 生成，见 static/images/board/。
+     ============================================================ */}}
+<div class="box box-board">
+  <div class="box-title">布告栏<span class="box-subtitle">谁都能贴一张</span></div>
+  <div class="box-body">
+
+    {{ with .Content }}<div class="bd-intro entry-content">{{ . }}</div>{{ end }}
+
+    {{/* 板上是一个"场景"：两根黄绿木柱 + 顶梁（门框），板子挂在里面，
+         上沿一道拱形线脚，底下草皮、灌木、石头。素材都由
+         tools/build-board-art.py 生成，位置全在 assets/css/board.css 里。 */}}
+    <div class="bd" data-bd-src="{{ $src }}" data-bd-img="{{ $imgBase }}" data-bd-list="all">
+      <div class="bd-scene">
+        <i class="bd-beam" aria-hidden="true"></i>
+        <i class="bd-ground" aria-hidden="true"></i>
+        <i class="bd-bush bd-bush-l" aria-hidden="true"></i>
+        <i class="bd-bush bd-bush-r" aria-hidden="true"></i>
+                  <i class="bd-cobble bd-cobble-a" aria-hidden="true"></i>
+        <i class="bd-cobble bd-cobble-d" aria-hidden="true"></i>
+      <i class="bd-cobble bd-cobble-d" aria-hidden="true"></i>
+        <i class="bd-cobble bd-cobble-b" aria-hidden="true"></i>
+        <i class="bd-cobble bd-cobble-c" aria-hidden="true"></i>
+        <i class="bd-tuft bd-tuft-d" aria-hidden="true"></i>
+        <i class="bd-tuft bd-tuft-e" aria-hidden="true"></i>
+        <i class="bd-flower bd-flower-c" aria-hidden="true"></i>
+
+        <i class="bd-tuft bd-tuft-a" aria-hidden="true"></i>
+        <i class="bd-tuft bd-tuft-b" aria-hidden="true"></i>
+        <i class="bd-tuft bd-tuft-c" aria-hidden="true"></i>
+        <i class="bd-sprig bd-sprig-a" aria-hidden="true"></i>
+        <i class="bd-sprig bd-sprig-b" aria-hidden="true"></i>
+
+        <div class="bd-board">
+          <i class="bd-arch" aria-hidden="true"></i>
+          <div class="bd-cork">
+            <div class="bd-notes"></div>
+            <p class="bd-empty" hidden>板子还空着 —— 下面那叠空白便签留给你。</p>
+          </div>
+        </div>
+
+        <i class="bd-drape bd-drape-a" aria-hidden="true"></i>
+        <i class="bd-drape bd-drape-b" aria-hidden="true"></i>
+        <i class="bd-drape bd-drape-c" aria-hidden="true"></i>
+        <i class="bd-drape bd-drape-d" aria-hidden="true"></i>
+        <i class="bd-drape bd-drape-e" aria-hidden="true"></i>
+        <i class="bd-drape bd-drape-f" aria-hidden="true"></i>
+        <i class="bd-bushfront bd-bushfront-l" aria-hidden="true"></i>
+        <i class="bd-bushfront bd-bushfront-r" aria-hidden="true"></i>
+        <i class="bd-flower bd-flower-a" aria-hidden="true"></i>
+        <i class="bd-flower bd-flower-b" aria-hidden="true"></i>
+        <i class="bd-post bd-post-l" aria-hidden="true"><i class="bd-post-body"></i></i>
+        <i class="bd-post bd-post-r" aria-hidden="true"><i class="bd-post-body"></i></i>
+      </div>
+
+      <div class="bd-write" id="bd-write" role="button" tabindex="0" aria-label="写下便签">
+        <div class="bd-blanks">
+          <div class="bd-blank bd-blank-1" data-blank="1">
+            <div class="bd-paper-shadow"><div class="bd-paper bd-c-cream"></div></div>
+            <img class="bd-pin" src="{{ $imgBase }}/pin-yellow.png" alt="" draggable="false">
+          </div>
+          <div class="bd-blank bd-blank-2" data-blank="2">
+            <div class="bd-paper-shadow"><div class="bd-paper bd-c-white"></div></div>
+            <img class="bd-pin" src="{{ $imgBase }}/pin-blue.png" alt="" draggable="false">
+          </div>
+          <div class="bd-blank bd-blank-3" data-blank="3">
+            <div class="bd-paper-shadow"><div class="bd-paper bd-c-white"></div></div>
+            <img class="bd-pin" src="{{ $imgBase }}/pin-red.png" alt="" draggable="false">
+          </div>
+        </div>
+        <div class="bd-write-text">
+          <b>这里有一叠空白便签</b>
+          <span>点一下，写下你想贴的话 —— 不登录、不留名也行。</span>
+        </div>
+      </div>
+
+      <p class="bd-tip">留了名字，别人就知道是谁写的；不留，那就当是一阵风。</p>
+    </div>
+
+  </div>
+</div>
+
+{{/* 放大 / 写便签用的弹层。同一时刻只会用它装一样东西。 */}}
+<div class="bd bd-modal" id="bd-modal" hidden>
+  <div class="bd-modal-bg"></div>
+  <div class="bd-modal-note">
+    <div class="bd-modal-paper"><div class="bd-modal-scroll"></div></div>
+  </div>
+</div>
+
+{{ end }}

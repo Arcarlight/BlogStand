@@ -4,8 +4,12 @@
 
      issue-term 一律用 site.Params.utterancesIssue（hugo.toml 里配的），
      别在模板里写死 —— 那样等于把这个设置废掉。
+
+     页面上写 noComments: true 就不挂这一块（布告栏那一页自己就是留言的地方，
+     底下再来一个留言板是打架）。dayReplies 是日记页每天一个 iframe 的开关，
+     和这个不是一回事，别混。
      ============================================================ */}}
-{{ if and site.Params.comments (eq .Kind "page") (not .Params.dayReplies) }}
+{{ if and site.Params.comments (eq .Kind "page") (not .Params.dayReplies) (not .Params.noComments) }}
 {{ $isCollection := eq .Params.theme "collection" }}
 {{ $title := cond $isCollection "点评" "留言板" }}
 <div class="box{{ if $isCollection }} box-review{{ end }}">

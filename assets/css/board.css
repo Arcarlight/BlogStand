@@ -1,0 +1,881 @@
+/* ============================================================
+   布告栏 —— 首页那块入口 + /board/ 整页
+   ------------------------------------------------------------
+   视觉方向（照站长给的参考图定的）：
+     · 金色多层线脚的画框（纯 CSS 的 inset 阴影堆出来的"雕花"层次）
+     · 顶上一块拱饰、四角缠藤    —— 像素图，tools/build-board-art.py 生成
+     · 暖橙色的软木塞板面
+     · 便签是**手撕的做旧纸**，以米白为主，偶尔一张淡彩
+
+   几条不能破的规矩：
+     1. 便签正文是**别人写的字**，JS 那边一律 textContent，这里只负责长相。
+     2. 所有像素图按 1:1 显示（不缩放），再配 image-rendering:pixelated，
+        免得被浏览器插值糊成一团。要改大小就重新生成素材，别用 background-size 拉。
+     3. 撕边用 clip-path（polygon 由 JS 按便签 id 生成，每张都不一样）。
+        drop-shadow 必须挂在它**外面**那一层 —— 同一元素上 filter 会被 clip-path 裁掉。
+     4. 图钉要露在纸外面，所以它不能待在 clip-path 那一层里，得做兄弟节点。
+   ============================================================ */
+
+/* ---------- 0. 字体 ----------
+   缝合像素字体（Fusion Pixel Font）的两份子集，由 tools/build-board-font.py 切：
+     12px 给正文，10px 给便签上的密排小字（字号见下面 --bd-font-small 的用法）。
+   码位范围从 data/pixel-board-font.toml 读，**不要在 CSS 里写死** ——
+   那份 toml 是脚本生成的，重切字体后这里的范围会跟着变。
+   OFL 许可证随站点分发：static/fonts/fusion-pixel-OFL.txt。 */
+{{ $bdf := index hugo.Data "pixel-board-font" }}
+{{ range $bdf.font }}
+@font-face {
+  font-family: '{{ .family }}';
+  /* 相对路径，理由同站点其它点阵字体：localhost / 127.0.0.1 互换访问时不跨域 */
+  src: url(../fonts/{{ .file }}) format('woff2');
+  unicode-range: {{ .rangeCoarse | safeCSS }};
+  /* 三行 override 把行盒压成 1em（和 retro.css 里缺口字体那几行一致）。
+     不写的话，字体自带的 hhea（12px 是 1.33em、10px 是 1.4em）会顶开行距，
+     和站点其它点阵字体的排版对不齐。 */
+  ascent-override: 83.3333%;
+  descent-override: 16.6667%;
+  line-gap-override: 0%;
+  font-display: swap;
+}
+{{ end }}
+
+/* ---------- 1. 底子：金框 + 拱饰 + 藤 ---------- */
+
+.bd {
+  /* 便签纸：以米白为主，偶尔一张淡彩（哪张是彩的由 JS 按 id 定） */
+  /* 便签纸色：跟着参考图取样出来的暖米色走（原来是偏冷的白） */
+  --bd-p-white:  #f2e9d4; --bd-p-white-l:  #d9cdb2;
+  --bd-p-cream:  #e9dcbe; --bd-p-cream-l:  #cdc09c;
+  --bd-p-yellow: #f0e2b0; --bd-p-yellow-l: #d6c68a;
+  --bd-p-pink:   #f0dcd8; --bd-p-pink-l:   #d8b4b0;
+  --bd-p-green:  #e2eacd; --bd-p-green-l:  #b8c79a;
+  --bd-p-blue:   #dde6ea; --bd-p-blue-l:   #adc0c8;
+
+  /* 小字（署名、日期、说明）专用的字体栈：10px 那份的栅格是 10，
+     所以用它的地方字号必须落在 10 的整数倍上 —— 见下面的 --bd-font-small 用法。 */
+  --bd-font-small: 'FusionPixelBoard10', var(--song-stack, SimSun, "宋体", sans-serif);
+
+  /* 一块"屏幕像素"——字号按 12 的整数倍对齐，见 head.html 里的 --px */
+  font-size: var(--px, 12px);
+  line-height: 1.7;
+  color: #3d2c14;
+  /* 融合像素字体（缝合像素字体子集）优先，它没盖住的字回落到站点点阵字体 */
+  font-family: 'FusionPixelBoard12', var(--song-stack, SimSun, "宋体", sans-serif);
+}
+
+/* ---------- 场景：木柱 + 顶梁（门框）、草皮 + 灌木 + 石头 ----------
+   这一层是照第一张参考图搭的：板子挂在两根黄绿木柱之间，顶上一道横梁，
+   脚下是草皮、灌木和石头。位置都用绝对定位挂在 .bd-scene 上，
+   像素图一律 1:1 显示（柱子靠"柱身平铺"来适应板子高度，不缩放）。 */
+.bd-scene {
+  position: relative;
+  /* 左右 26px 是留给两根柱子的：柱子挂在场景的 padding 里，
+     所以既不会压到画框（不会出现接缝），也不会撑出外层方框。 */
+  padding: 16px 40px 130px;
+  /* 背后那面砖墙。1:1 平铺，和别的素材同一个像素大小。 */
+  background-color: #b85228;
+  background-image: url(../images/board/wall.png);
+  background-size: 96px 48px;
+  image-rendering: pixelated;
+  box-shadow: inset 0 0 0 2px rgba(74, 32, 8, .55);
+}
+
+.bd-beam {
+  position: absolute;
+  top: 0;
+  left: -10px;
+  right: -10px;
+  height: 26px;
+  background: url(../images/board/beam.png) repeat-x;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.bd-post {
+  position: absolute;
+  top: 0;                        /* 顶端藏在顶梁后面，接缝自然消失 */
+  bottom: 130px;                 /* 底端落到地平线上 */
+  width: 24px;
+  z-index: 0;                    /* 在板子后面：柱子只是背景里的门框 */
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.bd-post::before,
+.bd-post::after {
+  content: "";
+  flex: 0 0 auto;
+  height: 20px;
+  background: url(../images/board/post-cap.png) no-repeat;
+  image-rendering: pixelated;
+}
+
+.bd-post::after { transform: scaleY(-1); }   /* 柱脚：把柱帽翻过来，省一张图 */
+
+.bd-post-body {
+  flex: 1 1 auto;
+  background: url(../images/board/post-body.png) repeat-y;
+  image-rendering: pixelated;
+}
+
+.bd-post-l { left: -24px; }
+.bd-post-r { right: -24px; }
+
+/* 板子前面那一整片地面。它盖住砖墙的下半部分 —— 砖墙退到它后面去，
+   所以墙只从板子两侧和中缝露出来，不再是一整面墙压着画面。 */
+.bd-ground {
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  bottom: 0;
+  height: 130px;
+  background: url(../images/board/ground.png) repeat-x;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.bd-bush {
+  position: absolute;
+  bottom: 112px;
+  width: 44px;
+  height: 30px;
+  background: url(../images/board/bush.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.bd-bush-l { left: -10px; }
+.bd-bush-r { right: -10px; transform: scaleX(-1); }
+
+.bd-rock {
+  position: absolute;
+  bottom: 116px;
+  width: 24px;
+  height: 16px;
+  background: url(../images/board/rock.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.bd-rock-a { left: 26%; }
+.bd-rock-b { right: 30%; }
+
+/* 大石头（一大小两块挨着的那张） */
+.bd-rock2 {
+  position: absolute;
+  bottom: 106px;
+  width: 36px;
+  height: 24px;
+  background: url(../images/board/rock2.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.bd-rock2-a { left: 4%; }
+.bd-rock2-b { right: 6%; }
+.bd-rock2-c { left: 30%; bottom: 58px; }   /* 前面那块摆低一点，做出远近 */
+
+/* 淡黄的卵石堆（参考图里地面上那些石头） */
+.bd-cobble {
+  position: absolute;
+  bottom: 96px;
+  width: 52px;
+  height: 26px;
+  background: url(../images/board/cobble.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.bd-cobble-a { left: 3%; }
+.bd-cobble-d { left: 34%; bottom: 112px; }
+.bd-cobble-b { right: 5%; bottom: 104px; }
+.bd-cobble-c { left: 64%; bottom: 34px; }      /* 前景那一堆，摆低一点做远近 */
+
+/* 长草 */
+.bd-tuft {
+  position: absolute;
+  bottom: 120px;
+  width: 22px;
+  height: 24px;
+  background: url(../images/board/tuft.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.bd-tuft-a { left: 22%; }
+.bd-tuft-b { right: 24%; }
+.bd-tuft-c { left: 46%; bottom: 48px; }
+.bd-tuft-d { left: 12%; bottom: 66px; }
+.bd-tuft-e { right: 16%; bottom: 52px; }
+
+/* 从上沿垂下来的藤：挂在板子两侧的**框上**（不挡字），一直垂到板子中部。
+   参考图里两侧就是被这种藤半挡着。 */
+.bd-drape {
+  position: absolute;
+  top: -6px;
+  width: 46px;
+  height: 110px;
+  background: url(../images/board/drape.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.bd-drape-a { left: 44px; height: 118px; }
+.bd-drape-b { left: 2px; height: 88px; background-image: url(../images/board/drape-dark.png); }
+.bd-drape-c { right: 44px; height: 132px; background-image: url(../images/board/drape-young.png); transform: scaleX(-1); }
+.bd-drape-d { right: 2px; height: 96px; transform: scaleX(-1); }
+.bd-drape-e { left: 92px; height: 74px; background-image: url(../images/board/drape-young.png); }
+.bd-drape-f { right: 92px; height: 82px; background-image: url(../images/board/drape-dark.png); transform: scaleX(-1); }
+
+/* 板子前面的大灌木：挡住下沿两角（参考图里就是被灌木挡着的） */
+.bd-bushfront {
+  position: absolute;
+  bottom: 110px;
+  width: 74px;
+  height: 50px;
+  background: url(../images/board/bush-big.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.bd-bushfront-l { left: 44px; }
+.bd-bushfront-r { right: 44px; transform: scaleX(-1); }
+
+/* 草里的小花 */
+.bd-flower {
+  position: absolute;
+  bottom: 118px;
+  width: 46px;
+  height: 18px;
+  background: url(../images/board/flower.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.bd-flower-a { left: 36%; }
+.bd-flower-b { right: 38%; transform: scaleX(-1); }
+.bd-flower-c { left: 56%; bottom: 62px; }
+
+/* 板子上沿那道拱形线脚：压在画框上沿，居中 */
+.bd-arch {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  width: 300px;
+  height: 34px;
+  margin-left: -150px;
+  background: url(../images/board/arch.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 板子在场景里压住下层，柱子才压得住它 */
+.bd-board { z-index: 1; }   /* 板子压住柱子 */
+
+/* 画框：一张九宫格像素图（tools/build-board-art.py 生成的木框），
+   用 border-image 拼出来。每格 32px、按 32px 宽显示，一比一，不缩放。
+   圆角是图里的透明区给的（外角 p>t 的地方留空）。 */
+.bd-board {
+  position: relative;
+  padding: 8px;                        /* 框与板面之间那道凹槽 */
+  background: #6f3a1c;
+  border: 16px solid transparent;
+  border-image: url(../images/board/frame-thin.png) 16 / 16px repeat;
+  /* 用 filter 而不是 box-shadow 做投影：画框的四个角是透明的，
+     box-shadow 会照矩形投出一个方角，露馅。 */
+  filter: drop-shadow(0 5px 0 rgba(50, 28, 6, .4));
+}
+
+/* 四角的藤：挂在画框外面一点，压在框上。
+   不能用 background-image —— 那会被上面的 inset 阴影盖住；伪元素画在阴影之上。 */
+.bd-board::before,
+.bd-board::after {
+  content: "";
+  position: absolute;
+  top: -26px;
+  width: 44px;
+  height: 60px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.bd-board::before { left: -30px; background-image: url(../images/board/vine-left.png); }
+.bd-board::after { right: -30px; background-image: url(../images/board/vine-right.png); }
+
+/* 下沿的小叶（草皮上那几丛） */
+.bd-sprig {
+  position: absolute;
+  bottom: 116px;
+  width: 34px;
+  height: 28px;
+  background: url(../images/board/sprig.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.bd-sprig-a { left: 17%; }
+.bd-sprig-b { right: 21%; transform: scaleX(-1); }   /* 镜像一份，别两丛长得一样 */
+
+/* 顶上的压顶（木雕圆花）。往上留 26px 是为了压在画框上沿上，不是悬在框外飘着。 */
+.bd-crest {
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  width: 40px;
+  height: 26px;
+  margin-left: -20px;
+  background: url(../images/board/frame-crest.png) no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* 软木塞板面：凹进去的，外圈暗、上沿最暗、下沿一条亮边 */
+.bd-cork {
+  position: relative;
+  min-height: 260px;
+  padding: 20px 16px 18px;
+  background-color: #e89a2c;
+  background-image: url(../images/board/surface.png);
+  background-size: 64px 64px;            /* 1:1。和画框、图钉、植物用同一个像素大小 */
+  image-rendering: pixelated;
+  box-shadow:
+    inset 0 0 0 2px #7d4a08,
+    inset 0 6px 14px rgba(60, 30, 0, .45),
+    inset 0 -2px 0 rgba(255, 220, 160, .3),
+    inset 8px 0 12px rgba(60, 30, 0, .18),
+    inset -8px 0 12px rgba(60, 30, 0, .18);
+}
+
+/* ---------- 2. 便签：手撕的做旧纸 ---------- */
+
+.bd-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  /* 行列都收紧，再配合每张便签自己的倾斜和位移（--bd-rot / --bd-dy），
+     相邻的便签就会轻微互相搭上 —— 站长要的那种"随手钉上去"的感觉。
+     gap 不能为负，重叠靠倾斜和位移做出来。 */
+  gap: 12px 10px;
+  align-items: start;
+}
+
+.bd-note {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 118px;
+  /* 倾斜角、上下位移、层级都由 JS 按 id 算好写进来：
+     同一张便签每次渲染都在同一个位置，刷新不会乱跳，但整体是错落重叠的。 */
+  transform: rotate(var(--bd-rot, 0deg)) translateY(var(--bd-dy, 0px));
+  z-index: var(--bd-z, 1);
+  cursor: pointer;
+  transition: transform .12s ease-out;
+}
+
+.bd-note:hover,
+.bd-note:focus-visible {
+  transform: rotate(0deg) translateY(calc(var(--bd-dy, 0px) - 4px));
+  outline: none;
+  z-index: 9;
+}
+
+/* 影子单独一层：clip-path 会把同一元素上的 drop-shadow 一起裁掉，所以两件事必须分层 */
+.bd-paper-shadow {
+  display: flex;
+  flex: 1 1 auto;
+  filter: drop-shadow(2px 3px 0 rgba(58, 34, 8, .34));
+  transition: filter .12s ease-out;
+}
+
+.bd-note:hover .bd-paper-shadow,
+.bd-note:focus-visible .bd-paper-shadow {
+  filter: drop-shadow(4px 6px 0 rgba(58, 34, 8, .4));
+}
+
+/* 纸本身：撕边（--bd-tear 是 JS 按 id 生成的 polygon）+ 纤维底纹 */
+.bd-paper {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  padding: 14px 12px 9px;
+  background-color: var(--bd-paper, var(--bd-p-white));
+  background-image: url(../images/board/paper.png);
+  clip-path: var(--bd-tear, none);
+  /* 纸边压暗一点，让撕口的毛边显得有厚度 */
+  box-shadow: inset 0 0 0 1px rgba(120, 95, 50, .16);
+}
+
+.bd-pin {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  margin-left: -8px;
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.bd-note-body {
+  flex: 1;
+  overflow: hidden;
+  word-break: break-word;
+  white-space: pre-wrap;          /* 便签里的换行要保住 */
+  display: -webkit-box;
+  /* 贴板上只露前四行。-webkit-line-clamp 只管"画几行"，盒子还会被 flex 撑高，
+     第 5 行就会露半截（第一版就是这个毛病），所以 max-height 得跟着一起卡：
+     1.7em 行高 × 4 行。改行数两处一起改。 */
+  -webkit-line-clamp: 3;          /* 站主要"横长高短"：便签矮下来 */
+  -webkit-box-orient: vertical;
+  line-height: 1.7;
+  max-height: 5.1em;
+}
+
+.bd-note-foot {
+  margin-top: 8px;
+  padding-top: 5px;
+  border-top: 1px dashed rgba(120, 90, 40, .42);
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 10 / 12);
+  color: rgba(84, 62, 24, .78);
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.bd-note-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bd-note-more { color: #9a5d10; white-space: nowrap; }
+
+/* 「站长回复过」的角标：脚上的一枚小标签。
+   （曾经用绝对定位贴在右下角，正好压住「整张看 »」，别改回去。） */
+.bd-note-badge {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 9 / 12);
+  color: #fff;
+  background: #c94800;
+  box-shadow: 2px 2px 0 rgba(58, 34, 8, .3);
+}
+
+/* 纸色。米白/奶白是多数，彩色是少数（哪张是彩的由 JS 按 id 决定） */
+.bd-c-white  { --bd-paper: var(--bd-p-white);  --bd-paper-l: var(--bd-p-white-l); }
+.bd-c-cream  { --bd-paper: var(--bd-p-cream);  --bd-paper-l: var(--bd-p-cream-l); }
+.bd-c-yellow { --bd-paper: var(--bd-p-yellow); --bd-paper-l: var(--bd-p-yellow-l); }
+.bd-c-pink   { --bd-paper: var(--bd-p-pink);   --bd-paper-l: var(--bd-p-pink-l); }
+.bd-c-green  { --bd-paper: var(--bd-p-green);  --bd-paper-l: var(--bd-p-green-l); }
+.bd-c-blue   { --bd-paper: var(--bd-p-blue);   --bd-paper-l: var(--bd-p-blue-l); }
+
+/* 还没接上后端时本机自己贴的那张：给个显眼的记号，别让人误会别人也看得见 */
+.bd-note.local-only .bd-paper { box-shadow: inset 0 0 0 2px #c94800; }
+.bd-note.local-only .bd-note-more { color: #c94800; }
+
+.bd-empty,
+.bd-loading {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  transform: translateY(-50%);
+  text-align: center;
+  color: #5c3a12;
+  text-shadow: 0 1px 0 rgba(255, 235, 190, .5);
+}
+
+/* ---------- 3. 写字的地方：一叠空白便签 ---------- */
+
+/* 三张错开叠着，点一下就开始写。倾斜角写死在 --bd-rot 上；
+   悬停时最上面那张会翘起来（连同上面那张一起，像被手指拨了一下）。
+   撕口由 board.js 按 data-blank 生成，和板上的便签共用同一套算法。 */
+.bd-write {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 22px;
+  padding: 4px 6px 6px;
+  cursor: pointer;
+}
+
+.bd-blanks {
+  position: relative;
+  flex: 0 0 auto;
+  width: 218px;
+  height: 132px;
+}
+
+.bd-blank {
+  position: absolute;
+  /* 必须有 flex：纸是靠 .bd-paper-shadow 的 flex:1 撑满整块的，
+     少了这行，空白便签（里面没有文字）会被压成 0 高，只剩图钉浮在那儿。 */
+  display: flex;
+  flex-direction: column;
+  width: 152px;
+  height: 106px;
+  transform: rotate(var(--bd-rot, 0deg));
+  transition: transform .12s ease-out;
+}
+
+.bd-blank .bd-paper { padding: 0; }        /* 空白便签里什么都没有 */
+
+/* 三张错得开一点，才看得出是"一叠"而不是一张：角度、左右、上下都拉开 */
+.bd-blank-1 { left: 0;  top: 20px; --bd-rot: -9deg; }
+.bd-blank-2 { left: 28px; top: 0;  --bd-rot: 4deg; }
+.bd-blank-3 { left: 56px; top: 18px; --bd-rot: -3deg; }
+
+.bd-write:hover .bd-blank-2,
+.bd-write:focus-visible .bd-blank-2 { transform: rotate(1deg) translateY(-2px); }
+.bd-write:hover .bd-blank-3,
+.bd-write:focus-visible .bd-blank-3 { transform: rotate(-4deg) translate(-6px, -5px); }
+
+.bd-write:focus-visible { outline: none; }
+.bd-write:focus-visible .bd-blanks { filter: drop-shadow(0 0 3px #fff); }
+
+.bd-write-text b {
+  display: block;
+  font-size: calc(var(--px, 12px) * 13 / 12);
+  color: #96530a;
+}
+
+.bd-write-text span {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 10 / 12);
+  color: #7a4d14;
+}
+
+.bd-tip {
+  margin: 8px 0 0;
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 10 / 12);
+  color: #6b6255;
+}
+
+.bd-tip .bd-warn { color: #b34a00; }
+
+/* ---------- 4. 放大 / 写便签的弹层 ---------- */
+
+.bd-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.bd-modal[hidden] { display: none; }
+
+.bd-modal-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(28, 18, 6, .64);
+}
+
+/* 纸张本身不滚动、也不裁：图钉要露在纸外面，× 要一直待在右上角。
+   会滚动的是里面那层 .bd-modal-scroll；撕边在 .bd-modal-paper 上。 */
+.bd-modal-note {
+  position: relative;
+  width: min(560px, 100%);
+  filter: drop-shadow(5px 6px 0 rgba(0, 0, 0, .4));
+  color: #33240f;
+}
+
+.bd-modal-paper {
+  background-color: var(--bd-paper, var(--bd-p-white));
+  background-image: url(../images/board/paper.png);
+  /* 大张纸的撕口平缓一些；抖动用百分比，跟着纸的大小走 */
+  clip-path: polygon(0.4% 1.1%, 12% 0.2%, 26% 1.4%, 41% 0.3%, 55% 1.3%, 70% 0.2%,
+                     84% 1.2%, 96% 0.4%, 99.7% 1.5%, 99.2% 14%, 99.8% 30%, 99.1% 47%,
+                     99.8% 63%, 99.2% 79%, 99.7% 92%, 98.6% 99.4%, 85% 98.7%, 71% 99.6%,
+                     56% 98.8%, 42% 99.7%, 27% 98.9%, 13% 99.6%, 1.2% 98.8%, 0.3% 90%,
+                     0.9% 74%, 0.2% 58%, 0.9% 41%, 0.2% 25%, 0.8% 11%);
+}
+
+.bd-modal-scroll {
+  max-height: 76vh;
+  overflow: auto;
+  padding: 26px 22px 20px;
+}
+
+.bd-modal-note .bd-pin { top: -12px; }
+
+.bd-modal-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: calc(var(--px, 12px) * 13 / 12);
+  line-height: 1.85;
+}
+
+.bd-modal-foot {
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(120, 90, 40, .45);
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 10 / 12);
+  color: rgba(84, 62, 24, .82);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* 站长的回复：另一张纸，也用图钉钉上 */
+.bd-reply {
+  position: relative;
+  margin: 20px 0 0 16px;
+  padding: 15px 13px 11px;
+  background-color: #fffdf4;
+  background-image: url(../images/board/paper.png);
+  border: 2px solid #d9cba4;
+  box-shadow: 3px 3px 0 rgba(58, 34, 8, .22);
+}
+
+.bd-reply-head {
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 10 / 12);
+  color: #c94800;
+  margin-bottom: 4px;
+}
+
+.bd-reply-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--px, 12px);
+  line-height: 1.75;
+}
+
+.bd-reply .bd-pin { top: -9px; left: 14px; margin-left: 0; }
+
+.bd-modal-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-family: inherit;
+  font-size: calc(var(--px, 12px) * 11 / 12);
+  line-height: 1;
+  color: #5b3a12;
+  background: rgba(255, 255, 255, .72);
+  border: 2px solid #d6c9a4;
+  cursor: pointer;
+}
+
+.bd-modal-close:hover { background: #fff; }
+
+/* 写便签的表单 */
+.bd-field { margin-bottom: 10px; }
+
+.bd-field > span {
+  display: block;
+  margin-bottom: 3px;
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 10 / 12);
+  color: rgba(84, 62, 24, .85);
+}
+
+.bd-field input[type="text"],
+.bd-field textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 6px;
+  font-family: inherit;
+  font-size: var(--px, 12px);
+  color: #33240f;
+  background: #fffdf4;
+  border: 2px solid #d6c9a4;
+}
+
+.bd-field textarea { min-height: 116px; resize: vertical; line-height: 1.7; }
+
+.bd-field input[type="text"]:focus,
+.bd-field textarea:focus { outline: none; border-color: #96530a; background: #fff; }
+
+.bd-count {
+  float: right;
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 10 / 12);
+  color: rgba(84, 62, 24, .65);
+}
+
+.bd-count.over { color: #c0392b; }
+
+/* 颜色选择：小纸片 */
+.bd-swatches { display: flex; gap: 6px; }
+
+.bd-swatches button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background-color: var(--bd-paper);
+  background-image: url(../images/board/paper.png);
+  border: 2px solid var(--bd-paper-l);
+  box-shadow: 2px 2px 0 rgba(58, 34, 8, .22);
+  cursor: pointer;
+}
+
+.bd-swatches button.on { border-color: #6b3a10; box-shadow: 2px 2px 0 rgba(58, 34, 8, .45), inset 0 0 0 2px #fff; }
+
+.bd-actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+
+.bd-btn {
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: var(--px, 12px);
+  color: #143a63;
+  background: #e6f0fb;
+  border: 2px solid #6699cc;
+  box-shadow: 2px 2px 0 rgba(40, 70, 110, .3);
+  cursor: pointer;
+}
+
+.bd-btn:hover { background: #f2f8ff; }
+.bd-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(40, 70, 110, .3); }
+.bd-btn.primary { color: #fff; background: #c94800; border-color: #8c3200; box-shadow: 2px 2px 0 rgba(90, 40, 0, .35); }
+.bd-btn.primary:hover { background: #e05a0d; }
+
+.bd-note-form .bd-form-hint {
+  float: right;
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 10 / 12);
+  color: rgba(84, 62, 24, .78);
+}
+
+.bd-err { color: #c0392b; }
+
+/* ---------- 5. 首页那块（缩小版） ---------- */
+
+/* 首页那块外面留出空间：藤和压顶会伸到板子外面，而首页内容是包在
+   .welcome-inner（overflow:hidden）里的，不留白就会把装饰切掉。 */
+.bd-mini-wrap { margin: 10px 0 2px; padding: 16px 16px 20px; }
+
+/* 整页版最上面那段手写的说明 */
+.bd-intro { margin: 0 0 10px; }
+.bd-intro > p { margin-bottom: 4px; }
+
+.bd-mini { display: block; margin: 4px 0 2px; text-decoration: none; }
+
+.bd-mini .bd-board {
+  padding: 6px;
+  border-width: 16px;                  /* 小板上用 16px 的那份框 */
+  border-image: url(../images/board/frame-thin.png) 16 / 16px repeat;
+}
+.bd-mini .bd-cork { min-height: 0; padding: 14px 10px 12px; background-size: 64px 64px; }
+/* 缩略版里的藤和压顶照样按 1:1 显示 —— 缩放像素图会把它弄糊，
+   宁可让它在小板上显得大一点 */
+.bd-mini .bd-board::before,
+.bd-mini .bd-board::after { top: -13px; left: -14px; right: -14px; }
+.bd-mini .bd-scene { padding: 14px 40px 66px; }
+.bd-mini .bd-post { top: 0; bottom: 64px; }
+.bd-mini .bd-drape-a { left: 28px; height: 78px; }
+.bd-mini .bd-drape-b { left: 0; height: 58px; }
+.bd-mini .bd-drape-c { right: 28px; height: 86px; }
+.bd-mini .bd-drape-d { right: 0; height: 62px; }
+.bd-mini .bd-drape-e { display: none; }
+.bd-mini .bd-drape-f { display: none; }
+.bd-mini .bd-bushfront { width: 52px; height: 35px; bottom: 58px; }
+.bd-mini .bd-bushfront-l { left: 22px; }
+.bd-mini .bd-bushfront-r { right: 22px; }
+.bd-mini .bd-flower { display: none; }
+.bd-mini .bd-foliage { bottom: 18px; }
+.bd-mini .bd-sprig { bottom: 22px; }
+.bd-mini .bd-rock { display: none; }        /* 缩略版地方小，石头不摆 */
+.bd-mini .bd-rock2 { bottom: 56px; }
+.bd-mini .bd-tuft { display: none; }
+.bd-mini .bd-crest { top: -14px; }
+
+.bd-mini .bd-notes {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 22px 12px;
+}
+
+.bd-mini .bd-note { min-height: 92px; }
+.bd-mini .bd-paper { padding: 15px 10px 8px; }
+.bd-mini .bd-note-body {
+  -webkit-line-clamp: 2;
+  max-height: 3.4em;                       /* 1.7em × 2 行 */
+  font-size: calc(var(--px, 12px) * 10 / 12);
+}
+.bd-mini .bd-note:hover { transform: rotate(var(--bd-rot, 0deg)); }
+.bd-mini .bd-note:hover .bd-paper-shadow { filter: drop-shadow(2px 3px 0 rgba(58, 34, 8, .34)); }
+
+.bd-enter {
+  display: block;
+  margin-top: 10px;
+  text-align: right;
+  font-family: var(--bd-font-small);
+  font-size: calc(var(--px, 12px) * 11 / 12);
+  color: #c94800;
+}
+
+.bd-mini:hover .bd-enter { text-decoration: underline; }
+
+/* ---------- 6. 窄屏 ---------- */
+
+@media (max-width: 640px) {
+  /* 窄屏换成 16px 的细框：32px 的框在 375px 宽的屏上占到六分之一，太占地方 */
+  .bd-board {
+    padding: 7px;
+    border-width: 16px;
+    border-image: url(../images/board/frame-thin.png) 16 / 16px repeat;
+  }
+  .bd-board::before,
+  .bd-board::after { top: -13px; left: -14px; right: -14px; }
+  .bd-crest { top: -14px; }
+  .bd-cork { padding: 12px 8px 10px; background-size: 64px 64px; }
+  .bd-notes { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 22px 12px; }
+  /* 窄屏板子变小了，两列的话每张只有 120 出头，中文一行放不下十个字 —— 
+     索性一列，把便签做得接近正方形，字也看得清。 */
+  .bd-note { min-height: 122px; }
+  .bd-note-body { -webkit-line-clamp: 4; max-height: 6.8em; }
+  .bd-paper { padding: 16px 9px 9px; }
+  /* 窄屏：柱子/灌木不许往外探，否则会把页面撑出横向滚动条 */
+  /* 窄屏把左右留白收到 12px、板面内边距收到 8px，才放得下两列便签
+     （单列的话便签会变成长条，就不是"接近正方形"了） */
+  .bd-scene { padding: 12px 12px 96px; }
+  /* 窄屏放不下两边的植被留白，垂藤和大灌木收进画面内侧、缩小出现 */
+  .bd-drape-a { left: 18px; height: 66px; }
+  .bd-drape-b { left: -6px; height: 50px; }
+  .bd-drape-c { right: 18px; height: 70px; }
+  .bd-drape-d { right: -6px; height: 54px; }
+  .bd-bushfront { bottom: 80px; width: 56px; height: 38px; }
+  .bd-bushfront-l { left: 2px; }
+  .bd-bushfront-r { right: 2px; }
+  .bd-flower { display: none; }
+  .bd-post-l { left: -12px; }
+  .bd-post-r { right: -12px; }
+  .bd-bush-l { left: -6px; }
+  .bd-bush-r { right: -6px; }
+  .bd-beam, .bd-ground { left: -6px; right: -6px; }
+  .bd-arch { top: -14px; }
+
+  /* 窄屏放不下"一叠便签 + 一行字"，改成竖着排 */
+  .bd-write { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .bd-blanks { align-self: center; }
+  .bd-modal { padding: 10px; }
+  .bd-modal-scroll { max-height: 82vh; padding: 22px 16px 16px; }
+  .bd-mini .bd-notes { grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); }
+}

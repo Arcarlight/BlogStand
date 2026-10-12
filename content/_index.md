@@ -53,6 +53,7 @@ description: "欢迎来到虹星用来堆放日常的博客！ 这里会存一�
 <hr />
 {{< home-changelog limit="5" >}}
 <br>
+{{< board-home >}}
 <hr>
 <b style="font-size:20px;">友情链接：</b>
 <br>
