@@ -2259,6 +2259,22 @@ async function handle(req, res, url) {
     return res.end(html);
   }
 
+  /* ---------- 编辑器自己的图标（.editor/icons/） ----------
+     面板图标换成 Fugue Icons（Yusuke Kamiyamane，CC BY 3.0）之后，
+     这些 PNG 只能放在 **.editor/ 里**，不能放 static/ ——
+     static/ 下的东西会被 Hugo 一起发布到网站上，而这是「只改编辑器、
+     网页上的图标不动」的需求（站长明确要求过）。
+     只读、只认 .png、限制在 .editor/icons/ 内。 */
+  if (req.method === 'GET' && p.startsWith('/editor-icons/')) {
+    const rel = decodeURIComponent(p.slice('/editor-icons/'.length)).replace(/\\/g, '/');
+    if (rel.includes('..') || !/\.png$/i.test(rel)) { json(res, 404, { error: 'not found' }); return; }
+    let buf = null;
+    try { buf = await fsp.readFile(safePath('.editor/icons/' + rel)); } catch { buf = null; }
+    if (!buf) { json(res, 404, { error: 'not found' }); return; }
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
+    return res.end(buf);
+  }
+
   /* ---------- 自己把 static/ 下的图供出来 ----------
      面板里的缩略图、挑图器、画廊预览都直接用 /images/xxx 这种站点路径。
      以前这些 <img> 是相对地址，会打到编辑器自己的端口（4321），而编辑器

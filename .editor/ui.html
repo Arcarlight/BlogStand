@@ -225,15 +225,15 @@
   #toolbar button.fmt.on{background:#dcebfa;border-color:var(--accent);color:var(--accent)}
   #imgWidthSel{font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:4px;background:#fff}
 
-  /* ---------- 像素图标 ----------
-     HackerNoon Pixel Icon Library，画在 24x24 的网格上，1 个单位 = 1 个像素。
-     跟站里的点阵字体是同一条规矩：
-         图标(CSS px) x devicePixelRatio = 24 的整数倍
-     所以大小由 <body> 前面那段脚本按 DPR 算好写进 --ico，别在这里写死。
-     实测：100% 缩放 -> 24px，150% -> 16px（你屏幕就是这个），200% -> 24px。 */
+  /* ---------- 图标：Fugue Icons ----------
+     Yusuke Kamiyamane 的 Fugue（CC BY 3.0），来源与许可见 .editor/icons/README.md。
+     用的是它的 32x32 版、按 **16px** 显示：Retina（DPR 2）下正好 1:1 不糊，
+     1x 屏就是普通缩小。所以**不再需要**「图标尺寸 x DPR = 24 的整数倍」那套
+     像素网格算法 —— 那是给 24x24 的像素图标用的，Fugue 是 16px 网格的成品图。
+     图是彩色的，不再跟着 currentColor 染色（这正是要的那种千禧年观感）。 */
   .ico{
-    width:var(--ico,20px);height:var(--ico,20px);flex:none;
-    fill:currentColor;shape-rendering:crispEdges;vertical-align:-.18em;
+    width:16px;height:16px;flex:none;
+    vertical-align:-.2em;
   }
   button .ico,.row .ico{margin-right:2px}
   button:has(.ico){display:inline-flex;align-items:center;gap:5px}
@@ -253,99 +253,28 @@
 </head>
 <body>
 
-<script>
-  /* 像素图标的整倍缩放：图标(CSS px) x DPR 必须等于 24 的整数倍，
-     否则 24x24 的像素格子会被摊到半个设备像素上，边缘立刻发毛。
-     算法跟站点里点阵字体那段一样：取让图标落在 15~26px 之间的那个倍数。
-       100% 缩放 -> 24px    150% -> 16px    200% -> 24px
-     拿不到合适倍数（极端缩放）就用 CSS 里的兜底值。 */
-  (function () {
-    var GRID = 24, MIN = 15, MAX = 26, TARGET = 17;
-    var dpr = window.devicePixelRatio || 1;
-    var k = 0, best = 1e9;
-    for (var i = 1; i <= 8; i++) {
-      var px = GRID * i / dpr;
-      if (px < MIN || px > MAX) continue;
-      var e = Math.abs(px - TARGET);
-      if (e < best - 0.001) { best = e; k = i; }
-    }
-    if (!k) return;
-    document.documentElement.style.setProperty('--ico', (GRID * k / dpr).toFixed(5) + 'px');
-  })();
-</script>
+<!-- 图标不再需要按 DPR 算整倍数（Fugue 是 16px 网格的成品图），
+     原来那段 --ico 计算脚本已随换图标一并删掉。 -->
 
-<!-- ============ 像素图标 sprite ============
-     来源：HackerNoon Pixel Icon Library —— https://pixeliconlibrary.com/
-     仓库：https://github.com/hackernoon/pixel-icon-library
-     许可：CC BY 4.0 / MIT（Copyright (c) 2023 HackerNoon）
-     画在 24x24 的网格上，1 个单位 = 1 个像素。用 <use href="#ico-xxx"> 引用，
-     颜色和大小都跟着外面的 CSS 走（fill: currentColor / --ico）。
-     注意：这里故意不用 display:none，某些浏览器下那样会让 <use> 渲染不出来。 -->
-<svg id="sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
-  <symbol id="ico-plus" viewBox="0 0 24 24"><polygon points="23 11 23 13 13 13 13 23 11 23 11 13 1 13 1 11 11 11 11 1 13 1 13 11 23 11"/></symbol>
-  <symbol id="ico-eye" viewBox="0 0 24 24"><rect x="16" y="11" width="1" height="2"/><polygon points="16 13 16 15 15 15 15 16 13 16 13 15 14 15 14 14 15 14 15 13 16 13"/><polygon points="16 9 16 11 15 11 15 10 14 10 14 9 13 9 13 8 15 8 15 9 16 9"/><rect x="11" y="16" width="2" height="1"/><polygon points="11 15 11 16 9 16 9 15 8 15 8 13 9 13 9 14 10 14 10 15 11 15"/><polygon points="13 7 13 8 12 8 12 11 11 11 11 12 8 12 8 13 7 13 7 11 8 11 8 9 9 9 9 8 11 8 11 7 13 7"/><path d="m22,11v-2h-1v-1h-1v-1h-1v-1h-2v-1H7v1h-2v1h-1v1h-1v1h-1v2h-1v2h1v2h1v1h1v1h1v1h2v1h10v-1h2v-1h1v-1h1v-1h1v-2h1v-2h-1Zm-1,3h-1v1h-1v1h-1v1h-2v1h-8v-1h-1v-1h-2v-1h-1v-1h-1v-4h1v-1h1v-1h1v-1h2v-1h8v1h2v1h1v1h1v1h1v4Z"/></symbol>
-  <symbol id="ico-external-link" viewBox="0 0 24 24"><polygon points="20 15 20 22 19 22 19 23 2 23 2 22 1 22 1 5 2 5 2 4 11 4 11 6 3 6 3 21 18 21 18 15 20 15"/><polygon points="23 1 23 9 21 9 21 5 20 5 20 6 19 6 19 7 18 7 18 8 17 8 17 9 16 9 16 10 15 10 15 11 14 11 14 12 13 12 13 13 12 13 12 14 11 14 11 15 10 15 10 16 9 16 9 17 7 17 7 15 8 15 8 14 9 14 9 13 10 13 10 12 11 12 11 11 12 11 12 10 13 10 13 9 14 9 14 8 15 8 15 7 16 7 16 6 17 6 17 5 18 5 18 4 19 4 19 3 15 3 15 1 23 1"/></symbol>
-  <symbol id="ico-check" viewBox="0 0 24 24"><polygon points="22 4 22 6 21 6 21 7 20 7 20 8 19 8 19 9 18 9 18 10 17 10 17 11 16 11 16 12 15 12 15 13 14 13 14 14 13 14 13 15 12 15 12 16 11 16 11 17 10 17 10 18 8 18 8 17 7 17 7 16 6 16 6 15 5 15 5 14 4 14 4 13 3 13 3 12 2 12 2 10 4 10 4 11 5 11 5 12 6 12 6 13 7 13 7 14 8 14 8 15 10 15 10 14 11 14 11 13 12 13 12 12 13 12 13 11 14 11 14 10 15 10 15 9 16 9 16 8 17 8 17 7 18 7 18 6 19 6 19 5 20 5 20 4 22 4"/></symbol>
-  <symbol id="ico-upload" viewBox="0 0 24 24"><polygon points="4 10 4 8 5 8 5 7 6 7 6 6 7 6 7 5 8 5 8 4 9 4 9 3 10 3 10 2 11 2 11 1 13 1 13 2 14 2 14 3 15 3 15 4 16 4 16 5 17 5 17 6 18 6 18 7 19 7 19 8 20 8 20 10 18 10 18 9 17 9 17 8 16 8 16 7 15 7 15 6 14 6 14 5 13 5 13 17 11 17 11 5 10 5 10 6 9 6 9 7 8 7 8 8 7 8 7 9 6 9 6 10 4 10"/><rect x="2" y="20" width="20" height="3"/></symbol>
-  <symbol id="ico-cog" viewBox="0 0 24 24"><path d="m21,10v-1h-1v-2h1v-2h-1v-1h-1v-1h-2v1h-2v-1h-1V1h-4v2h-1v1h-2v-1h-2v1h-1v1h-1v2h1v2h-1v1H1v4h2v1h1v2h-1v2h1v1h1v1h2v-1h2v1h1v2h4v-2h1v-1h2v1h2v-1h1v-1h1v-2h-1v-2h1v-1h2v-4h-2Zm0,3h-1v1h-1v1h-1v2h1v2h-2v-1h-2v1h-1v1h-1v1h-2v-1h-1v-1h-1v-1h-2v1h-2v-2h1v-2h-1v-1h-1v-1h-1v-2h1v-1h1v-1h1v-2h-1v-2h2v1h2v-1h1v-1h1v-1h2v1h1v1h1v1h2v-1h2v2h-1v2h1v1h1v1h1v2Z"/><path d="m16,10v-1h-1v-1h-1v-1h-4v1h-1v1h-1v1h-1v4h1v1h1v1h1v1h4v-1h1v-1h1v-1h1v-4h-1Zm-1,4h-1v1h-4v-1h-1v-4h1v-1h4v1h1v4Z"/></symbol>
-  <symbol id="ico-link" viewBox="0 0 24 24"><polygon points="16 10 17 10 17 17 16 17 16 18 15 18 15 19 14 19 14 20 13 20 13 21 12 21 12 22 11 22 11 23 5 23 5 22 4 22 4 21 3 21 3 20 2 20 2 19 1 19 1 14 2 14 2 13 3 13 3 12 4 12 4 11 5 11 5 14 4 14 4 15 3 15 3 18 4 18 4 19 5 19 5 20 6 20 6 21 10 21 10 20 11 20 11 19 12 19 12 18 13 18 13 17 14 17 14 16 15 16 15 11 14 11 14 10 13 10 13 9 14 9 14 8 15 8 15 9 16 9 16 10"/><polygon points="23 5 23 10 22 10 22 11 21 11 21 12 20 12 20 13 19 13 19 10 20 10 20 9 21 9 21 6 20 6 20 5 19 5 19 4 18 4 18 3 14 3 14 4 13 4 13 5 12 5 12 6 11 6 11 7 10 7 10 8 9 8 9 13 10 13 10 14 11 14 11 15 10 15 10 16 9 16 9 15 8 15 8 14 7 14 7 7 8 7 8 6 9 6 9 5 10 5 10 4 11 4 11 3 12 3 12 2 13 2 13 1 19 1 19 2 20 2 20 3 21 3 21 4 22 4 22 5 23 5"/></symbol>
-  <symbol id="ico-grid" viewBox="0 0 24 24"><path d="m10,13H2v1h-1v8h1v1h8v-1h1v-8h-1v-1Zm-1,8H3v-6h6v6Z"/><path d="m10,2v-1H2v1h-1v8h1v1h8v-1h1V2h-1Zm-7,7V3h6v6H3Z"/><path d="m22,13h-8v1h-1v8h1v1h8v-1h1v-8h-1v-1Zm-1,8h-6v-6h6v6Z"/><path d="m22,2v-1h-8v1h-1v8h1v1h8v-1h1V2h-1Zm-1,7h-6V3h6v6Z"/></symbol>
-  <symbol id="ico-code" viewBox="0 0 24 24"><polygon points="7 7 7 8 6 8 6 9 5 9 5 10 4 10 4 11 3 11 3 13 4 13 4 14 5 14 5 15 6 15 6 16 7 16 7 17 5 17 5 16 4 16 4 15 3 15 3 14 2 14 2 13 1 13 1 11 2 11 2 10 3 10 3 9 4 9 4 8 5 8 5 7 7 7"/><polygon points="15 3 16 3 16 6 15 6 15 9 14 9 14 12 13 12 13 14 12 14 12 17 11 17 11 20 10 20 10 21 9 21 9 18 10 18 10 15 11 15 11 12 12 12 12 10 13 10 13 7 14 7 14 4 15 4 15 3"/><polygon points="23 11 23 13 22 13 22 14 21 14 21 15 20 15 20 16 19 16 19 17 17 17 17 16 18 16 18 15 19 15 19 14 20 14 20 13 21 13 21 11 20 11 20 10 19 10 19 9 18 9 18 8 17 8 17 7 19 7 19 8 20 8 20 9 21 9 21 10 22 10 22 11 23 11"/></symbol>
-  <symbol id="ico-calendar-alt" viewBox="0 0 24 24"><rect x="6" y="1" width="2" height="6"/><rect x="9" y="4" width="6" height="2"/><rect x="16" y="1" width="2" height="6"/><path d="M22,5V4H19V6h2V9H3V6H5V4H2V5H1V22H2v1H22V22h1V5ZM21,21H3V11H21Z"/></symbol>
-  <!-- 三横线：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/bars.svg
-       「顶部导航」面板用它 -->
-  <symbol id="ico-bars" viewBox="0 0 24 24"><rect x="1" y="11" width="22" height="2"/><rect x="1" y="19" width="22" height="2"/><rect x="1" y="3" width="22" height="2"/></symbol>
-  <!-- 记事本：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/notebook.svg
-       「更新历史」用它（纸张类）；日历那个留给日记。 -->
-  <symbol id="ico-notebook" viewBox="0 0 24 24"><path d="M22,3V2H21V1H5V2H4V5H1V7H4v4H1v2H4v4H1v2H4v3H5v1H21V22h1V21h1V3ZM9,21H6V3H9Zm12-1H20v1H11V3h9V4h1Z"/></symbol>
-  <!-- 书：给「文集」用（更新历史占用的是记事本 ico-notebook，两个图标不能撞）。
-       这个是照同一套像素风格手画的方块书（不是 Pixel Icon Library 的现成文件），
-       想换成图库里的 book.svg 直接替换这条 path 即可。 -->
-  <symbol id="ico-book" viewBox="0 0 24 24"><path d="M2 1h3v22H2V1Zm3 0h17v3H5V1Zm0 19h17v3H5v-3Zm14-16h3v16h-3V4ZM7 7h9v2H7V7Zm0 4h9v2H7v-2Zm0 4h6v2H7v-2Z"/></symbol>
-  <symbol id="ico-bold" viewBox="0 0 24 24"><path d="m19,13v-1h-2v-1h1v-1h1v-6h-1v-1h-1v-1h-1v-1H5v1h-1v20h1v1h12v-1h1v-1h1v-1h1v-7h-1ZM6,3h10v1h1v6H6V3Zm12,17h-1v1H6v-9h10v1h1v1h1v6Z"/></symbol>
-  <symbol id="ico-italics" viewBox="0 0 24 24"><polygon points="22 1 22 3 17 3 17 4 16 4 16 6 15 6 15 8 14 8 14 11 13 11 13 13 12 13 12 16 11 16 11 18 10 18 10 20 9 20 9 21 16 21 16 23 2 23 2 21 7 21 7 20 8 20 8 18 9 18 9 16 10 16 10 13 11 13 11 11 12 11 12 8 13 8 13 6 14 6 14 4 15 4 15 3 8 3 8 1 22 1"/></symbol>
-  <symbol id="ico-comment-quote" viewBox="0 0 24 24"><polygon points="17 7 17 15 16 15 16 16 13 16 13 15 14 15 14 14 15 14 15 12 13 12 13 7 17 7"/><polygon points="11 7 11 15 10 15 10 16 7 16 7 15 8 15 8 14 9 14 9 12 7 12 7 7 11 7"/><path d="m22,8v-2h-1v-1h-1v-1h-2v-1h-3v-1h-6v1h-3v1h-2v1h-1v1h-1v2h-1v6h1v2h1v2h-1v1h-1v2h5v-1h1v-1h2v1h6v-1h3v-1h2v-1h1v-1h1v-2h1v-6h-1Zm-2,6v2h-2v1h-3v1h-6v-1h-2v1h-1v1h-2v-1h1v-2h-1v-2h-1v-6h1v-2h2v-1h3v-1h6v1h3v1h2v2h1v6h-1Z"/></symbol>
-  <symbol id="ico-pencil-ruler" viewBox="0 0 24 24"><path d="m19,11v-1h1v-1h1v-1h1v-1h1v-3h-1v-1h-1v-1h-1v-1h-3v1h-1v1h-1v1h-1v1h-1v1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v1h-1v1h-1v1h-1v1h-1v2h1v1h1v1h1v1h1v1h1v2h-1v1h-1v1h-1v1h-1v1h-1v6h6v-1h1v-1h1v-1h1v-1h1v-1h2v1h1v1h1v1h1v1h1v1h2v-1h1v-1h1v-1h1v-1h1v-2h-1v-1h-1v-1h-1v-1h-1v-1h-1v-2h1Zm-12-1v-1h-1v-1h-1v-1h-1v-2h1v-1h2v1h1v1h-1v1h1v1h1v-1h1v2h-1v1h-2Zm6,3v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-3v-3h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1Zm6,3v1h1v2h-1v1h-2v-1h-1v-1h-1v-1h-1v-2h1v-1h2v1h-1v1h1v1h1v-1h1Zm-2-9v-1h-1v-1h1v-1h1v-1h1v1h1v1h1v1h-1v1h-1v1h-1v-1h-1Z"/></symbol>
-  <symbol id="ico-expand" viewBox="0 0 24 24"><polygon points="9 1 9 3 3 3 3 9 1 9 1 2 2 2 2 1 9 1"/><polygon points="9 21 9 23 2 23 2 22 1 22 1 15 3 15 3 21 9 21"/><polygon points="23 15 23 22 22 22 22 23 15 23 15 21 21 21 21 15 23 15"/><polygon points="23 2 23 9 21 9 21 3 15 3 15 1 22 1 22 2 23 2"/></symbol>
-  <symbol id="ico-image" viewBox="0 0 24 24"><polygon points="9 6 9 9 8 9 8 10 5 10 5 9 4 9 4 6 5 6 5 5 8 5 8 6 9 6"/><path d="m22,2v-1H2v1h-1v20h1v1h20v-1h1V2h-1Zm-5,12v1h1v1h1v1h1v1h1v3h-13v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v1h1Zm3,1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1v-1h-1V3h18v12h-1Zm-15,3v1h1v1h1v1H3v-4h1v1h1Z"/></symbol>
-  <symbol id="ico-thumbtack" viewBox="0 0 24 24"><path d="m18,13v-1h-1v-1h-1v-7h2v-2h-1v-1H7v1h-1v2h2v7h-1v1h-1v1h-1v2h1v1h5v7h2v-7h5v-1h1v-2h-1ZM9,3h6v1h-1v8h1v1h1v1h-8v-1h1v-1h1V4h-1v-1Z"/></symbol>
-  <symbol id="ico-save" viewBox="0 0 24 24"><polygon points="15 14 15 18 14 18 14 19 10 19 10 18 9 18 9 14 10 14 10 13 14 13 14 14 15 14"/><path d="m22,7v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1H2v1h-1v20h1v1h20v-1h1V7h-1Zm-7,3V3h1v1h1v1h1v1h1v1h1v1h1v13H3V3h1v7h11ZM6,3h7v5h-7V3Z"/></symbol>
-  <symbol id="ico-trash" viewBox="0 0 24 24"><path d="m4,6v8h1v8h1v1h12v-1h1v-8h1V6H4Zm14,7h-1v8H7v-8h-1v-5h12v5Z"/><polygon points="21 3 21 5 3 5 3 3 4 3 4 2 9 2 9 1 15 1 15 2 20 2 20 3 21 3"/></symbol>
-  <symbol id="ico-refresh" viewBox="0 0 24 24"><polygon points="23 14 23 15 22 15 22 17 21 17 21 19 20 19 20 20 19 20 19 21 17 21 17 22 15 22 15 23 9 23 9 22 7 22 7 21 5 21 5 20 3 20 3 21 2 21 2 22 1 22 1 15 8 15 8 16 7 16 7 17 6 17 6 19 7 19 7 20 9 20 9 21 15 21 15 20 17 20 17 19 19 19 19 17 20 17 20 14 23 14"/><polygon points="23 2 23 9 16 9 16 8 17 8 17 7 18 7 18 5 17 5 17 4 15 4 15 3 9 3 9 4 7 4 7 5 5 5 5 7 4 7 4 10 1 10 1 9 2 9 2 7 3 7 3 5 4 5 4 4 5 4 5 3 7 3 7 2 9 2 9 1 15 1 15 2 17 2 17 3 19 3 19 4 21 4 21 3 22 3 22 2 23 2"/></symbol>
-  <symbol id="ico-message-dots" viewBox="0 0 24 24"><polygon points="19 9 19 11 18 11 18 12 16 12 16 11 15 11 15 9 16 9 16 8 18 8 18 9 19 9"/><polygon points="14 9 14 11 13 11 13 12 11 12 11 11 10 11 10 9 11 9 11 8 13 8 13 9 14 9"/><polygon points="9 9 9 11 8 11 8 12 6 12 6 11 5 11 5 9 6 9 6 8 8 8 8 9 9 9"/><path d="m22,2v-1H2v1h-1v16h1v1h6v4h1v-1h1v-1h1v-1h2v-1h9v-1h1V2h-1Zm-1,15H3V3h18v14Z"/></symbol>
-  <!-- 钻石：给「蒂安希听到了」用（蒂安希是钻石宝可梦）。
-       沿用上面「两个图标不能撞」的规矩：同一条侧栏里 message-dots 给了宝可梦台词，
-       所以这里新画一个空心菱形，不是 Pixel Icon Library 的现成文件。
-       fill-rule=evenodd 让中间那块掏空，颜色照样跟着 currentColor 走。 -->
-  <symbol id="ico-diamond" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 1 L23 12 L12 23 L1 12 Z M12 5 L18 12 L12 19 L6 12 Z"/></symbol>
-  <!-- 音符：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/music.svg -->
-  <symbol id="ico-music" viewBox="0 0 24 24"><path d="m21,1v1h-3v1h-3v1h-4v1h-3v1h-2v10h-3v1h-1v1h-1v3h1v1h1v1h4v-1h1v-1h1v-10h2v-1h4v-1h3v-1h2v5h-3v1h-1v1h-1v3h1v1h1v1h4v-1h1v-1h1V1h-2ZM3,21v-3h4v3H3Zm15-15v1h-3v1h-4v1h-3v-2h3v-1h4v-1h3v-1h3v2h-3Zm-1,12v-3h4v3h-4Z"/></symbol>
-  <!-- 画笔：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/paint-brush.svg -->
-  <symbol id="ico-paint-brush" viewBox="0 0 24 24"><path d="M19,2V1H4V2H3V16H4v1H9v4h1v1h1v1h2V22h1V21h1V17h4V16h1V2ZM13,21H11V19h2Zm5-7H5V3H7V5H9V3h2V7h2V3h5Z"/></symbol>
-  <!-- 放大镜：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/search.svg -->
-  <symbol id="ico-search" viewBox="0 0 24 24"><path d="m22,20v-1h-1v-1h-1v-1h-1v-1h-2v-1h1v-2h1v-6h-1v-2h-1v-1h-1v-1h-1v-1h-2v-1h-6v1h-2v1h-1v1h-1v1h-1v2h-1v6h1v2h1v1h1v1h1v1h2v1h6v-1h2v-1h1v2h1v1h1v1h1v1h1v1h2v-1h1v-2h-1Zm-10-5v1h-4v-1h-2v-1h-1v-2h-1v-4h1v-2h1v-1h2v-1h4v1h2v1h1v2h1v4h-1v2h-1v1h-2Z"/></symbol>
-  <!-- 目录：Pixel Icon Library by HackerNoon（CC BY 4.0），regular/folder.svg -->
-  <symbol id="ico-folder" viewBox="0 0 24 24"><path d="m22,6v-1h-9v-1h-1v-1h-1v-1H2v1h-1v18h1v1h20v-1h1V6h-1Zm-1,14H3V4h7v1h1v1h1v1h9v13Z"/></symbol>
-</svg>
 
 <header>
   <span class="brand">星虹巢 · 本地编辑器</span>
   <span id="dirtyFlag" class="dirty" hidden>未保存</span>
   <span class="spacer"></span>
-  <button class="ghost" id="btnNewTop" title="新建日记 / 博客 / 单页"><svg class="ico"><use href="#ico-plus"/></svg>新建页面</button>
-  <button class="ghost" id="btnPreview" title="打开 / 收起右侧预览"><svg class="ico"><use href="#ico-eye"/></svg><span id="btnPreviewText">预览 ▸</span></button>
-  <button class="ghost" id="btnLive" title="在浏览器里打开线上站"><svg class="ico"><use href="#ico-external-link"/></svg>打开线上站</button>
-  <button class="ghost" id="btnBuild" title="本地构建一遍，检查有没有报错"><svg class="ico"><use href="#ico-check"/></svg>构建检查</button>
-  <button class="ghost" id="btnSync" title="从线上（GitHub）拉取改动 —— 换一台电脑编辑时先点这个"><svg class="ico"><use href="#ico-refresh"/></svg>拉取线上</button>
-  <button class="primary" id="btnPublish" title="git add + commit + push"><svg class="ico"><use href="#ico-upload"/></svg>发布</button>
+  <button class="ghost" id="btnNewTop" title="新建日记 / 博客 / 单页"><img class="ico" src="/editor-icons/fugue/plus.png" alt="">新建页面</button>
+  <button class="ghost" id="btnPreview" title="打开 / 收起右侧预览"><img class="ico" src="/editor-icons/fugue/eye.png" alt=""><span id="btnPreviewText">预览 ▸</span></button>
+  <button class="ghost" id="btnLive" title="在浏览器里打开线上站"><img class="ico" src="/editor-icons/fugue/external.png" alt="">打开线上站</button>
+  <button class="ghost" id="btnBuild" title="本地构建一遍，检查有没有报错"><img class="ico" src="/editor-icons/fugue/tick.png" alt="">构建检查</button>
+  <button class="ghost" id="btnSync" title="从线上（GitHub）拉取改动 —— 换一台电脑编辑时先点这个"><img class="ico" src="/editor-icons/fugue/arrow-repeat.png" alt="">拉取线上</button>
+  <button class="primary" id="btnPublish" title="git add + commit + push"><img class="ico" src="/editor-icons/fugue/upload.png" alt="">发布</button>
 </header>
 
 <div id="main">
   <aside id="side">
     <div id="tree"></div>
     <div id="credits">
-      图标：<a href="https://pixeliconlibrary.com/" target="_blank" rel="noopener">Pixel Icon Library</a>
-      by HackerNoon（CC BY 4.0）
+      图标：<a href="https://p.yusukekamiyamane.com/" target="_blank" rel="noopener">Fugue Icons</a>
+      by Yusuke Kamiyamane（CC BY 3.0）
     </div>
   </aside>
   <section id="work">
@@ -359,12 +288,12 @@
       <span id="curPath">← 从左边选一个文件</span>
       <span class="spacer"></span>
       <span class="grp-label" title="先选中一段文字，再点按钮（再点一次取消）">选中文字：</span>
-      <button id="btnBold" class="fmt" title="加粗（Ctrl+B）"><svg class="ico"><use href="#ico-bold"/></svg></button>
-      <button id="btnItalic" class="fmt" title="倾斜（Ctrl+I）"><svg class="ico"><use href="#ico-italics"/></svg></button>
-      <button id="btnVoice" class="fmt" title="心声：淡灰色的内心独白"><svg class="ico"><use href="#ico-comment-quote"/></svg>心声</button>
-<button id="btnLink" class="fmt" title="超链接（Ctrl+K）：选中文字后点这里"><svg class="ico"><use href="#ico-link"/></svg>链接</button>
+      <button id="btnBold" class="fmt" title="加粗（Ctrl+B）"><img class="ico" src="/editor-icons/fugue/edit-bold.png" alt=""></button>
+      <button id="btnItalic" class="fmt" title="倾斜（Ctrl+I）"><img class="ico" src="/editor-icons/fugue/edit-italic.png" alt=""></button>
+      <button id="btnVoice" class="fmt" title="心声：淡灰色的内心独白"><img class="ico" src="/editor-icons/fugue/balloon-quotation.png" alt="">心声</button>
+<button id="btnLink" class="fmt" title="超链接（Ctrl+K）：选中文字后点这里"><img class="ico" src="/editor-icons/fugue/chain.png" alt="">链接</button>
       <span class="sep"></span>
-      <span class="grp-label" title="插图时会带上这个宽度；选中已有的 &lt;img&gt; 再点「应用」可以改它的宽度"><svg class="ico"><use href="#ico-pencil-ruler"/></svg>宽</span>
+      <span class="grp-label" title="插图时会带上这个宽度；选中已有的 &lt;img&gt; 再点「应用」可以改它的宽度"><img class="ico" src="/editor-icons/fugue/pencil-ruler.png" alt="">宽</span>
       <select id="imgWidthSel" title="插图 / 改宽度用">
         <option value="">原尺寸</option>
         <option value="650">650</option>
@@ -375,13 +304,13 @@
         <option value="100%">100%（跟随栏宽）</option>
         <option value="custom">自定义…</option>
       </select>
-      <button id="btnApplyWidth" title="把上面选的宽度应用到选中的 &lt;img&gt;"><svg class="ico"><use href="#ico-expand"/></svg>应用</button>
+      <button id="btnApplyWidth" title="把上面选的宽度应用到选中的 &lt;img&gt;"><img class="ico" src="/editor-icons/fugue/application-resize.png" alt="">应用</button>
       <span class="sep"></span>
-      <button id="btnInsertImg" title="插入图片（也可以直接把图片拖进编辑区）"><svg class="ico"><use href="#ico-image"/></svg>插图</button>
-      <button id="btnInsertDay" title="插入某一天的锚点段落" hidden><svg class="ico"><use href="#ico-calendar-alt"/></svg>插入日期</button>
-      <button id="btnToggleDraft" hidden><svg class="ico"><use href="#ico-thumbtack"/></svg><span id="btnDraftText">设为草稿</span></button>
-      <button id="btnSave" class="primary" disabled title="Ctrl+S"><svg class="ico"><use href="#ico-save"/></svg>保存</button>
-      <button id="btnDelete" class="danger" disabled><svg class="ico"><use href="#ico-trash"/></svg>删除</button>
+      <button id="btnInsertImg" title="插入图片（也可以直接把图片拖进编辑区）"><img class="ico" src="/editor-icons/fugue/image.png" alt="">插图</button>
+      <button id="btnInsertDay" title="插入某一天的锚点段落" hidden><img class="ico" src="/editor-icons/fugue/calendar.png" alt="">插入日期</button>
+      <button id="btnToggleDraft" hidden><img class="ico" src="/editor-icons/fugue/pin.png" alt=""><span id="btnDraftText">设为草稿</span></button>
+      <button id="btnSave" class="primary" disabled title="Ctrl+S"><img class="ico" src="/editor-icons/fugue/disk.png" alt="">保存</button>
+      <button id="btnDelete" class="danger" disabled><img class="ico" src="/editor-icons/fugue/bin.png" alt="">删除</button>
       <input type="file" id="filePicker" accept="image/*" multiple hidden>
     </div>
     <div id="panes">
@@ -390,8 +319,8 @@
       <div id="previewPane">
         <div id="previewBar">
           <span id="previewPath">/</span>
-          <button id="btnPreviewRefresh" title="重新加载预览"><svg class="ico"><use href="#ico-refresh"/></svg></button>
-          <button id="btnPreviewNew" title="在新标签打开这一页"><svg class="ico"><use href="#ico-external-link"/></svg></button>
+          <button id="btnPreviewRefresh" title="重新加载预览"><img class="ico" src="/editor-icons/fugue/arrow-repeat.png" alt=""></button>
+          <button id="btnPreviewNew" title="在新标签打开这一页"><img class="ico" src="/editor-icons/fugue/external.png" alt=""></button>
         </div>
         <iframe id="preview"></iframe>
       </div>
@@ -420,7 +349,19 @@ let TREE = [], CUR = null, DIRTY = false;
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /** 内联引用 sprite 里的像素图标（见文件顶部那个 <svg id="sprite">） */
-const ico = (name) => '<svg class="ico" aria-hidden="true"><use href="#ico-' + name + '"/></svg>';
+/* 图标：Fugue Icons（.editor/icons/）。这里做一次「逻辑名 → 文件名」映射，
+   以后想换某张图只改这张表；文件名对不上会 404，肉眼一看就知道。 */
+const FUGUE = {
+  book:'book', music:'music', 'paint-brush':'paint-brush', cog:'gear',
+  bars:'navigation', link:'chain', grid:'ui-buttons', refresh:'arrow-repeat',
+  notebook:'notebook', 'comment-quote':'balloon-quotation', 'message-dots':'balloon-ellipsis',
+  diamond:'diamond', 'pencil-ruler':'pencil-ruler', code:'script', 'calendar-alt':'calendar',
+  plus:'plus', eye:'eye', 'external-link':'external', check:'tick', upload:'upload',
+  bold:'edit-bold', italics:'edit-italic', expand:'application-resize', image:'image',
+  thumbtack:'pin', save:'disk', trash:'bin', search:'magnifier', folder:'folder',
+};
+const ico = (name) => '<img class="ico" src="/editor-icons/fugue/'
+  + (FUGUE[name] || name) + '.png" alt="" draggable="false">';
 
 function toast(msg, kind) {
   const t = $('#toast');
