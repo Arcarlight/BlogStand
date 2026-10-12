@@ -937,7 +937,7 @@ const FUGUE = {
   thumbtack:'pin', save:'disk', trash:'bin', search:'magnifier', folder:'folder',
   /* 侧栏树上用的图标（见 renderTree）：组小标题 + 页面行 */
   home:'home', newspaper:'newspaper', blueprint:'blueprint', table:'table',
-  doc:'document-text', css:'paint-can',
+  doc:'document-text', css:'paint-can', section:'blueprint-medium',
 };
 const ico = (name) => '<img class="ico" src="/editor-icons/fugue/'
   + (FUGUE[name] || name) + '.png" alt="" draggable="false">';
@@ -982,15 +982,18 @@ function shortName(p) {
    ② 页面行（子项）：2026-10-12 的定稿过程 ——
       第一版按文件类型给了（.md/.html/.css…），站长说「子项加太多一样的，有点
       喧宾夺主」→ 撤掉；后来加了分组折叠（同一时刻露出来的图标少多了），站长又说
-      「加了折叠以后再给子项加图标就不会太吵了」→ 加回来，并留两种口味可切换：
-        'group' 内容页按**所在组**给（文集=书、日记=日历… 和组标题同一枚，
-                整棵树的观感最连贯）
-        'type'  内容页一律按**文件类型**给（所有 .md 都是同一张纸，最中性）
-      非 .md 的文件（.js/.css/.toml/.html）两种口味一样，都按类型给。
-      另外两种特例，都优先于上面的口味：
-        `_index.md`（区块首页，平时不用改）→ 文件夹
+      「加了折叠以后再给子项加图标就不会太吵了」→ 加回来。
+      口味最终定为 **'type'**：所有内容页（.md，也就是「你平时会改的那些」）都是
+      同一张纸。另一种 'group'（按所在组给：文集=书、日记=日历…）留着备用 ——
+      改 `ROW_ICON_MODE` 一个词即可。
+      非 .md 的文件（.js/.css/.toml/.html）按类型给。
+      另外两个特例优先于口味：
+        `_index.md`（区块首页：整站首页、博客/日记/文集的列表页，平时不用改）
+          → `section` = blueprint-medium（一枚**小号蓝色纸页**）。
+          先用过 folder，站长说「文件夹太显眼了」—— 换成一枚形状同类、只是色调
+          不同的纸页：不喊不闹，但一眼看得出跟别的页面不是一类。
         草稿 → 图钉 */
-let ROW_ICON_MODE = 'group';
+let ROW_ICON_MODE = 'type';
 
 const GRP_ICON_BY_NAME = {
   '工具': 'gear', '首页与单页': 'home', '博客': 'newspaper', '文集': 'book', '日记': 'calendar',
@@ -1008,10 +1011,11 @@ function fileIcon(f, group, draft) {
   const base = String(f).split('/').pop().toLowerCase();
   const ext = (String(f).match(/\.[^.]+$/) || [''])[0].toLowerCase();
   /* 区块首页（section index）：`_index.md` 是那一节的骨架（整站首页、博客/日记/文集的
-     列表页），平时根本不用改 —— 给它一枚**文件夹**，跟「你经常改的那些页面」
-     一眼就能分开（站长 2026-10-12 提的）。放在最前：它是「不用改」这个身份，
-     比草稿状态更该先看出来。 */
-  if (base === '_index.md') return 'folder';
+     列表页），平时根本不用改 —— 给它一枚**小号蓝色纸页**（section = blueprint-medium），
+     跟「你经常改的那些页面」一眼分得开，又不像文件夹那样一张黄色大色块杵在那儿
+     （站长先看到的版本是 folder，反馈「文件夹太显眼了」）。
+     放在判定最前：它是「不用改」这个身份，比草稿状态更该先看出来。 */
+  if (base === '_index.md') return 'section';
   if (ext === '.md') {
     if (draft) return 'thumbtack';
     if (ROW_ICON_MODE === 'type') return 'doc';
