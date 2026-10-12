@@ -249,6 +249,367 @@
   #toast.err{background:#a3352b}
   #toast.ok{background:#1e7a3c}
   code{background:#eef2f7;padding:1px 5px;border-radius:3px;font-size:12px}
+
+  /* ============================================================
+     拟物化（skeuomorphic）——「千禧年桌面软件」那套高光与质感
+     ------------------------------------------------------------
+     站长要的是「按钮、视窗等等有拟物感（高光、光泽感）」。
+     参考的是 2000 年代那批：Windows XP 的 Luna、Mac OS X 的 Aqua、
+     以及当年的共享软件界面 —— 塑料/水晶质感的按钮、凹进去的输入框、
+     有标题栏的窗口、带光泽的滚动条。
+
+     ★★ 一条硬约束：**不改 box model**
+        只用 background（渐变）、box-shadow、border-color、和
+        inset box-shadow（代替 border）。**绝不改** padding / border-width /
+        margin，也**绝不新增 border**。
+        为什么：编辑器有 15 个面板、几百个控件，全按现有尺寸排好了版。
+        第一版我犯了三个错，几何检查抓出来的：
+          · 给 header 加了 border-bottom:1px → 整个顶栏高 1px，
+            下面**每一个**元素的 y 都跟着 +1px（级联位移）
+          · 动了 #tree 的 padding 和 .row 的 margin
+          · 下拉框用 padding-right:22px 放箭头 → 宽度变了
+        box-shadow 不参与布局，所以立体感只能靠它 + 渐变来做。
+        需要「描边」时用 `inset 0 0 0 1px <色>`，它画在盒子内侧、不占位。
+
+     四种基本配方（后面反复套用）：
+       凸起（按钮）  上亮下暗的渐变 + 顶部内白高光 + 底部暗线 + 外投影
+       凹陷（输入框）内阴影 + 上边暗、下边亮（光从上面来 → 上沿背光）
+       玻璃（主按钮）高光上加一道横向反光带
+       窗口（弹窗）  外投影 + 一圈 inset 描边 + 标题栏渐变
+     ============================================================ */
+
+  /* ---------- 顶栏：把原来那条平渐变做成有立体感的标题栏 ---------- */
+  header{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,.14) 42%,
+                      rgba(255,255,255,0) 43%, rgba(0,0,0,.06) 100%),
+      linear-gradient(180deg, #5da2e8 0%, #2f74bb 48%, #1b5a9f 52%, #124070 100%);
+    /* ⚠️ 这里**不能**加 border-bottom：原来没有，加了顶栏就高 1px，
+          下面所有元素的 y 全部跟着挪。底沿的分隔改用 inset 阴影。 */
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.55),      /* 顶沿高光 */
+      inset 0 -1px 0 rgba(0,0,0,.45),           /* 底沿暗线（替代 border，不占位） */
+      inset 0 -2px 0 rgba(255,255,255,.10),
+      0 2px 6px rgba(0,0,0,.28);                /* 浮起来 */
+  }
+  /* 顶栏按钮：半透明玻璃，浮在蓝底上 */
+  button.ghost{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,.10) 50%,
+                      rgba(255,255,255,.02) 51%, rgba(0,0,0,.04) 100%);
+    border-color:rgba(255,255,255,.45);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.55), 0 1px 1px rgba(0,0,0,.22);
+    text-shadow:0 1px 1px rgba(0,0,0,.35);
+  }
+  button.ghost:hover{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.52) 0%, rgba(255,255,255,.22) 50%,
+                      rgba(255,255,255,.10) 51%, rgba(0,0,0,.02) 100%);
+  }
+  button.ghost:active{
+    background:linear-gradient(180deg, rgba(0,0,0,.16), rgba(0,0,0,.04));
+    box-shadow:inset 0 2px 4px rgba(0,0,0,.35);
+  }
+
+  /* ---------- 按钮：凸起塑料 ---------- */
+  button{
+    background:
+      linear-gradient(180deg, #ffffff 0%, #f7fafd 44%, #e9eef5 46%, #dbe3ec 100%);
+    border-color:#a9b8c9;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.95),     /* 顶部受光 */
+      inset 0 -1px 0 rgba(0,0,0,.06),
+      0 1px 2px rgba(31,45,61,.20);
+    text-shadow:0 1px 0 rgba(255,255,255,.75);
+  }
+  button:hover{
+    background:
+      linear-gradient(180deg, #ffffff 0%, #f2f8ff 44%, #e2edfa 46%, #d0e2f5 100%);
+    border-color:#7fa8d0;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,1),
+      0 1px 2px rgba(31,45,61,.24),
+      0 0 0 1px rgba(127,168,208,.35);
+  }
+  /* 按下去：整个翻过来变成「凹」的，并且往下挪 1px */
+  button:active{
+    background:linear-gradient(180deg, #cfdae6 0%, #dde5ee 100%);
+    box-shadow:inset 0 2px 5px rgba(25,40,58,.38), inset 0 -1px 0 rgba(255,255,255,.4);
+    transform:translateY(1px);
+  }
+  button:focus-visible{outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.95), 0 0 0 3px rgba(78,150,220,.45)}
+  button:disabled{
+    background:linear-gradient(180deg, #f4f6f9, #e8ecf1);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+    text-shadow:none;
+  }
+
+  /* ---------- 主按钮（发布）：玻璃糖 ---------- */
+  button.primary{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,.16) 46%,
+                      rgba(255,255,255,.02) 47%, rgba(255,255,255,0) 62%,
+                      rgba(0,0,0,.06) 100%),
+      linear-gradient(180deg, #ffd077 0%, #ffb03c 48%, #f29a00 52%, #d17f00 100%);
+    border-color:#a86400;
+    color:#4a2b00;
+    text-shadow:0 1px 0 rgba(255,255,255,.55);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.95),
+      inset 0 -1px 0 rgba(0,0,0,.16),
+      0 1px 2px rgba(31,45,61,.30),
+      0 0 0 1px rgba(255,255,255,.30) inset;
+  }
+  button.primary:hover{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.72) 0%, rgba(255,255,255,.24) 46%,
+                      rgba(255,255,255,.05) 47%, rgba(255,255,255,0) 62%,
+                      rgba(0,0,0,.04) 100%),
+      linear-gradient(180deg, #ffdb92 0%, #ffbb55 48%, #ffa614 52%, #e08a00 100%);
+    border-color:#8f5600;
+  }
+  button.primary:active{
+    background:linear-gradient(180deg, #e8a331, #f6b947);
+    box-shadow:inset 0 2px 5px rgba(120,70,0,.45);
+  }
+
+  /* ---------- 危险按钮：红玻璃 ---------- */
+  button.danger{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.72) 0%, rgba(255,255,255,.22) 48%,
+                      rgba(255,255,255,.03) 49%, rgba(0,0,0,.03) 100%),
+      linear-gradient(180deg, #ffffff 0%, #fdf3f2 46%, #f7e3e1 100%);
+    border-color:#d3a09a;
+    color:#a8342a;
+    text-shadow:0 1px 0 rgba(255,255,255,.8);
+  }
+  button.danger:hover{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.8) 0%, rgba(255,255,255,.3) 48%,
+                      rgba(255,255,255,.06) 49%, rgba(0,0,0,.02) 100%),
+      linear-gradient(180deg, #fff5f4 0%, #fbdedb 100%);
+    border-color:#c07f77;
+  }
+
+  /* ---------- 工具栏里的切换按钮（按下 = 凹陷 + 蓝底） ---------- */
+  #toolbar button.fmt.on{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,.10) 50%,
+                      rgba(0,0,0,.04) 51%, rgba(0,0,0,.10) 100%),
+      linear-gradient(180deg, #c3dcf6 0%, #a9c9ec 100%);
+    border-color:#6b96c4;
+    color:#0f3f74;
+    box-shadow:inset 0 2px 4px rgba(20,50,90,.30), inset 0 -1px 0 rgba(255,255,255,.5);
+  }
+
+  /* ---------- 输入类控件：凹进去 ---------- */
+  input[type=text], input[type=search], input[type=number],
+  textarea, select,
+  .field input[type=text], .field textarea,
+  #mBody select, #imgWidthSel, .pk-in, .dc-text, .dc-sel, table.grid input{
+    background:linear-gradient(180deg, #f2f5f9 0%, #ffffff 14%, #ffffff 100%);
+    border-color:#9fb2c6;
+    box-shadow:inset 0 1px 2px rgba(28,44,62,.20), inset 0 1px 0 rgba(0,0,0,.04);
+  }
+  input[type=text]:focus, input[type=search]:focus, input[type=number]:focus,
+  textarea:focus, select:focus,
+  .pk-in:focus, .dc-text:focus, table.grid input:focus{
+    border-color:#3f83c7;
+    box-shadow:inset 0 1px 3px rgba(28,44,62,.22), 0 0 0 3px rgba(90,160,225,.35);
+  }
+  /* 表格里那些「平时像纯文本、聚焦才变输入框」的格子 */
+  table.grid input{border-color:transparent;box-shadow:none;background:transparent}
+  table.grid input:hover{border-color:#b9c9da;background:#fff}
+  table.grid input:focus{box-shadow:inset 0 1px 2px rgba(28,44,62,.2), 0 0 0 3px rgba(90,160,225,.35)}
+
+  /* 复选框：手绘一个（原来那个方框太平） */
+  .field input[type=checkbox], input[type=checkbox]{
+    appearance:none;-webkit-appearance:none;
+    border:1px solid #8fa4b9;border-radius:2px;
+    background:linear-gradient(180deg, #eef2f7, #ffffff 60%);
+    box-shadow:inset 0 1px 2px rgba(28,44,62,.25);
+    position:relative;
+  }
+  input[type=checkbox]:hover{border-color:#5f88b0}
+  input[type=checkbox]:checked{
+    background:linear-gradient(180deg, #7fb2e2 0%, #3d7fc0 50%, #2a6cae 100%);
+    border-color:#255b93;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.3), inset 0 -1px 0 rgba(255,255,255,.3);
+  }
+  input[type=checkbox]:checked::after{
+    content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
+    border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg);
+    filter:drop-shadow(0 1px 0 rgba(0,0,0,.35));
+  }
+
+  /* ---------- 下拉框 ----------
+     ⚠️ **不要动 `appearance`**。第一版我把 select 改成 appearance:none 再自己画箭头，
+        结果宽度从 144px 变成 124px（原生的下拉箭头占位是浏览器算的），
+        工具栏整条跟着位移。所以这里保留原生外观，只改底色与边框，
+        立体感交给 box-shadow —— 跟按钮同一套配方。 */
+  select{
+    background-color:#ffffff;
+    background-image:linear-gradient(180deg, #f2f5f9 0%, #ffffff 18%, #ffffff 100%);
+    border-color:#9fb2c6;
+    box-shadow:inset 0 1px 2px rgba(28,44,62,.18), 0 1px 1px rgba(31,45,61,.08);
+    text-shadow:0 1px 0 #fff;
+  }
+  select:hover{border-color:#5f88b0}
+  select:focus{
+    border-color:#3f83c7;
+    box-shadow:inset 0 1px 3px rgba(28,44,62,.2), 0 0 0 3px rgba(90,160,225,.35);
+  }
+
+  /* ---------- 侧栏树 ---------- */
+  #side{background:linear-gradient(180deg, #ffffff 0%, #f7fafd 100%)}
+  /* ⚠️ 不给 .row 加 margin/padding —— 原来没有，加了会改宽度、推挤内容 */
+  .row{border-radius:3px}
+  .row:hover{
+    background:linear-gradient(180deg, #f2f8ff 0%, #e6f1fd 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.9), inset 0 0 0 1px rgba(190,215,240,.55);
+  }
+  /* 选中：像 XP 那样一条带渐变的高亮条。
+     原来是 background:#dcebfa + font-weight:bold —— 保持同样的盒模型，
+     描边用 inset box-shadow 画（不占位，不会让行变高）。 */
+  .row.active{
+    background:linear-gradient(180deg, #d6e9fb 0%, #bcd9f6 50%, #a8cdf2 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.85),
+               inset 0 -1px 0 rgba(60,110,170,.28),
+               inset 0 0 0 1px #8db6dd;
+  }
+  .grp{text-shadow:0 1px 0 #fff}
+
+  /* ---------- 工具栏 / 预览条：金属压条 ---------- */
+  #toolbar, #previewBar{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(255,255,255,.3) 55%,
+                      rgba(0,0,0,.02) 56%, rgba(0,0,0,.06) 100%),
+      linear-gradient(180deg, #f7fafd 0%, #e6edf5 100%);
+    box-shadow:inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.10);
+  }
+  #previewBar{background:
+    linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.2) 55%,
+                    rgba(0,0,0,.02) 56%, rgba(0,0,0,.05) 100%),
+    linear-gradient(180deg, #eef4fa 0%, #dfe8f2 100%)}
+
+  /* ---------- 分栏竖线：做出一道浅沟 ---------- */
+  #side{border-right-color:#b6c6d6;box-shadow:inset -1px 0 0 rgba(255,255,255,.85)}
+  #previewPane{border-left-color:#b6c6d6;box-shadow:inset 1px 0 0 rgba(255,255,255,.85)}
+
+  /* ---------- 编辑区：像一张凹进去的稿纸 ---------- */
+  #editor{
+    background:linear-gradient(180deg, #f6f9fd 0%, #fdfeff 90px, #ffffff 100%);
+    box-shadow:inset 0 2px 5px rgba(30,48,68,.10), inset 1px 0 0 rgba(0,0,0,.04);
+  }
+  #panel{
+    background:
+      radial-gradient(120% 60px at 50% 0, rgba(255,255,255,.9), rgba(255,255,255,0) 100%),
+      linear-gradient(180deg, #f7fafd 0%, #ffffff 120px);
+  }
+
+  /* ---------- 卡片 / 提示条 / 记录框：浮起的小板子 ---------- */
+  .card, .note, .pk-log, .dc-legend{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.35) 40%,
+                      rgba(0,0,0,.01) 41%, rgba(0,0,0,.03) 100%),
+      linear-gradient(180deg, #fbfdff 0%, #f2f7fc 100%);
+    border-color:#c2d3e4;
+    box-shadow:inset 0 1px 0 #fff, 0 1px 2px rgba(31,45,61,.10);
+  }
+  .note{border-style:dashed}
+
+  /* ---------- 弹窗：一扇有标题栏的窗口 ---------- */
+  .mbox{
+    border:1px solid #7d93a9;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.6) inset,
+      inset 0 1px 0 rgba(255,255,255,.9),
+      0 18px 50px rgba(0,0,0,.42),
+      0 2px 6px rgba(0,0,0,.25);
+  }
+  .mbox h3{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,.12) 46%,
+                      rgba(255,255,255,0) 47%, rgba(0,0,0,.08) 100%),
+      linear-gradient(180deg, #5da2e8 0%, #2f74bb 48%, #1b5a9f 52%, #124070 100%);
+    color:#fff;
+    text-shadow:0 1px 1px rgba(0,0,0,.45);
+    border-bottom-color:#0c3560;
+  }
+  .mfoot, .mbox h3{box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+  .mfoot{background:linear-gradient(180deg, #f4f8fc, #e4ecf4)}
+
+  /* ---------- 表格表头：一条压出来的金属条 ---------- */
+  table.grid th{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(255,255,255,.35) 55%,
+                      rgba(0,0,0,.02) 56%, rgba(0,0,0,.06) 100%),
+      linear-gradient(180deg, #f2f7fd 0%, #dfeaf6 100%);
+    box-shadow:inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.08);
+    text-shadow:0 1px 0 #fff;
+  }
+
+  /* ---------- 表情小图 / 缩略图格：小相框 ---------- */
+  .dc-face, .galpick-cell img{
+    box-shadow:inset 0 1px 2px rgba(30,48,68,.18), 0 1px 0 #fff;
+  }
+  .galpick-cell{
+    background:linear-gradient(180deg, #ffffff, #f4f8fc);
+    box-shadow:inset 0 1px 0 #fff, 0 1px 2px rgba(31,45,61,.12);
+  }
+  .galpick-cell.on{
+    box-shadow:inset 0 1px 0 #fff, 0 0 0 2px #cfe4fb, 0 1px 3px rgba(31,45,61,.2);
+  }
+  #sideOrder li{
+    background:linear-gradient(180deg, #ffffff, #f4f8fc);
+    box-shadow:inset 0 1px 0 #fff, 0 1px 2px rgba(31,45,61,.12);
+  }
+
+  /* ---------- 提示条 / 状态标签 ---------- */
+  .dirty{
+    background:linear-gradient(180deg, #fff8de, #ffeeb8);
+    box-shadow:inset 0 1px 0 #fff, 0 1px 1px rgba(0,0,0,.10);
+    text-shadow:0 1px 0 rgba(255,255,255,.7);
+  }
+  #staleBar{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.2) 55%,
+                      rgba(0,0,0,.02) 56%, rgba(0,0,0,.05) 100%),
+      linear-gradient(180deg, #fff6da 0%, #ffe9ab 100%);
+    box-shadow:inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.10);
+  }
+  #credits{background:linear-gradient(180deg, #fafcff, #eef4fa);box-shadow:inset 0 1px 0 #fff}
+
+  /* ---------- 滚动条：当年的三键式样（凹槽 + 有光泽的滑块） ----------
+     ⚠️ **不要设 width / height**。第一版我写了 `width:14px`，而 Chrome 默认
+        滚动条是 15px —— 于是 #tree 的内容区宽了 1px，侧栏里每一行都从
+        234 变成 235。滚动条尺寸会**影响布局**（它占的就是内容宽度），
+        所以这里只改颜色，尺寸交给浏览器默认值。 */
+  *::-webkit-scrollbar-track{
+    background:linear-gradient(90deg, #e4eaf1 0%, #f2f6fa 60%, #e8eef5 100%);
+    box-shadow:inset 1px 0 2px rgba(30,48,68,.12);
+  }
+  *::-webkit-scrollbar-thumb{
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.15) 45%,
+                      rgba(0,0,0,.03) 46%, rgba(0,0,0,.10) 100%),
+      linear-gradient(90deg, #cfd9e4 0%, #b3c1d1 100%);
+    border:1px solid #93a4b7;border-radius:3px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+  }
+  *::-webkit-scrollbar-thumb:hover{
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.2) 45%,
+                      rgba(0,0,0,.02) 46%, rgba(0,0,0,.08) 100%),
+      linear-gradient(90deg, #c2d6ec 0%, #9fbcdc 100%);
+  }
+  *::-webkit-scrollbar-thumb:active{
+    background:linear-gradient(90deg, #9db7d1 0%, #b9cde3 100%);
+    box-shadow:inset 0 1px 3px rgba(20,40,70,.4);
+  }
+  *::-webkit-scrollbar-corner{background:#e8eef5}
+  /* 只在不需要横滑的地方藏掉横条（原来就没有，保持原样） */
+
 </style>
 </head>
 <body>
