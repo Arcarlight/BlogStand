@@ -13,7 +13,8 @@ board-api/
   functions/api/notes.js         GET 列表 / POST 贴一张 / DELETE 自删
   functions/api/_shared.js       共用：CORS、北京时间、sha256、限流、字段映射
   functions/api/admin/reply.js   站长回复
-  functions/api/admin/hide.js    隐藏 / 恢复
+  functions/api/admin/hide.js    隐藏 / 恢复（软删：只改 status，行留着，随时能恢复）
+  functions/api/admin/delete.js  **真删**（DELETE FROM notes，删掉就没了）
   functions/api/admin/list.js    站长看全部（含隐藏）
   public/                        pages dev 的静态根，空的（这个项目没有前端页面）
   dev.sh                         本地起服务（建表 + wrangler pages dev）
@@ -202,6 +203,11 @@ boardApi = "https://board-api.pages.dev"
 - `POST /api/admin/reply` —— `{"id":1,"body":"……"}`，body ≤ 500 字，写
   `reply_body`/`reply_at`，返回更新后的 note（落款固定 `虹星`）
 - `POST /api/admin/hide` —— `{"id":1,"hidden":true|false}`，改 `status`
+  （**软删**：行留着，回复也在，随时能恢复）
+- `POST /api/admin/delete` —— `{"id":1}`，**真删** `DELETE FROM notes WHERE id = ?`。
+  和 hide 的区别：删掉就没了，回复一起消失，不可恢复。
+  站长在编辑器里点「删除」时前端会走一次二次确认（第一次点只把按钮变成
+  「确认删除？」），就是怕手滑。
 - `GET /api/admin/list?status=all|visible|hidden&limit=200` —— 含隐藏项，
   `limit` 默认 200、上限 500，每项比公开版多一个 `status` 字段
 
