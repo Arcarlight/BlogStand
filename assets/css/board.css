@@ -439,6 +439,16 @@
   padding: 14px 12px 9px;
   background-color: var(--bd-paper, var(--bd-p-white));
   background-image: url(../images/board/paper.png);
+  /* ⚠️ 这一行是**必需**的，否则背景色等于白设。
+     paper.png 是一张 48x48、**alpha 全 255（完全不透明）**的纸纹贴图，
+     82% 的像素正好是 rgb(242,233,212) —— 和默认纸色一模一样。
+     它是普通背景图时会整个盖住 background-color，于是：
+       · 便签纸的 color 只生效了背景色、肉眼看不出（所有便签长得一样白）
+       · **写便签弹窗的框**更是完全不变色（站长：「选择颜色还是不会显示在
+         编辑便签页面」—— 实测 background-color 确实在变，只是被盖住了）
+     用 multiply：纸纹当成"明暗遮罩"叠在底色上 —— 底色保留，纹理也留着。
+     深色底会自动变暗（乘法本来就这样），可接受。 */
+  background-blend-mode: multiply;
   clip-path: var(--bd-tear, none);
   /* 纸边压暗一点，让撕口的毛边显得有厚度 */
   box-shadow: inset 0 0 0 1px rgba(120, 95, 50, .16);
@@ -721,6 +731,9 @@
 .bd-modal-paper {
   background-color: var(--bd-paper, var(--bd-p-white));
   background-image: url(../images/board/paper.png);
+  /* 同 .bd-paper：贴图不透明，不加 multiply 的话 background-color 被整个盖住，
+     弹窗框永远看着是米白 —— 站长报的「选颜色不显示在编辑便签页面」就是这个。 */
+  background-blend-mode: multiply;
   /* 大张纸的撕口平缓一些；抖动用百分比，跟着纸的大小走 */
   clip-path: polygon(0.4% 1.1%, 12% 0.2%, 26% 1.4%, 41% 0.3%, 55% 1.3%, 70% 0.2%,
                      84% 1.2%, 96% 0.4%, 99.7% 1.5%, 99.2% 14%, 99.8% 30%, 99.1% 47%,
@@ -763,6 +776,8 @@
   padding: 15px 13px 11px;
   background-color: #fffdf4;
   background-image: url(../images/board/paper.png);
+  /* 同 .bd-paper / .bd-modal-paper：贴图不透明，不加 multiply 会盖住底色 */
+  background-blend-mode: multiply;
   border: 2px solid #d9cba4;
   box-shadow: 3px 3px 0 rgba(58, 34, 8, .22);
 }
