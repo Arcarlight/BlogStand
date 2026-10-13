@@ -219,7 +219,27 @@
     return /\/api\/notes$/.test(base) ? base : base + '/api/notes';
   }
 
+  /* ⚠️ 回调**必须只调一次**。
+     原来 getJSON / postJSON 里是裸的 cb：
+         xhr.onerror = function () { cb(new Error('network')); };
+         try { xhr.send(); } catch (e) { cb(e); }
+     请求被拦下来 / 网络抖动时（后端不通本来就是常态），**两条路都会走到** ——
+     onerror 调一次，send() 同步抛错又调一次。于是 loadNotes 里
+     `if (err) { fromStatic(); }` 会跑两遍：notes.json 拉两次，
+     第二次 `cork.removeChild(loading)` 时那个 loading 已经不在树里，
+     抛 NotFoundError（实测：只断后端时 1 次、后端+静态都断时 3 次）。
+     包一层 once，从根上保证只有第一次有效。 */
+  function once(cb) {
+    var used = false;
+    return function () {
+      if (used) { return; }
+      used = true;
+      cb.apply(null, arguments);
+    };
+  }
+
   function getJSON(url, cb) {
+    cb = once(cb);
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.onreadystatechange = function () {
@@ -237,6 +257,7 @@
 
   /* 写接口（贴便签 / 撤下来）。后端约定返回 {"ok":true,...} 或 {"ok":false,"error":"…"} */
   function postJSON(url, method, payload, cb) {
+    cb = once(cb);
     var xhr = new XMLHttpRequest();
     xhr.open(method || 'POST', url, true);
     xhr.setRequestHeader('content-type', 'application/json');
@@ -661,7 +682,10 @@
     }
 
     loadNotes(host, function (err, data, offline) {
-      cork.removeChild(loading);
+      /* "正在看板子上有什么…" 那行提示：只在还在 DOM 里时才摘。
+         getJSON 那边已经用 once 保证了回调只来一次，这里是第二道保险 ——
+         万一以后又有人在别处把回调调两遍，也不会再抛 NotFoundError。 */
+      if (loading.parentNode === cork) { cork.removeChild(loading); }
       notes = data;
       render();
       if (tip) {
