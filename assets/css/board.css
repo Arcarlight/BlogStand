@@ -8,6 +8,10 @@
      · 便签是**手撕的做旧纸**，以米白为主，偶尔一张淡彩
 
    几条不能破的规矩：
+     0. **布告栏自己的字体必须带 `!important`** —— 见文件末尾那条
+        `html.pxfont .bd, html.pxfont .bd *` 规则。原因见那里的注释：
+        站点有一条 `html.pxfont body * { font-family: … !important }`，
+        不带 !important 的 font-family 一律被它压掉。
      1. 便签正文是**别人写的字**，JS 那边一律 textContent，这里只负责长相。
      2. 所有像素图按 1:1 显示（不缩放），再配 image-rendering:pixelated，
         免得被浏览器插值糊成一团。要改大小就重新生成素材，别用 background-size 拉。
@@ -42,25 +46,38 @@
 /* ---------- 1. 底子：金框 + 拱饰 + 藤 ---------- */
 
 .bd {
-  /* 便签纸：以米白为主，偶尔一张淡彩（哪张是彩的由 JS 按 id 定） */
-  /* 便签纸色：跟着参考图取样出来的暖米色走（原来是偏冷的白） */
+  /* 便签纸色：以米白为主，偶尔一张淡彩（哪张是彩的由 JS 按 id 定） */
+  /* ⚠️ 彩色那几张**必须足够显眼**。
+     原来这五个颜色淡到和默认米白几乎分不开（相对白 ΔE 只有 6.7~15.3），
+     站长和访客都反馈「选了颜色不启用」—— 实测颜色**是**生效的
+     （后端存了 color、CSS 也正确落色），问题是淡到看不出，人以为没生效。
+     现在调到 ΔE 22~35，一眼能认出；同时让色卡直接等于纸色（见下面 --bd-swatch），
+     做到「点什么色、贴出来就是什么色」。
+     _l 是纸的暗边（撕口 / 折痕那圈），按纸色压暗约 0.82。 */
   --bd-p-white:  #f2e9d4; --bd-p-white-l:  #d9cdb2;
-  --bd-p-cream:  #e9dcbe; --bd-p-cream-l:  #cdc09c;
-  --bd-p-yellow: #f0e2b0; --bd-p-yellow-l: #d6c68a;
-  --bd-p-pink:   #f0dcd8; --bd-p-pink-l:   #d8b4b0;
-  --bd-p-green:  #e2eacd; --bd-p-green-l:  #b8c79a;
-  --bd-p-blue:   #dde6ea; --bd-p-blue-l:   #adc0c8;
+  --bd-p-cream:  #ecdcb0; --bd-p-cream-l:  #c9b884;
+  --bd-p-yellow: #f5dc86; --bd-p-yellow-l: #cfb355;
+  --bd-p-pink:   #f4ccd4; --bd-p-pink-l:   #cfa3ac;
+  --bd-p-green:  #d3e8ad; --bd-p-green-l:  #a6c07a;
+  --bd-p-blue:   #c2dcf2; --bd-p-blue-l:   #93b4d0;
 
   /* 小字（署名、日期、说明）专用的字体栈：10px 那份的栅格是 10，
-     所以用它的地方字号必须落在 10 的整数倍上 —— 见下面的 --bd-font-small 用法。 */
-  --bd-font-small: 'FusionPixelBoard10', var(--song-stack, SimSun, "宋体", sans-serif);
+     所以用它的地方字号必须落在 10 的整数倍上 —— 见下面的 --bd-font-small 用法。
+     ⚠️ 结尾必须有 !important：站点在 retro.css 里有一条
+        `html.pxfont body * { font-family: … !important }`，
+        优先级压过这里所有不带 !important 的 font-family 声明。
+        不带的话布告栏字体根本不会生效 —— 而且因为「字体没被用到」，
+        浏览器连字体文件都不下载（实测 document.fonts 里
+        FusionPixelBoard12/10 一直是 unloaded），看起来就像「字体没做成功」。 */
+  --bd-font-small: 'FusionPixelBoard10', var(--song-stack, SimSun, "宋体", sans-serif) !important;
 
   /* 一块"屏幕像素"——字号按 12 的整数倍对齐，见 head.html 里的 --px */
   font-size: var(--px, 12px);
   line-height: 1.7;
   color: #3d2c14;
-  /* 融合像素字体（缝合像素字体子集）优先，它没盖住的字回落到站点点阵字体 */
-  font-family: 'FusionPixelBoard12', var(--song-stack, SimSun, "宋体", sans-serif);
+  /* 融合像素字体（缝合像素字体子集）优先，它没盖住的字回落到站点点阵字体。
+     ⚠️ 同样必须带 !important（理由见上面 --bd-font-small 那段）。 */
+  font-family: 'FusionPixelBoard12', var(--song-stack, SimSun, "宋体", sans-serif) !important;
 }
 
 /* ---------- 场景：木柱 + 顶梁（门框）、草皮 + 灌木 + 石头 ----------
@@ -490,15 +507,17 @@
 }
 
 /* 纸色。米白/奶白是多数，彩色是少数（哪张是彩的由 JS 按 id 决定）。
-   另外给每个色系一个**更明显的 --bd-swatch**：便签纸本身是淡的，
-   但选择框只有 26px，用纸色根本看不出六个有什么区别（站长说"框是空的"）。 */
+   色卡（--bd-swatch）**直接等于纸色**，所见即所得。
+   （2026-10-13 改：原来纸色淡、色卡另配一套鲜艳色，两者 ΔE 差 10~16 ——
+     人选了一个鲜艳的色，贴出来是一张几乎白的纸，就会以为「颜色没生效」。
+     现在统一成一套，选什么色贴出来就是什么色。） */
 
-.bd-c-white  { --bd-paper: var(--bd-p-white);  --bd-paper-l: var(--bd-p-white-l); }
-.bd-c-cream  { --bd-paper: var(--bd-p-cream);  --bd-paper-l: var(--bd-p-cream-l); }
-.bd-c-yellow { --bd-paper: var(--bd-p-yellow); --bd-paper-l: var(--bd-p-yellow-l); }
-.bd-c-pink   { --bd-paper: var(--bd-p-pink);   --bd-paper-l: var(--bd-p-pink-l); }
-.bd-c-green  { --bd-paper: var(--bd-p-green);  --bd-paper-l: var(--bd-p-green-l); }
-.bd-c-blue   { --bd-paper: var(--bd-p-blue);   --bd-paper-l: var(--bd-p-blue-l); }
+.bd-c-white  { --bd-paper: var(--bd-p-white);  --bd-paper-l: var(--bd-p-white-l);  --bd-swatch: var(--bd-p-white); }
+.bd-c-cream  { --bd-paper: var(--bd-p-cream);  --bd-paper-l: var(--bd-p-cream-l);  --bd-swatch: var(--bd-p-cream); }
+.bd-c-yellow { --bd-paper: var(--bd-p-yellow); --bd-paper-l: var(--bd-p-yellow-l); --bd-swatch: var(--bd-p-yellow); }
+.bd-c-pink   { --bd-paper: var(--bd-p-pink);   --bd-paper-l: var(--bd-p-pink-l);   --bd-swatch: var(--bd-p-pink); }
+.bd-c-green  { --bd-paper: var(--bd-p-green);  --bd-paper-l: var(--bd-p-green-l);  --bd-swatch: var(--bd-p-green); }
+.bd-c-blue   { --bd-paper: var(--bd-p-blue);   --bd-paper-l: var(--bd-p-blue-l);   --bd-swatch: var(--bd-p-blue); }
 
 /* 还没接上后端时本机自己贴的那张：给个显眼的记号，别让人误会别人也看得见 */
 .bd-note.local-only .bd-paper { box-shadow: inset 0 0 0 2px #c94800; }
@@ -756,13 +775,10 @@
   cursor: pointer;
 }
 
-/* 每个色系的"看得见的那个色"（选择框专用） */
-.bd-c-white  { --bd-swatch: #fbf7ee; }
-.bd-c-cream  { --bd-swatch: #eddfae; }
-.bd-c-yellow { --bd-swatch: #f3de8e; }
-.bd-c-pink   { --bd-swatch: #f3c6cd; }
-.bd-c-green  { --bd-swatch: #cfe4b4; }
-.bd-c-blue   { --bd-swatch: #c3dbef; }
+/* 每个色系的"看得见的那个色"（选择框专用）
+   —— 原来这里另配了一套鲜艳色，和纸色差 ΔE 10~16，造成「选了鲜艳色、
+   贴出来却是淡纸」的错觉。现在 --bd-swatch 已经在上面（.bd-c-* 那段）
+   直接等于纸色，这里不再重复定义 —— 重复定义会盖掉上面那份。 */
 
 .bd-swatches button.on { border-color: #6b3a10; box-shadow: 2px 2px 0 rgba(58, 34, 8, .45), inset 0 0 0 2px #fff; }
 
@@ -1040,4 +1056,47 @@
 @media (prefers-reduced-motion: reduce) {
   .bd-keeper-say:not([hidden]),
   .bd-keeper-say:not([hidden]) .bd-keeper-text { animation: none; }
+}
+
+/* ============================================================
+   布告栏字体的优先级修正（**必须留在最后**）
+   ------------------------------------------------------------
+   问题：站长反馈「像素点阵字体似乎没有使用成功，还是站点的像素宋体 12px」。
+   实测确实如此 —— 所有布告栏元素的 computed font-family 都是站点那条栈，
+   而且 `document.fonts` 里 FusionPixelBoard12 / FusionPixelBoard10
+   一直是 **unloaded**、网络里连字体文件都不下载。
+
+   原因：retro.css 里有一条通配规则
+       html.pxfont body,
+       html.pxfont body * { font-family: … !important; }
+   它的 !important 压过本文件里所有**不带** !important 的 font-family 声明
+   （.bd 的那条、以及所有用 var(--bd-font-small) 的地方），
+   连 .bd-keeper-text 自己写死的 'FusionPixelBoard12' 也一起被压掉。
+
+   这里用同一条通配思路反过来覆盖：把作用域限定在 .bd 里面，
+   只改 font-family，带上 !important 就能赢（选择器权重相同、!important 相同，
+   后出现的胜）。
+   ⚠️ 这条**必须放在文件最后**：如果以后有人往下追加别的规则，
+      记得保持它在最后，否则会被后面的同权重规则盖掉。
+   ⚠️ 只动 font-family，不碰 font-size —— 字号仍由各处按 12 / 10 的
+      整数倍自己定（站点那条通配规则同时也管着 font-size，两边一致，不冲突）。 */
+html.pxfont .bd,
+html.pxfont .bd * {
+  font-family: 'FusionPixelBoard12', var(--bd-font-small, SimSun, "宋体", sans-serif) !important;
+}
+/* 小字那一档换回 10px 的字集（--bd-font-small 已在 .bd 上定义，
+   这里显式再点一次名，免得依赖变量在 !important 层里的解析顺序）。 */
+html.pxfont .bd .bd-note-foot,
+html.pxfont .bd .bd-note-badge,
+html.pxfont .bd .bd-write-text span,
+html.pxfont .bd .bd-tip,
+html.pxfont .bd .bd-modal-foot,
+html.pxfont .bd .bd-reply-head,
+html.pxfont .bd .bd-field > span,
+html.pxfont .bd .bd-count,
+html.pxfont .bd .bd-form-hint,
+html.pxfont .bd .bd-enter,
+html.pxfont .bd .bd-keeper-name,
+html.pxfont .bd .bd-credit {
+  font-family: 'FusionPixelBoard10', SimSun, "宋体", sans-serif !important;
 }
