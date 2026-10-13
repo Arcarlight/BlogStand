@@ -536,6 +536,87 @@
   text-shadow: 0 1px 0 rgba(255, 235, 190, .5);
 }
 
+/* ---------- 加载中：拉鲁瓦在板子上空飞，配一行「正在联系拉鲁瓦…」 ----------
+   站长反馈「布告栏点开来会看起来没啥反应一段时间」—— 后端在 Cloudflare，
+   跨洋那一趟有时要等一两秒，之前只有一行不动的字，像是卡住了。
+   现在飞一只拉鲁瓦，让人知道是在等后端，不是坏了。
+
+   精灵表是站上那套 PMD 的 pkmn/sprite/329.png：360x240、每格 40x40、每行 9 格；
+   第 2 行（y=-40px）是 Walk左，翅膀在扑 —— 拿它当「飞」正好。
+   动画用 steps(8)：8 格逐格跳，不插值（插值会让像素糊）。 */
+.bd-loading {
+  /* 让提示整块可点不到，免得它挡着下面的空白便签 */
+  pointer-events: none;
+}
+.bd-loading-fly {
+  position: relative;
+  width: 100%;
+  height: 46px;
+  margin-bottom: 6px;
+}
+.bd-loading-sprite {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 46px;
+  height: 46px;
+  margin-left: -23px;
+  background-repeat: no-repeat;
+  background-position: 0 -46px;          /* 第 2 行 = Walk左；46 = 把 40px 的格子放到 46px 的框里 */
+  background-size: 414px 276px;          /* 9 格 x 46、6 行 x 46 */
+  image-rendering: pixelated;
+  animation:
+    bd-larva-fly    2.6s ease-in-out infinite,
+    bd-larva-wing   .72s steps(8) infinite;
+}
+/* 左右来回飞 + 轻轻起伏 + 一点点倾角，别像被挂在半空 */
+@keyframes bd-larva-fly {
+  0%   { transform: translate(-62px, 8px)  rotate(-6deg); }
+  25%  { transform: translate(-22px, -3px) rotate(-2deg); }
+  50%  { transform: translate(16px, -1px)  rotate(2deg); }
+  75%  { transform: translate(44px, 6px)   rotate(5deg); }
+  100% { transform: translate(-62px, 8px)  rotate(-6deg); }
+}
+/* 逐格换帧：只动 background-position-x，一格格跳 */
+@keyframes bd-larva-wing {
+  from { background-position-x: 0; }
+  to   { background-position-x: -368px; }   /* 8 格 x 46 */
+}
+.bd-loading-msg {
+  margin: 0;
+  font-size: calc(var(--px, 12px) * 10 / 12);
+  color: #5c3a12;
+  text-shadow: 0 1px 0 rgba(255, 235, 190, .5);
+}
+/* 尾随的省略号一跳一跳，进一步提示「在等」 */
+.bd-loading-msg::after {
+  content: '';
+  animation: bd-loading-dots 1.2s steps(4, end) infinite;
+}
+@keyframes bd-loading-dots {
+  0%   { content: ''; }
+  25%  { content: '·'; }
+  50%  { content: '··'; }
+  75%  { content: '···'; }
+}
+/* 首页那块（bd-mini）只有 500px 宽，不飞精灵，只留一行字 */
+.bd-loading-simple .bd-loading-msg {
+  font-size: calc(var(--px, 12px) * 9 / 12);
+}
+/* 摘掉时淡出 + 往上飘一点，别硬切 */
+.bd-loading {
+  transition: opacity .3s ease, transform .3s ease;
+}
+.bd-loading-out {
+  opacity: 0;
+  transform: translateY(-50%) translateY(-10px);
+}
+/* 系统开了「减少动效」就别飞了，只留字（后端一样在等） */
+@media (prefers-reduced-motion: reduce) {
+  .bd-loading-sprite { animation: none; }
+  .bd-loading-msg::after { animation: none; content: '…'; }
+}
+
 /* ---------- 3. 写字的地方：一叠空白便签 ---------- */
 
 /* 三张错开叠着，点一下就开始写。倾斜角写死在 --bd-rot 上；

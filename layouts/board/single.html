@@ -19,7 +19,10 @@
     {{/* 板上是一个"场景"：两根黄绿木柱 + 顶梁（门框），板子挂在里面，
          上沿一道拱形线脚，底下草皮、灌木、石头。素材都由
          tools/build-board-art.py 生成，位置全在 assets/css/board.css 里。 */}}
-    <div class="bd" data-bd-src="{{ $src }}" data-bd-img="{{ $imgBase }}" data-bd-list="all"{{ with site.Params.boardApi }} data-bd-live="{{ . }}"{{ end }}>
+    {{/* data-bd-sheet：加载提示里那只「飞去联系拉鲁瓦」用的精灵表。
+         和 board-keeper.html 用的是同一张（pkmn/sprite/329.png），
+         所以加载中飞的、和待会儿停在右下角的，是同一只拉鲁瓦，不是两只。 */}}
+    <div class="bd" data-bd-src="{{ $src }}" data-bd-img="{{ $imgBase }}" data-bd-sheet="{{ "pkmn/sprite/329.png" | absURL }}" data-bd-list="all"{{ with site.Params.boardApi }} data-bd-live="{{ . }}"{{ end }}>
       <div class="bd-scene">
         <i class="bd-beam" aria-hidden="true"></i>
         <i class="bd-ground" aria-hidden="true"></i>

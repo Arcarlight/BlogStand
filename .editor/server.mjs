@@ -2814,6 +2814,14 @@ async function handle(req, res, url) {
     return json(res, 200, await boardFetch(c, 'POST', '/api/admin/hide',
       { id: Number(id), hidden: !!hidden }));
   }
+  /* 真删（不是软删）：后端 DELETE FROM notes，不可恢复。前端会先让站长确认。 */
+  if (p === '/api/board/del' && req.method === 'POST') {
+    const c = await readBoardCfg();
+    boardNeed(c);
+    const { id } = await readBody(req);
+    return json(res, 200, await boardFetch(c, 'POST', '/api/admin/delete',
+      { id: Number(id) }));
+  }
 
   /* ---------- 文集：分册 + 文章归属 + 标签 ---------- */
   if (p === '/api/collection' && req.method === 'GET') {

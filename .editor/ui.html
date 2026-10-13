@@ -2014,7 +2014,11 @@ async function renderBoard() {
            '" placeholder="回复这张便签（留空点回复 = 不改动已有的）" style="width:100%;box-sizing:border-box"></textarea>';
       h += '<p style="margin:6px 0 0"><button data-do="reply" data-id="' + esc(String(n.id)) + '">回复</button> ' +
            '<button data-do="' + (hidden ? 'show' : 'hide') + '" data-id="' + esc(String(n.id)) + '"' +
-           (hidden ? '' : ' class="danger"') + '>' + (hidden ? '恢复' : '隐藏') + '</button></p>';
+           (hidden ? '' : ' class="danger"') + '>' + (hidden ? '恢复' : '隐藏') + '</button> ' +
+           /* 真删。和「隐藏」的区别：隐藏是软删、随时能恢复；这个是 DELETE FROM notes，
+              删掉就没了。所以走一次二次确认（第一次点变成「确认删除？」）。 */
+           '<button data-do="del" data-id="' + esc(String(n.id)) + '" class="danger" ' +
+           'title="真删（不是软删）—— 删掉就没了，回复也一起消失">删除</button></p>';
       h += '</div>';
     });
     showPanel(h);
@@ -2032,6 +2036,24 @@ async function renderBoard() {
           b.disabled = true;
           await apiPost('/api/board/reply', { id, body });
           toast('回复好了', 'ok');
+        } else if (b.dataset.do === 'del') {
+          /* 真删，二次确认：第一次点只把按钮变成「确认删除？」，5 秒内不点第二次就撤销。
+             用这个而不是 window.confirm()：headless 里 confirm 会直接返回 false，
+             而且原生框和编辑器自己的观感也不搭。 */
+          if (b.dataset.armed !== '1') {
+            b.dataset.armed = '1';
+            b.dataset.label = b.textContent;
+            b.textContent = '确认删除？';
+            clearTimeout(b._t);
+            b._t = setTimeout(() => {
+              if (b.dataset.armed === '1') { b.dataset.armed = ''; b.textContent = b.dataset.label; }
+            }, 5000);
+            return;
+          }
+          clearTimeout(b._t);
+          b.disabled = true;
+          await apiPost('/api/board/del', { id });
+          toast('已删除 #' + id, 'ok');
         } else {
           b.disabled = true;
           await apiPost('/api/board/hide', { id, hidden: b.dataset.do === 'hide' });

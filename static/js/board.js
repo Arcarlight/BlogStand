@@ -636,8 +636,38 @@
     var modalRoot = document.getElementById('bd-modal');
     if (!list) { return; }
 
-    var loading = el('p', 'bd-loading', '正在看板子上有什么…');
+    /* 加载提示：拉鲁瓦在板子上空飞来飞去 + 「正在联系拉鲁瓦…」。
+       动的是站上那套 PMD 精灵表（pkmn/sprite/329.png，每格 40x40、每行 9 格），
+       用 CSS steps() 逐格播 —— 和拉鲁瓦本体（board-keeper.js 里 canvas 画的）
+       同一张图，所以loading 里飞的和待会儿停在角落的是同一只，不会两只不一样。 */
+    var loading = el('div', 'bd-loading');
+    /* 首页那块（.bd-mini）只有 500px 宽，飞一只 40px 的拉鲁瓦太挤，
+       而且它一进来就固定三张便签、加载很快 —— 那边只留一行字。 */
+    var isMini = /(^|\s)bd-mini(\s|$)/.test(host.className || '');
+    if (isMini) { loading.className = 'bd-loading bd-loading-simple'; }
+    var flybox = el('div', 'bd-loading-fly');
+    var sprite = el('div', 'bd-loading-sprite');
+    flybox.appendChild(sprite);
+    var msg = el('p', 'bd-loading-msg', '正在联系拉鲁瓦…');
+    if (!isMini) { loading.appendChild(flybox); }
+    loading.appendChild(msg);
+    /* 精灵表的真实地址：模板在 .bd 上留了 data-bd-sheet（没有就退回拉鲁瓦那只的默认路径）。
+       用 walkL 那一行（第 2 行）当飞 —— 翅膀在扑。 */
+    var sheetUrl = attr(host, 'data-bd-sheet') || '/pkmn/sprite/329.png';
+    sprite.style.backgroundImage = 'url(' + sheetUrl + ')';
     cork.appendChild(loading);
+
+    /* 摘掉加载提示：淡出再删。
+       做成幂等的 —— loadNotes 万一回调两次也不会抛 NotFoundError。 */
+    var loadingGone = false;
+    function dropLoading() {
+      if (loadingGone || !loading.parentNode) { return; }
+      loadingGone = true;
+      loading.classList.add('bd-loading-out');
+      setTimeout(function () {
+        if (loading.parentNode === cork) { cork.removeChild(loading); }
+      }, 320);
+    }
 
     var modal = modalRoot ? new Modal(modalRoot) : null;
     var notes = [];
@@ -682,10 +712,9 @@
     }
 
     loadNotes(host, function (err, data, offline) {
-      /* "正在看板子上有什么…" 那行提示：只在还在 DOM 里时才摘。
-         getJSON 那边已经用 once 保证了回调只来一次，这里是第二道保险 ——
-         万一以后又有人在别处把回调调两遍，也不会再抛 NotFoundError。 */
-      if (loading.parentNode === cork) { cork.removeChild(loading); }
+      /* "正在联系拉鲁瓦…" 那个加载提示：淡出再摘。
+         做成幂等的 —— 万一以后又有人在别处把回调调两遍，也不会再抛 NotFoundError。 */
+      dropLoading();
       notes = data;
       render();
       if (tip) {
