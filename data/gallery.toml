@@ -354,3 +354,10 @@
   cat = "pkmnflya"
   date = "2026-10-12"
   desc = "眠眠龙"
+
+[[items]]
+  title = "龙宝可梦们"
+  file = "DeDragons.PNG"
+  cat = "pkmnflya"
+  date = "2026-10-15"
+  desc = "创作欲高涨的时候一次性画了五只龙宝可梦。"
