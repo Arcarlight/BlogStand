@@ -368,3 +368,10 @@
   cat = "tobitaiaaken"
   date = "2026-10-19"
   desc = "在tbtak里出现的拉帝兄妹。"
+
+[[items]]
+  title = "抢镜"
+  file = "PhotobombingFamily.PNG"
+  cat = "pkmnflya"
+  date = "2026-10-21"
+  desc = "欢欢喜喜的沙漠蜻蜓一家。"
