@@ -1227,6 +1227,78 @@
     }
   }
 
+  /* ============================================================
+     编辑区语法着色（双图层，2026-10-21）
+     ------------------------------------------------------------
+     站长反馈「编辑区和代码混在一起，难看清」。这里做只读视觉层：
+       · #edHl 在 textarea 下面，用完全一致的字体/行高/内边距/换行画着色文本；
+       · textarea 文字透明、光标仍可见，保存永远取 textarea.value；
+       · 开关存 localStorage，出异常自动退回纯文本。
+     只加样式，不改任何既有规则。
+     ============================================================ */
+  :root{
+    --hl-tag:#1b5a9e;
+    --hl-attr:#8a5a12;
+    --hl-str:#1e7a43;
+    --hl-comment:#8a94a3;
+    --hl-shortcode:#b06a10;
+    --hl-head:#1b5a9e;
+    --hl-strong:#124a86;
+    --hl-link:#2f6f9e;
+    --hl-code:#42566e;
+    --hl-code-bg:rgba(90,115,145,.10);
+    --hl-fm:#7c8899;
+    --hl-fm-bg:rgba(120,145,175,.10);
+  }
+  .ed-wrap{
+    position:relative;flex:1;min-width:0;min-height:0;display:flex;overflow:hidden;
+    background:
+      repeating-linear-gradient(0deg, rgba(70,92,118,.014) 0 1px, rgba(0,0,0,0) 1px 3px),
+      linear-gradient(180deg, #f6f9fd 0%, #fdfeff 90px, #ffffff 100%);
+    box-shadow:
+      inset 0 2px 6px rgba(30,48,68,.12),
+      inset 0 -1px 0 rgba(255,255,255,.85),
+      inset 1px 0 0 rgba(0,0,0,.04);
+  }
+  body.panel .ed-wrap{display:none}
+  .ed-wrap #editor{
+    position:relative;z-index:2;flex:1;width:100%;height:100%;
+    min-width:0;min-height:0;
+    background:transparent !important;
+    box-shadow:none !important;
+    color:transparent;
+    caret-color:#22303f;
+    scrollbar-width:none;
+  }
+  .ed-wrap #editor::-webkit-scrollbar{width:0;height:0}
+  .ed-wrap #editor::placeholder{color:#9aa6b4;opacity:1}
+  .ed-wrap #editor::selection{background:rgba(90,160,225,.35);color:#22303f}
+  .ed-wrap #editor.dragover{background:rgba(238,247,255,.92) !important;box-shadow:inset 0 0 0 3px #7fb8f0 !important}
+  #edHl{
+    position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none;
+    padding:14px 16px;border:0;box-sizing:border-box;
+    font:13.5px/1.75 Consolas,"SF Mono",Menlo,Monaco,"Courier New","Microsoft YaHei","PingFang SC",monospace;
+    tab-size:2;color:#22303f;white-space:normal;
+  }
+  .hl-line{
+    margin:0;padding:0;border:0;white-space:pre-wrap;
+    overflow-wrap:break-word;word-break:normal;
+  }
+  .hl-line.hl-fm{background:var(--hl-fm-bg);color:var(--hl-fm)}
+  .hl-line.hl-h{color:var(--hl-head);font-weight:bold}
+  .hl-tag{color:var(--hl-tag)}
+  .hl-attr{color:var(--hl-attr)}
+  .hl-str{color:var(--hl-str)}
+  .hl-comment{color:var(--hl-comment);font-style:italic}
+  .hl-shortcode{color:var(--hl-shortcode)}
+  .hl-strong{color:var(--hl-strong);font-weight:bold}
+  .hl-link{color:var(--hl-link)}
+  .hl-code{color:var(--hl-code);background:var(--hl-code-bg);border-radius:2px}
+  .ed-wrap.dim-tags .hl-tagwrap{opacity:.35}
+  .ed-wrap.hl-off #edHl{display:none}
+  .ed-wrap.hl-off #editor{color:#22303f;caret-color:#22303f}
+  .ed-wrap.hl-off #editor::selection{color:#22303f}
+
 </style>
 </head>
 <body>
@@ -1289,6 +1361,8 @@
       <button id="btnToggleDraft" hidden><img class="ico" src="/editor-icons/fugue/pin.png" alt=""><span id="btnDraftText">设为草稿</span></button>
       <button id="btnSave" class="primary" disabled title="Ctrl+S"><img class="ico" src="/editor-icons/fugue/disk.png" alt="">保存</button>
       <button id="btnDelete" class="danger" disabled><img class="ico" src="/editor-icons/fugue/cross.png" alt="">删除</button>
+      <button id="btnHlSyntax" class="fmt" title="语法着色（只读视觉层，不改变正文内容）">着色</button>
+      <button id="btnHlDim" class="fmt" title="弱化标签：HTML 标签变淡，正文更突出">弱化标签</button>
       <input type="file" id="filePicker" accept="image/*" multiple hidden>
     </div>
     <div id="panes">
@@ -4747,5 +4821,229 @@ setTimeout(checkRemote, 1200);
   })();
   </script>
 </footer>
+
+<!-- ============================================================
+     编辑区语法着色（双图层；只读视觉，不改变文本与编辑行为）
+     ------------------------------------------------------------
+     · 包一层 .ed-wrap，在 textarea 下面放 #edHl 画着色文本；
+     · 保存永远读 textarea.value，着色层不参与取值；
+     · 60ms 防抖 + rAF；IME 组字期间暂停重绘；
+     · 任何异常 → 自动关闭着色、恢复纯文本，编辑不受影响；
+     · 超过 40 万字符自动关闭并提示一次。
+     ============================================================ -->
+<script>
+(() => {
+  'use strict';
+  const ed = document.getElementById('editor');
+  if (!ed) return;
+
+  const LS_SYNTAX = 'editor.hl.syntax';
+  const LS_DIM = 'editor.hl.dim';
+  const MAX_LEN = 400000;
+  const DEBOUNCE = 60;
+
+  let syntaxOn = true;
+  let dimOn = false;
+  try { syntaxOn = localStorage.getItem(LS_SYNTAX) !== '0'; } catch (e) {}
+  try { dimOn = localStorage.getItem(LS_DIM) === '1'; } catch (e) {}
+
+  let composing = false;
+  let timer = 0;
+  let rafId = 0;
+  let lastValue = ed.value;
+  let lastRenderMs = 0;
+  let longWarned = false;
+  let wrap, hl, btnSyntax, btnDim;
+
+  /* ---- 1. 把 textarea 包起来，并插入着色层（失败就什么都不做，保持纯文本） ---- */
+  try {
+    wrap = document.createElement('div');
+    wrap.className = 'ed-wrap';
+    ed.parentNode.insertBefore(wrap, ed);
+    wrap.appendChild(ed);
+    hl = document.createElement('div');
+    hl.id = 'edHl';
+    hl.setAttribute('aria-hidden', 'true');
+    wrap.insertBefore(hl, ed);
+  } catch (e) {
+    return;
+  }
+
+  btnSyntax = document.getElementById('btnHlSyntax');
+  btnDim = document.getElementById('btnHlDim');
+
+  /* ---- 2. 着色 ---- */
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  function tagHTML(raw) {
+    if (/^<!--/.test(raw)) return '<span class="hl-comment">' + esc(raw) + '</span>';
+    const m = /^<(\/?)([A-Za-z][\w:-]*)([\s\S]*?)(\/?)>$/.exec(raw);
+    if (!m) return esc(raw);
+    let inner = '<span class="hl-tag">&lt;' + esc(m[1]) + esc(m[2]) + '</span>';
+    const attrs = m[3] || '';
+    if (attrs) {
+      const re = /(\s+)([A-Za-z_:][\w:.-]*)(?:(\s*=\s*)("[^"]*"|'[^']*'))?/g;
+      let last = 0, mm;
+      while ((mm = re.exec(attrs))) {
+        inner += esc(attrs.slice(last, mm.index)) + esc(mm[1] || '');
+        inner += '<span class="hl-attr">' + esc(mm[2]) + '</span>';
+        if (mm[3] && mm[4]) inner += esc(mm[3]) + '<span class="hl-str">' + esc(mm[4]) + '</span>';
+        last = re.lastIndex;
+      }
+      inner += esc(attrs.slice(last));
+    }
+    inner += '<span class="hl-tag">' + esc(m[4]) + '&gt;</span>';
+    return '<span class="hl-tagwrap">' + inner + '</span>';
+  }
+
+  function mdInline(text) {
+    const re = /(`[^`\n]*`|\*\*[^*\n]+\*\*|!\[[^\]\n]*\]\([^)\n]*\)|\[[^\]\n]*\]\([^)\n]*\))/g;
+    let out = '', last = 0, m;
+    while ((m = re.exec(text))) {
+      out += esc(text.slice(last, m.index));
+      const tok = m[0];
+      const cls = tok.charAt(0) === '`' ? 'hl-code' : (tok.slice(0, 2) === '**' ? 'hl-strong' : 'hl-link');
+      out += '<span class="' + cls + '">' + esc(tok) + '</span>';
+      last = re.lastIndex;
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  function inlineHTML(raw) {
+    const re = /(<!--[\s\S]*?-->|\{\{[<%][\s\S]*?[>%]\}\}|<[^>]*>)/g;
+    let out = '', last = 0, m;
+    while ((m = re.exec(raw))) {
+      out += mdInline(raw.slice(last, m.index));
+      const tok = m[0];
+      if (tok.slice(0, 4) === '<!--') out += '<span class="hl-comment">' + esc(tok) + '</span>';
+      else if (tok.slice(0, 2) === '{{') out += '<span class="hl-shortcode">' + esc(tok) + '</span>';
+      else out += tagHTML(tok);
+      last = re.lastIndex;
+    }
+    out += mdInline(raw.slice(last));
+    return out;
+  }
+
+  function render() {
+    if (!syntaxOn || composing) return;
+    if (ed.value.length > MAX_LEN) {
+      if (!longWarned) {
+        longWarned = true;
+        setSyntax(false);
+        try { toast('文件太长（超过 40 万字符），已关闭语法着色；编辑与保存不受影响', 'err'); } catch (e) {}
+      }
+      return;
+    }
+    const t0 = performance.now();
+    try {
+      const lines = ed.value.split('\n');
+      let fmEnd = -1;
+      if (lines.length && lines[0].trim() === '---') {
+        for (let i = 1; i < lines.length; i++) {
+          if (lines[i].trim() === '---') { fmEnd = i; break; }
+        }
+      }
+      const out = [];
+      for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i];
+        const isFm = fmEnd >= 0 && i <= fmEnd;
+        const isH = !isFm && /^\s*#{1,6}\s/.test(raw);
+        const body = (isFm || isH) ? esc(raw) : inlineHTML(raw);
+        const cls = 'hl-line' + (isFm ? ' hl-fm' : '') + (isH ? ' hl-h' : '');
+        out.push('<div class="' + cls + '">' + (body === '' ? '<br>' : body) + '</div>');
+      }
+      hl.innerHTML = out.join('');
+      syncScroll();
+      lastRenderMs = performance.now() - t0;
+    } catch (err) {
+      fallback(err);
+    }
+  }
+
+  function fallback(err) {
+    try { setSyntax(false); } catch (e) {}
+    try { toast('语法着色出错，已退回纯文本编辑（内容不受影响）', 'err'); } catch (e) {}
+    try { console.warn('[edHl] fallback:', err); } catch (e) {}
+  }
+
+  /* ---- 3. 滚动同步 / 调度 ---- */
+  function syncScroll() {
+    if (!hl) return;
+    hl.scrollTop = ed.scrollTop;
+    hl.scrollLeft = ed.scrollLeft;
+  }
+  function schedule() {
+    if (composing) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (composing) return;
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => { rafId = 0; render(); });
+      // 兜底：个别环境 rAF 被节流/不触发时，80ms 后也要画一次
+      setTimeout(() => { if (rafId) { cancelAnimationFrame(rafId); rafId = 0; render(); } }, 80);
+    }, DEBOUNCE);
+  }
+
+  /* ---- 4. 开关 ---- */
+  function setSyntax(on) {
+    syntaxOn = !!on;
+    try { localStorage.setItem(LS_SYNTAX, syntaxOn ? '1' : '0'); } catch (e) {}
+    if (btnSyntax) btnSyntax.classList.toggle('on', syntaxOn);
+    if (wrap) wrap.classList.toggle('hl-off', !syntaxOn);
+    if (syntaxOn) { lastValue = ed.value; schedule(); }
+    else if (hl) hl.innerHTML = '';
+  }
+  function setDim(on) {
+    dimOn = !!on;
+    try { localStorage.setItem(LS_DIM, dimOn ? '1' : '0'); } catch (e) {}
+    if (btnDim) btnDim.classList.toggle('on', dimOn);
+    if (wrap) wrap.classList.toggle('dim-tags', dimOn);
+  }
+
+  /* ---- 5. 事件 ---- */
+  ed.addEventListener('input', () => { lastValue = ed.value; schedule(); });
+  ed.addEventListener('compositionstart', () => { composing = true; });
+  ed.addEventListener('compositionend', () => { composing = false; lastValue = ed.value; render(); });
+  ed.addEventListener('scroll', () => { syncScroll(); }, { passive: true });
+  window.addEventListener('resize', syncScroll, { passive: true });
+
+  // 程序化改 value（打开文件 / 删除 / 面板里编辑）也要刷新：轻量轮询兜底
+  setInterval(() => {
+    if (!composing && ed.value !== lastValue) { lastValue = ed.value; schedule(); }
+  }, 180);
+
+  // openFile 先写 value、再写 #curPath —— 监听路径变化可立即刷新；面板打开时跳过
+  const curPathEl = document.getElementById('curPath');
+  if (curPathEl) {
+    new MutationObserver(() => {
+      if (document.body.classList.contains('panel')) return;
+      lastValue = ed.value;
+      render();
+    }).observe(curPathEl, { childList: true, characterData: true, subtree: true });
+  }
+
+  if (btnSyntax) btnSyntax.addEventListener('click', () => setSyntax(!syntaxOn));
+  if (btnDim) btnDim.addEventListener('click', () => setDim(!dimOn));
+
+  /* ---- 6. 初始化 ---- */
+  if (btnSyntax) btnSyntax.classList.toggle('on', syntaxOn);
+  if (btnDim) btnDim.classList.toggle('on', dimOn);
+  wrap.classList.toggle('hl-off', !syntaxOn);
+  wrap.classList.toggle('dim-tags', dimOn);
+  if (syntaxOn) { lastValue = ed.value; render(); }
+
+  // 给自测 / 调试用（不参与业务）
+  window.__edHl = {
+    render,
+    syncScroll,
+    setSyntax,
+    setDim,
+    isOn: () => syntaxOn,
+    isDim: () => dimOn,
+    lastRenderMs: () => lastRenderMs,
+  };
+})();
+</script>
 </body>
 </html>
