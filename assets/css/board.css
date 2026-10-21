@@ -1176,12 +1176,23 @@
       记得保持它在最后，否则会被后面的同权重规则盖掉。
    ⚠️ 只动 font-family，不碰 font-size —— 字号仍由各处按 12 / 10 的
       整数倍自己定（站点那条通配规则同时也管着 font-size，两边一致，不冲突）。 */
+/* 便签区的完整字体栈 —— **要和正文那条对齐**（retro.css 的 html.pxfont body *）。
+
+   ⚠️ 早先这里只写了 'FusionPixelBoard12', SimSun, "宋体", sans-serif，
+      于是便签里的 emoji（🍤🥐🐦💬 这些）直接掉到**系统 emoji 字体**，
+      和正文那种单色点阵 emoji 完全不同 —— 一张便签里正文是点阵、
+      emoji 是彩色系统图标，很跳。站长 2026-10-21 提的。
+      Mona12Emoji 的 unicode-range 只含 emoji 区（U+1F000-1FAFF 等），
+      汉字/标点会被前面的 Board 字体先命中，不会抢。
+      FusionPixelGap 排在最后进宋体之前，补正文也有的那批符号缺口。 */
 html.pxfont .bd,
 html.pxfont .bd * {
-  font-family: 'FusionPixelBoard12', var(--bd-font-small, SimSun, "宋体", sans-serif) !important;
+  font-family: 'FusionPixelBoard12', {{ if site.Params.emojiFont }}'Mona12Emoji', {{ end }}{{ if site.Params.pixelGapFont }}{{ with index hugo.Data "pixel-gap-font" }}'{{ .family }}', {{ end }}{{ end }}SimSun, "宋体", monospace !important;
 }
 /* 小字那一档换回 10px 的字集（--bd-font-small 已在 .bd 上定义，
-   这里显式再点一次名，免得依赖变量在 !important 层里的解析顺序）。 */
+   这里显式再点一次名，免得依赖变量在 !important 层里的解析顺序）。
+   emoji 字体照旧带上：Mona12Emoji 只有 12px 一份，但 emoji 本来就会被
+   浏览器按字号缩放，10px 便签上用它比掉到彩色系统 emoji 好得多。 */
 html.pxfont .bd .bd-note-foot,
 html.pxfont .bd .bd-note-badge,
 html.pxfont .bd .bd-write-text span,
@@ -1194,5 +1205,5 @@ html.pxfont .bd .bd-form-hint,
 html.pxfont .bd .bd-enter,
 html.pxfont .bd .bd-keeper-name,
 html.pxfont .bd .bd-credit {
-  font-family: 'FusionPixelBoard10', SimSun, "宋体", sans-serif !important;
+  font-family: 'FusionPixelBoard10', {{ if site.Params.emojiFont }}'Mona12Emoji', {{ end }}{{ if site.Params.pixelGapFont }}{{ with index hugo.Data "pixel-gap-font" }}'{{ .family }}', {{ end }}{{ end }}SimSun, "宋体", monospace !important;
 }

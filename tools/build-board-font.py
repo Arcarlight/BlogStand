@@ -40,6 +40,8 @@ OFL 要求：分发时带许可证，且**不能把保留字体名用在自己�
 （**不是** 'Fusion Pixel 12px Prop zh-Hans'）。
 """
 import argparse
+import importlib.util
+import io
 import os
 import shutil
 import sys
@@ -52,6 +54,19 @@ from fontTools.ttLib import TTFont
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONT_DIR = os.path.join(ROOT, "static", "fonts")
 DATA_TOML = os.path.join(ROOT, "data", "pixel-board-font.toml")
+
+
+def _load_site_chars():
+    """复用 build-pixel-font.py 的 site_chars()：扫 content/data/layouts/
+       static/js/assets/css，收集站点真正会显示的字。"""
+    p = os.path.join(ROOT, "tools", "build-pixel-font.py")
+    spec = importlib.util.spec_from_file_location("bpf", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.site_chars
+
+
+site_chars = _load_site_chars()
 
 # 下载缓存：放在 .editor/trash/ 下（.gitignore 已忽略，不进仓库）
 CACHE = os.path.join(ROOT, ".editor", "trash", "board-font")
@@ -86,6 +101,56 @@ TARGETS = [
 
 # 布告栏界面里一定会出现的字 —— 验证时逐个查，缺了就报出来
 BOARD_UI_TEXT = "布告栏 写下便签 匿名 回复 删除 条"
+
+
+def board_used_chars():
+    """布告栏页面 + 首页便签墙预览**真正会显示**的字。
+
+    为什么要单独算这个：以前把整份 GB2312 都塞进一个文件（224 KB / 179 KB），
+    而首页有便签墙预览 —— 每次访问都要把这两份整块下下来，字体负载 403 KB，
+    占首页字体总量的 73%。实测（_net_breakdown.js）：
+        fusion-board-12  224.5 KB
+        fusion-board-10  179.0 KB
+    便签是用户写的、字不可预知，所以后文按码位分块、用到才下；
+    但**第一块**要装下「站点现在真的会显示的字」，首页就只需要这一块。
+
+    来源：
+      · 界面文案 —— 复用 build-pixel-font.py 的 site_chars()（扫 content/data/
+        layouts/static/js/assets/css），board.js 里的提示语都算在内
+      · 本地便签数据 —— static/board/notes.json（后端不通时的兜底那份）
+    """
+    cps = {ord(c) for c in site_chars()}
+    notes = os.path.join(ROOT, "static", "board", "notes.json")
+    if os.path.exists(notes):
+        import json
+        try:
+            d = json.load(io.open(notes, encoding="utf-8"))
+            arr = d.get("notes", []) if isinstance(d, dict) else d
+            for n in arr:
+                for k in ("body", "name"):
+                    cps.update(ord(ch) for ch in str(n.get(k) or ""))
+                r = n.get("reply") or {}
+                cps.update(ord(ch) for ch in str(r.get("body") or ""))
+        except Exception as e:
+            log("  ⚠️ 读 notes.json 失败（%s），第一块只按界面文案算" % e)
+    return cps
+
+
+def chunk_specs(picked, used, n):
+    """把一份字集分成 [块1(站点用到的字+ASCII), 其余按码位均分 n 块]。
+       返回 [(文件名后缀, 码位列表)]。"""
+    common = {cp for cp in picked if cp in used}
+    common |= {cp for cp in picked if cp < 0x80}      # ASCII 永远进第一块
+    common &= picked
+    rest = sorted(picked - common)
+    specs = [("", sorted(common))]
+    per = (len(rest) + n - 1) // n if n > 0 else len(rest)
+    for i in range(n):
+        part = rest[i * per:(i + 1) * per]
+        if part:
+            specs.append(("-%d" % (i + 2), part))
+    return specs
+
 
 # 请求的字符集：(说明, 起, 止)，含端点
 CHARSET_SPEC = [
@@ -291,8 +356,12 @@ def subset_one(src_path, target, cps):
     return out, actual, os.path.getsize(out), metrics
 
 
-def verify(out, expected, target):
-    """重新打开产物自检：cmap 是否就是期望那套、family 名、界面字串。"""
+def verify(out, expected, target, primary=True):
+    """重新打开产物自检：cmap 是否就是期望那套、family 名、（第一块才查）界面字串。
+
+    ⚠️ ASCII 和界面文案**只在第一块**里 —— 后面几块是「其余字按码位均分」，
+       本来就不该有它们。早先把这三项对所有块都查，导致每块都报「缺」，
+       自检永远失败（构建其实是好的）。所以用 primary 区分。"""
     font = TTFont(out)
     cmap = set(font.getBestCmap().keys())
     fam = font["name"].getDebugName(1)
@@ -309,6 +378,13 @@ def verify(out, expected, target):
         ok = False
         log("    ✗ cmap 与期望不符")
 
+    if not primary:
+        fam_ok = (fam == target["family"])
+        log("    family = %r  %s（非第一块，不查 ASCII/界面字串）"
+            % (fam, "✓" if fam_ok else "✗"))
+        ok = ok and fam_ok
+        return ok
+
     ascii_missing = [c for c in range(0x20, 0x7F) if c not in cmap]
     log("    ASCII U+0020-007E: %s" % ("全覆盖 95/95" if not ascii_missing
                                        else "缺 " + " ".join("U+%04X" % c for c in ascii_missing)))
@@ -316,7 +392,7 @@ def verify(out, expected, target):
 
     gb = gb2312_codepoints()
     gb_have = sum(1 for c in gb if c in cmap)
-    log("    GB2312: %d/%d" % (gb_have, len(gb)))
+    log("    GB2312（本块内）: %d/%d" % (gb_have, len(gb)))
 
     ui_missing = [c for c in BOARD_UI_TEXT if ord(c) not in cmap]
     log("    界面字串「%s」: %s" % (BOARD_UI_TEXT,
@@ -332,14 +408,23 @@ def verify(out, expected, target):
 
 
 def write_toml(results):
-    coarse = coarse_range()
     with open(DATA_TOML, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("# ============================================================\n")
         fh.write("#  布告栏专用点阵字体 —— 由 tools/build-board-font.py 生成，别手改\n")
         fh.write("#\n")
-        fh.write("#  布告栏要写得下任意中文便签，所以这份不是「补缺口」而是整份字集：\n")
+        fh.write("#  布告栏要写得下任意中文便签，所以字集是整份：\n")
         fh.write("#  ASCII + GB2312 全集 6763 字 + 中文标点/全角 + 假名。\n")
         fh.write("#  12px 给正文，10px 给便签列表的密排小字。\n")
+        fh.write("#\n")
+        fh.write("#  **分块**：名字不带数字的是「第一块」= 布告栏实际会显示的字\n")
+        fh.write("#  （界面文案 + 本地便签数据）+ ASCII；后面 -2/-3/... 是其余字按码位均分。\n")
+        fh.write("#  同一个 family 的多个 @font-face 靠 unicode-range 分流，\n")
+        fh.write("#  浏览器只下页面上真正用到的字所在的那几块。\n")
+        fh.write("#\n")
+        fh.write("#  ⚠️ 每块的 unicode-range 必须用**精确版**（= 该块自己的 cmap）。\n")
+        fh.write("#     不能用「超集粗 range」：同一 family 里若某块声明了它其实没有的字，\n")
+        fh.write("#     浏览器会选中这一块、发现没字形后**直接回退到下一个 family（宋体）**，\n")
+        fh.write("#     而不是去试同家族的下一块 —— 那样便签会突然变成宋体。\n")
         fh.write("#\n")
         fh.write("#  字体来源：缝合像素字体 / Fusion Pixel Font %s\n" % VERSION)
         fh.write("#    https://github.com/TakWolf/fusion-pixel-font\n")
@@ -348,12 +433,6 @@ def write_toml(results):
         fh.write("#      不占用它的保留字体名；两份的码位不完全相同，因为源字体覆盖不同 ——\n")
         fh.write("#      10px proportional 的汉字源比 12px 少，缺的码位直接跳过。）\n")
         fh.write("#\n")
-        fh.write("#  range 原样贴进 CSS 的 @font-face：unicode-range: <range>;\n")
-        fh.write("#  `range` 是精确版（= 这份字体真正的 cmap，12px 4282 段 / 10px 4248 段，\n")
-        fh.write("#  各约 37 KB）—— 完整但很长。\n")
-        fh.write("#  `rangeCoarse` 是 12 段的超集（各 154 字节），缺字照旧回退、正确性一样，\n")
-        fh.write("#  只是遇到区间内没字形的字会白下一次 —— 中文站点的页面反正都要下。\n")
-        fh.write("#  **贴进 CSS 建议用 rangeCoarse。**\n")
         fh.write("#  ⚠️ 键名是 `pixel-board-font`（连字符保留）—— Hugo 不改写带连字符的文件名，\n")
         fh.write("#     模板里要用 index hugo.Data \"pixel-board-font\" 取。\n")
         fh.write("# ============================================================\n")
@@ -365,15 +444,15 @@ def write_toml(results):
             fh.write("count = %d\n" % r["count"])
             fh.write("sizeKb = %.1f\n" % r["sizeKb"])
             fh.write('range = "%s"\n' % r["range"])
-            fh.write('# 超集版（%d 段 / %d 字节；精确版 %d 段 / %d 字节）：\n'
-                     % (coarse.count("U+"), len(coarse), r["range"].count("U+"), len(r["range"])))
-            fh.write('rangeCoarse = "%s"\n' % coarse)
+            fh.write('rangeCoarse = "%s"\n' % r["range"])
 
 
 def main():
     ap = argparse.ArgumentParser(description="切「布告栏」专用的 Fusion Pixel Font 子集（12px / 10px）")
     ap.add_argument("--dry-run", action="store_true", help="只报告，不写文件")
     ap.add_argument("--force", action="store_true", help="忽略缓存，重新下载")
+    ap.add_argument("--chunks", type=int, default=3,
+                    help="每个字号除第一块外再切几块（默认 3）")
     args = ap.parse_args()
 
     cps = requested_charset()
@@ -385,6 +464,8 @@ def main():
 
     log("")
     log("准备源字体：")
+    used = board_used_chars()
+    log("  布告栏会显示的字（界面文案 + 本地便签）：%d 个不同码位" % len(used))
     results = []
     for target in TARGETS:
         src = ensure_source(target, args.force)
@@ -399,24 +480,26 @@ def main():
                f["hhea"].ascent, f["hhea"].descent))
         f.close()
 
+        specs = chunk_specs(picked, used, args.chunks)
         if args.dry_run:
-            log("    （dry-run，不写 %s）" % target["out"])
-            results.append({
-                "px": target["px"], "family": target["family"], "file": target["out"],
-                "count": len(picked), "sizeKb": 0.0,
-                "range": to_unicode_range(picked),
-            })
+            for suffix, ccps in specs:
+                name = target["out"].replace(".woff2", suffix + ".woff2")
+                log("    （dry-run）%s  %d 码位" % (name, len(ccps)))
             continue
 
-        out, actual, size, metrics = subset_one(src, target, cps)
-        log("    → %s  %d 个码位  %.1f KB  upem=%d hhea=%d/%d"
-            % (target["out"], len(actual), size / 1024.0,
-               metrics["upem"], metrics["hhea"][0], metrics["hhea"][1]))
-        results.append({
-            "px": target["px"], "family": target["family"], "file": target["out"],
-            "count": len(actual), "sizeKb": size / 1024.0,
-            "range": to_unicode_range(actual),
-        })
+        for suffix, ccps in specs:
+            name = target["out"].replace(".woff2", suffix + ".woff2")
+            t2 = dict(target, out=name)
+            out, actual, size, metrics = subset_one(src, t2, set(ccps))
+            log("    → %-30s %6d 码位  %7.1f KB"
+                % (name, len(actual), size / 1024.0))
+            results.append({
+                "px": target["px"], "family": target["family"], "file": name,
+                "count": len(actual), "sizeKb": size / 1024.0,
+                "range": to_unicode_range(actual),
+                "expected": set(actual),
+                "out": out,
+            })
 
     if args.dry_run:
         log("")
@@ -434,18 +517,26 @@ def main():
     log("")
     log("自检：")
     all_ok = True
-    for target, r in zip(TARGETS, results):
-        src = ensure_source(target, args.force)
-        f = TTFont(src)
-        expected = cps & set(f.getBestCmap().keys())
-        f.close()
-        all_ok = verify(os.path.join(FONT_DIR, target["out"]), expected, target) and all_ok
+    for r in results:
+        target = {"family": r["family"], "px": r["px"]}
+        # 文件名不带 -2/-3 的那份是第一块（装着 ASCII + 界面文案）
+        is_primary = "-2." not in r["file"] and "-3." not in r["file"] and "-4." not in r["file"]
+        all_ok = verify(r["out"], r["expected"], target, primary=is_primary) and all_ok
+
+    # 清掉上一轮多出来、这一轮不再生成的块（比如改了 --chunks）
+    keep = set(r["file"] for r in results)
+    for fn in sorted(os.listdir(FONT_DIR)):
+        if fn.startswith("fusion-board-") and fn.endswith(".woff2") and fn not in keep:
+            os.remove(os.path.join(FONT_DIR, fn))
+            log("  删掉多余的块 %s" % fn)
 
     write_toml(results)
     log("")
     for r in results:
-        log("%s: %d 个码位，%.1f KB，range %d 段"
-            % (r["family"], r["count"], r["sizeKb"], r["range"].count("U+")))
+        log("%s %-28s %6d 个码位，%7.1f KB"
+            % (r["family"], r["file"], r["count"], r["sizeKb"]))
+    total = sum(r["sizeKb"] for r in results)
+    log("合计 %.1f KB（分 %d 块）" % (total, len(results)))
     log("块定义已写入 data/pixel-board-font.toml")
     if not all_ok:
         raise SystemExit("自检失败 —— 见上面的 ✗")

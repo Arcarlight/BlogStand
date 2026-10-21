@@ -319,7 +319,18 @@ def add_glyphs(font, todo, locs, raw):
 
 # ---------------------------------------------------------------- 字符集
 def site_chars():
-    """站点上会渲染出来的字符：正文 + 数据文件 + 站点配置 + 模板里写死的字"""
+    """站点上会渲染出来的字符：正文 + 数据文件 + 站点配置 + 模板里写死的字
+    + **脚本/样式里注入的字**。
+
+    ⚠️ 为什么必须带上 js/css/json（2026-10-21 实测踩的坑）：
+       以前只扫 content/layouts(.md/.html/.xml) + data(*.toml) + hugo.toml。
+       可是首页有两块内容是 **JS 运行时注入** 的 —— 便签墙预览（从后端拉随机便签）
+       和放养区（从 JSON 数据里挑一只宝可梦）。这些字不在上面那些文件里，
+       于是没进「常用块」，落在第二块。
+       后果实测：首页为了一个放养区里的字，**多下 188 KB 的 simsun12-pixel-2.woff2**
+       （_net_breakdown.js 抓到的），比整个常用块还大。
+       把 static/js、assets/css、所有 *.json 也扫进来，这些字就都进常用块了。
+    """
     chars = set()
     for sub in ("content", "layouts"):
         base = os.path.join(ROOT, sub)
@@ -328,12 +339,27 @@ def site_chars():
                 if name.endswith((".md", ".html", ".xml")):
                     with open(os.path.join(dirpath, name), encoding="utf-8") as fh:
                         chars.update(fh.read())
+    # 数据：data 下所有文本格式（不只 toml）
     data = os.path.join(ROOT, "data")
     if os.path.isdir(data):
-        for name in os.listdir(data):
-            if name.endswith(".toml"):
-                with open(os.path.join(data, name), encoding="utf-8") as fh:
-                    chars.update(fh.read())
+        for dirpath, _dirs, files in os.walk(data):
+            for name in files:
+                if name.endswith((".toml", ".json", ".yaml", ".yml", ".csv")):
+                    with open(os.path.join(dirpath, name), encoding="utf-8") as fh:
+                        chars.update(fh.read())
+    # 脚本和样式：JS 里拼出来的提示语、CSS 的 content 文本
+    for sub, exts in (("static", (".js", ".json")), ("assets", (".js", ".css", ".json"))):
+        base = os.path.join(ROOT, sub)
+        if not os.path.isdir(base):
+            continue
+        for dirpath, _dirs, files in os.walk(base):
+            for name in files:
+                if name.endswith(exts):
+                    try:
+                        with open(os.path.join(dirpath, name), encoding="utf-8") as fh:
+                            chars.update(fh.read())
+                    except (UnicodeDecodeError, OSError):
+                        pass
     cfg = os.path.join(ROOT, "hugo.toml")
     if os.path.exists(cfg):
         with open(cfg, encoding="utf-8") as fh:
@@ -418,7 +444,12 @@ def main():
 
     base = TTFont(MAIN_WOFF)
     if base["head"].unitsPerEm != UPEM:
-        sys.exit("现有字体 upem=%d，和脚本假设的 %d 不一致" % (base["head"].unitsPerEm, UPEM))
+        sys.exit(
+            "现有字体 upem=%d，和本脚本假设的 %d 不一致。\n"
+            "  如果站点字体已经换成站长重新提取的那份（upem=1200），\n"
+            "  就别用本脚本了 —— 用 tools/build-pixel-font-from-ttf.py。\n"
+            "  本脚本是从系统宋体的 EBDT 点阵重建 1536 栅格的版本，只适用于旧字体。"
+            % (base["head"].unitsPerEm, UPEM))
     base_cps = set(base.getBestCmap().keys())
     print("现有字体：字形 %d，覆盖 %d 字" % (base["maxp"].numGlyphs, len(base_cps)))
 
