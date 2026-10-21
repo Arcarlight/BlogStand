@@ -10,7 +10,7 @@
      · 图标：先缓存（基本不变）
    ========================================================================== */
 
-const VERSION = 'blogstand-mobile-v2';
+const VERSION = 'blogstand-mobile-v3';
 const CACHE = 'shell-' + VERSION;
 
 // Fugue 界面图标（32×32 PNG，按 16px 显示），和 app.js 的 FUGUE 映射表一一对应。
@@ -42,6 +42,7 @@ const SHELL = [
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',
+  '/icons/maskable-512.png',
   ...FUGUE_ICONS.map((name) => `/icons/fugue/${name}.png`),
 ];
 

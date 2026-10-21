@@ -12,9 +12,10 @@
 #      <目标>/星虹巢编辑器.app/Contents/MacOS/launcher
 #  再配一份 Info.plist 和图标。
 #
-#  图标默认用 static/images/Hutsuu_flygon.PNG（1237×1237 的沙漠蜻蜓插画）——
-#  站上那个 ico（images/migrated/Webpic.png）只有 64×64，放大到程序坞会糊。
-#  想换：第三个参数传一张**方形、越大越好**的 PNG（512 以上最理想）。
+#  图标默认用 tools/editor-icon/editor-icon-1024.png（2026-10-21 站长画的
+#  沙漠蜻蜓夜空图：已缩到 macOS 的 824×824 圆角形状、四周透明）。
+#  同一张母版生成的 .icns 也在那个目录里；想换：第三个参数传一张
+#  **方形、越大越好**的 PNG（512 以上最理想）。
 #
 #  ⚠️ 仓库路径是**生成时写死**的（应用要知道去哪找仓库）。仓库搬家/改名之后，
 #     重跑一次这个脚本即可；应用自己发现路径不对时也会弹窗告诉你。
@@ -28,7 +29,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="星虹巢编辑器"
 DEST_DIR="${1:-/Applications}"
 PORT="${2:-4321}"
-ICON_SRC="${3:-$ROOT/static/images/Hutsuu_flygon.PNG}"
+ICON_SRC="${3:-$ROOT/tools/editor-icon/editor-icon-1024.png}"
 APP="$DEST_DIR/$APP_NAME.app"
 
 [ -d "$ROOT/.editor" ] || { echo "找不到 .editor/ —— 这个脚本要放在仓库的 tools/ 里运行"; exit 1; }
