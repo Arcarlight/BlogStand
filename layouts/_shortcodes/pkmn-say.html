@@ -13,6 +13,10 @@
      · face 是精灵表第 3 行那 4 张「天气/姿态」脸里的第几张（没有表情的只用它）。
      · 脸图直接从精灵表里**抠一格**，不额外生成图片 —— 换素材/加表情都不用改模板。
      · 2 倍显示（整数倍，像素不糊）。
+     · 话里可以套样式（编辑器「吐槽」面板上的按钮就是包这几对标记）：
+         [b]粗体[/b]   [i]斜体[/i]   [t]颤抖（生气）[/t]   [m]心声[/m]
+         [r=注音]汉字[/r]  → <ruby>汉字<rt>注音</rt></ruby>
+       标记在 markdownify **之后**替换成标签，所以和加粗/斜体的 markdown 不打架。
      ============================================================ */}}
 {{- $dex := .Get "dex" | default 621 -}}
 {{- $dexN := int $dex -}}
@@ -62,6 +66,18 @@
   {{- end -}}
 
   {{- $sprite := printf "pkmn/sprite/%d.png" $dexN | absURL -}}
+
+  {{/* 话里的样式标记 -> 标签。顺序：ruby 先（它带参数），再成对的简单标记。 */}}
+  {{- $body := $inner | markdownify -}}
+  {{- $body = replaceRE `\[r=([^\]]*)\]([\s\S]*?)\[/r\]` "<ruby><rb>$2</rb><rt>$1</rt></ruby>" $body -}}
+  {{- $body = replaceRE `\[b\]` "<strong>" $body -}}
+  {{- $body = replaceRE `\[/b\]` "</strong>" $body -}}
+  {{- $body = replaceRE `\[i\]` "<em>" $body -}}
+  {{- $body = replaceRE `\[/i\]` "</em>" $body -}}
+  {{- $body = replaceRE `\[t\]` "<span class=\"say-tremble\">" $body -}}
+  {{- $body = replaceRE `\[/t\]` "</span>" $body -}}
+  {{- $body = replaceRE `\[m\]` "<span class=\"say-think\">" $body -}}
+  {{- $body = replaceRE `\[/m\]` "</span>" $body -}}
   {{/* background-size 必须是**整张精灵表**的宽度（列数×格宽）再乘 2 ——
        只写一格宽的话整张图会被缩到一格大小，坐标就全指到空白处了（踩过）。 */}}
   {{- $sheetW := mul (mul .cols .cw) $s -}}
@@ -69,7 +85,7 @@
     <span class="pkmn-say-face" aria-hidden="true" style="width:{{ mul $sw $s }}px;height:{{ mul $sh $s }}px;background-image:url({{ $sprite }});background-size:{{ $sheetW }}px auto;background-position:-{{ mul $sx $s }}px -{{ mul $sy $s }}px"></span>
     <span class="pkmn-say-words">
       <span class="pkmn-say-name">{{ $name | default "？" }}</span>
-      <span class="pkmn-say-text">{{ $inner | markdownify }}</span>
+      <span class="pkmn-say-text">{{ $body | safeHTML }}</span>
     </span>
   </figure>
 {{- else -}}

@@ -1359,6 +1359,10 @@
 .sn-item.on .sn-face{border-color:#c94800;box-shadow:0 0 0 2px #ffd9c0}
 .sn-item.on{color:#c94800;font-weight:bold}
 .sn-sect{font-size:11px;color:#8a7550;margin:6px 0 1px}
+.sn-styles{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:5px}
+.sn-styles .sn-lab{font-size:11px;color:#5b6b7c;margin-right:2px}
+.sn-styles button{padding:2px 7px;font-size:12px}
+.sn-styles input[type=text]{width:88px;padding:2px 6px;font-size:12px}
 </style>
 </head>
 <body>
@@ -4043,7 +4047,15 @@ async function openSnark() {
     '<div class="field"><label>表情</label><div id="snPick"></div></div>' +
     '<div class="field"><label>名字</label><input id="snName" type="text" maxlength="20">' +
       '<span class="cmt">留空就用名单里的名字</span></div>' +
-    '<div class="field"><label>说什么</label><textarea id="snText" rows="3" placeholder="写一句吐槽…"></textarea></div>';
+    '<div class="field"><label>说什么</label><textarea id="snText" rows="3" placeholder="写一句吐槽…"></textarea>' +
+      '<div class="sn-styles"><span class="sn-lab">样式（先选中字再点）</span>' +
+        '<button type="button" data-sn="b" title="粗体">粗体</button>' +
+        '<button type="button" data-sn="i" title="斜体">斜体</button>' +
+        '<button type="button" data-sn="r" title="注音：选中要注音的字，右边填注音">注音</button>' +
+        '<input id="snRuby" type="text" maxlength="12" placeholder="注音">' +
+        '<button type="button" data-sn="t" title="抖起来（生气）">颤抖</button>' +
+        '<button type="button" data-sn="m" title="心里想的，不是说出来的">心声</button>' +
+      '</div></div>';
 
   const m = $('#modal');
   $('#mTitle').textContent = '吐槽';
@@ -4092,6 +4104,32 @@ async function openSnark() {
     drawPick();
   });
   drawPick();
+
+  /* 样式条：把选中的字包进一对标记里（站点那边 shortcodes/pkmn-say.html 认这几对）
+     b 粗体 / i 斜体 / t 颤抖 / m 心声 / r 注音（注音还得填右边的框） */
+  const MARKS = { b: ['[b]', '[/b]'], i: ['[i]', '[/i]'], t: ['[t]', '[/t]'], m: ['[m]', '[/m]'] };
+  const snWrap = (open, close) => {
+    const ta = $('#snText');
+    const s0 = ta.selectionStart, e0 = ta.selectionEnd;
+    const sel = ta.value.slice(s0, e0);
+    ta.value = ta.value.slice(0, s0) + open + sel + close + ta.value.slice(e0);
+    ta.focus();
+    ta.selectionStart = s0 + open.length;
+    ta.selectionEnd = s0 + open.length + sel.length;
+  };
+  document.querySelectorAll('#mBody [data-sn]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.sn;
+      if (k === 'r') {
+        const rt = ($('#snRuby').value || '').trim();
+        if (!rt) { toast('先在右边的框里填注音，再点「注音」', 'err'); $('#snRuby').focus(); return; }
+        snWrap('[r=' + rt.replace(/[\]\[]/g, '') + ']', '[/r]');
+        $('#snRuby').value = '';
+        return;
+      }
+      snWrap(MARKS[k][0], MARKS[k][1]);
+    });
+  });
 
   $('#mOk').innerHTML = '<img class="ico" src="/editor-icons/fugue/tick.png" alt="" draggable="false">插进正文';
   $('#mCancel').onclick = () => { m.hidden = true; };

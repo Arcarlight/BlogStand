@@ -2432,9 +2432,44 @@ html.tbtak-night #tbtak-pasture .tbtak-pen { background-color: #24365c; }
 .pkmn-say-name {
   display: block;
   font-weight: bold;
-  line-height: 1.4;
+  /* 名字要比正文明显大一号。点阵字体那边下面用 --px-lg 接管（12 的整数倍才不糊）。 */
+  font-size: 18px;
+  line-height: 1.35;
   color: #a8500f;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
+}
+html.pxfont .pkmn-say-name { font-size: var(--px-lg, 26px) !important; }
+
+/* 话里的样式。标记写在正文里（[b] [i] [r=注音] [t] [m]），
+   由 shortcodes/pkmn-say.html 换成这些标签。 */
+
+/* 注音（上标小字）：小一号，用 --px-sm 才不糊 */
+.pkmn-say ruby { ruby-position: over; }
+.pkmn-say ruby rt {
+  font-size: 9px;
+  color: #8a7550;
+  letter-spacing: 0;
+}
+html.pxfont .pkmn-say ruby rt { font-size: var(--px-sm, 11px) !important; color: #8a7550 !important; }
+
+/* 颤抖 —— 生气的时候用。幅度小、频率快，像在抖。 */
+.pkmn-say .say-tremble {
+  display: inline-block;
+  animation: pkmn-say-tremble .085s steps(2) infinite alternate;
+}
+@keyframes pkmn-say-tremble {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(1px, -1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 开了"减少动效"就不抖，改成一个表明生气的颜色 */
+  .pkmn-say .say-tremble { animation: none; color: #b03010; }
+}
+
+/* 心声：不是说出来、是在心里想的 —— 压暗一点、斜一点 */
+.pkmn-say .say-think {
+  color: #6b5f86;
+  font-style: italic;
 }
 .pkmn-say-text { display: block; }
 /* 短代码里的 markdownify 会套一个 <p>，而正文段落有 text-indent: 2em —— 这里不能缩进 */
