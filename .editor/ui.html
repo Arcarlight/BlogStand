@@ -1300,9 +1300,9 @@
   .ed-wrap.hl-off #editor{color:#22303f;caret-color:#22303f}
   .ed-wrap.hl-off #editor::selection{color:#22303f}
 
-  /* 编辑区自绘 Win7 滚动条（原生条为对齐而隐藏，这里按 839–860 行那套配方复刻） */
-  #edScroll{
-    position:absolute;top:0;right:0;bottom:0;width:14px;z-index:4;
+  /* 全站自绘 Win7 滚动条（原生条为对齐/统一而隐藏，配方来自 839–860 行那条） */
+  .fb-track{
+    position:absolute;top:0;right:0;width:14px;z-index:5;
     background:linear-gradient(90deg, #e4eaf1 0%, #f2f6fa 60%, #e8eef5 100%);
     border-left:1px solid #c9d5e2;
     box-shadow:
@@ -1314,8 +1314,8 @@
     -webkit-user-select:none;
     touch-action:none;
   }
-  #edScroll[hidden]{display:none}
-  .ed-scroll-thumb{
+  .fb-track[hidden]{display:none}
+  .fb-thumb{
     position:absolute;left:1px;right:1px;top:0;height:40px;
     border:1px solid #93a4b7;border-radius:3px;
     background:
@@ -1326,20 +1326,30 @@
     cursor:pointer;
     touch-action:none;
   }
-  .ed-scroll-thumb:hover{
+  .fb-thumb:hover{
     background:
       linear-gradient(90deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.2) 45%,
                       rgba(0,0,0,.02) 46%, rgba(0,0,0,.08) 100%),
       linear-gradient(90deg, #c2d6ec 0%, #9fbcdc 100%);
   }
-  .ed-scroll-thumb.dragging,
-  .ed-scroll-thumb:active{
+  .fb-thumb.dragging,
+  .fb-thumb:active{
     background:linear-gradient(90deg, #9db7d1 0%, #b9cde3 100%);
     box-shadow:inset 0 1px 3px rgba(20,40,70,.4);
   }
   @media (prefers-reduced-motion: reduce){
-    .ed-scroll-thumb{transition:none}
+    .fb-thumb{transition:none}
   }
+
+  /* 侧栏：包一层给自绘滚动条定位，原生条隐藏，右侧留 12px 轨道 */
+  .tree-wrap{position:relative;flex:1;min-width:0;min-height:0;display:flex;overflow:hidden}
+  .tree-wrap #tree{flex:1;min-width:0;overflow:auto;padding:8px 12px 8px 0;scrollbar-width:none}
+  .tree-wrap #tree::-webkit-scrollbar{width:0;height:0}
+  /* 工具面板：同样包一层；#panel 是实际滚动容器（内容变化时脚本会重新探测） */
+  .panel-wrap{position:relative;flex:1;min-width:0;min-height:0;display:none;overflow:hidden}
+  body.panel .panel-wrap{display:flex}
+  .panel-wrap #panel{flex:1;min-width:0;min-height:0;padding-right:30px;scrollbar-width:none}
+  .panel-wrap #panel::-webkit-scrollbar{width:0;height:0}
 
 </style>
 </head>
@@ -1363,7 +1373,7 @@
 
 <div id="main">
   <aside id="side">
-    <div id="tree"></div>
+    <div class="tree-wrap"><div id="tree"></div></div>
     <div id="credits">
       图标：<a href="https://p.yusukekamiyamane.com/" target="_blank" rel="noopener">Fugue Icons</a>
       by Yusuke Kamiyamane（CC BY 3.0）
@@ -1409,7 +1419,7 @@
     </div>
     <div id="panes">
       <textarea id="editor" spellcheck="false" placeholder="从左边选一个文件开始编辑…"></textarea>
-      <div id="panel"></div>
+      <div class="panel-wrap"><div id="panel"></div></div>
       <div id="previewPane">
         <div id="previewBar">
           <span id="previewPath">/</span>
@@ -4895,7 +4905,7 @@ setTimeout(checkRemote, 1200);
   let lastValue = ed.value;
   let lastRenderMs = 0;
   let longWarned = false;
-  let wrap, hl, btnSyntax, btnDim, sc, scThumb;
+  let wrap, hl, btnSyntax, btnDim;
 
   /* ---- 1. 把 textarea 包起来，并插入着色层（失败就什么都不做，保持纯文本） ---- */
   try {
@@ -4907,13 +4917,6 @@ setTimeout(checkRemote, 1200);
     hl.id = 'edHl';
     hl.setAttribute('aria-hidden', 'true');
     wrap.insertBefore(hl, ed);
-    sc = document.createElement('div');
-    sc.id = 'edScroll';
-    sc.setAttribute('aria-hidden', 'true');
-    scThumb = document.createElement('div');
-    scThumb.className = 'ed-scroll-thumb';
-    sc.appendChild(scThumb);
-    wrap.appendChild(sc);
   } catch (e) {
     return;
   }
@@ -5024,45 +5027,143 @@ setTimeout(checkRemote, 1200);
     hl.scrollLeft = ed.scrollLeft;
   }
 
-  /* ---- 3b. 自绘滚动条：位置 / 拖拽 / 点轨道翻页 / 轨道滚轮 ---- */
-  let dragging = false, dragStartY = 0, dragStartScroll = 0, dragMaxTop = 1, dragMaxScroll = 1;
-  function updateScrollbar() {
-    if (!sc || !scThumb) return;
-    const view = ed.clientHeight;
-    const total = ed.scrollHeight;
-    if (!(total > view + 1)) { sc.hidden = true; return; }
-    sc.hidden = false;
-    const trackH = sc.clientHeight;
-    if (trackH <= 0) return;
-    const maxScroll = total - view;
-    const thumbH = Math.max(40, Math.round(trackH * view / total));
-    const maxTop = Math.max(0, trackH - thumbH);
-    const top = maxScroll > 0 ? Math.round(maxTop * (ed.scrollTop / maxScroll)) : 0;
-    scThumb.style.height = thumbH + 'px';
-    scThumb.style.transform = 'translateY(' + top + 'px)';
+  /* ---- 3b. 可复用的自绘滚动条（编辑区 / 侧栏 / 工具面板共用） ----
+     attachFakeScrollbar(el, { host, width, minThumb, getTarget })
+       · host：position:relative 的定位容器，轨道/滑块放它里面；
+       · el：scroll 容器（默认目标）；getTarget 可动态返回真正滚动的那一层（面板用）；
+       · 自动处理：scroll、window resize、ResizeObserver、DOM 变化（分组折叠 / 面板重绘）、
+         面板显示切换（body.panel）；内容不溢出时自动隐藏。 */
+  function attachFakeScrollbar(el, opts) {
+    opts = opts || {};
+    const host = opts.host || el.parentElement;
+    if (!host) return null;
+    const width = opts.width || 14;
+    const minThumb = opts.minThumb || 40;
+    const getTarget = opts.getTarget || (() => el);
+
+    const track = document.createElement('div');
+    track.className = 'fb-track';
+    track.style.width = width + 'px';
+    track.setAttribute('aria-hidden', 'true');
+    const thumb = document.createElement('div');
+    thumb.className = 'fb-thumb';
+    thumb.style.height = minThumb + 'px';
+    track.appendChild(thumb);
+    host.appendChild(track);
+
+    let target = null;
+    let dragging = false, dragStartY = 0, dragStartScroll = 0, dragMaxTop = 1, dragMaxScroll = 1;
+    let scheduled = false;
+    let ro = null;
+    const setStyle = (node, prop, val) => { if (node.style[prop] !== val) node.style[prop] = val; };
+
+    function update() {
+      const t = getTarget();
+      if (t !== target) {
+        if (target) target.removeEventListener('scroll', onScroll);
+        target = t;
+        if (target) target.addEventListener('scroll', onScroll, { passive: true });
+        if (ro && target) { try { ro.observe(target); } catch (e) {} }
+      }
+      if (!target) { track.hidden = true; return; }
+      const hostRect = host.getBoundingClientRect();
+      const rect = target.getBoundingClientRect();
+      const visible = hostRect.width > 0 && hostRect.height > 0 &&
+        rect.width > 0 && rect.height > 0 && getComputedStyle(target).display !== 'none';
+      if (!visible || !(target.scrollHeight > target.clientHeight + 1)) {
+        track.hidden = true;
+        return;
+      }
+      track.hidden = false;
+      track.style.top = Math.round(rect.top - hostRect.top) + 'px';
+      track.style.height = Math.round(rect.height) + 'px';
+      track.style.right = Math.max(0, Math.round(hostRect.right - rect.right)) + 'px';
+      const trackH = track.clientHeight;
+      if (trackH <= 0) { track.hidden = true; return; }
+      const view = target.clientHeight;
+      const total = target.scrollHeight;
+      const maxScroll = total - view;
+      const thumbH = Math.max(minThumb, Math.round(trackH * view / total));
+      const maxTop = Math.max(0, trackH - thumbH);
+      const top = maxScroll > 0 ? Math.round(maxTop * (target.scrollTop / maxScroll)) : 0;
+      thumb.style.height = thumbH + 'px';
+      thumb.style.transform = 'translateY(' + top + 'px)';
+    }
+    function schedule() {
+      if (scheduled) return;
+      scheduled = true;
+      const run = () => { scheduled = false; update(); };
+      if (window.requestAnimationFrame) requestAnimationFrame(run);
+      setTimeout(() => { if (scheduled) run(); }, 80);
+    }
+    function onScroll() { update(); }
+    function onThumbDown(e) {
+      if (e.button !== 0 || !target) return;
+      e.preventDefault();
+      dragging = true;
+      thumb.classList.add('dragging');
+      dragStartY = e.clientY;
+      dragStartScroll = target.scrollTop;
+      dragMaxTop = Math.max(1, track.clientHeight - thumb.offsetHeight);
+      dragMaxScroll = Math.max(1, target.scrollHeight - target.clientHeight);
+      try { thumb.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    function onThumbMove(e) {
+      if (!dragging || !target) return;
+      target.scrollTop = dragStartScroll + (e.clientY - dragStartY) * dragMaxScroll / dragMaxTop;
+    }
+    function onThumbUp(e) {
+      if (!dragging) return;
+      dragging = false;
+      thumb.classList.remove('dragging');
+      try { thumb.releasePointerCapture(e.pointerId); } catch (err) {}
+    }
+    thumb.addEventListener('pointerdown', onThumbDown);
+    thumb.addEventListener('pointermove', onThumbMove);
+    thumb.addEventListener('pointerup', onThumbUp);
+    thumb.addEventListener('pointercancel', onThumbUp);
+    thumb.addEventListener('lostpointercapture', () => { dragging = false; thumb.classList.remove('dragging'); });
+    track.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target === thumb || !target) return;
+      const tr = thumb.getBoundingClientRect();
+      const page = target.clientHeight * 0.9;
+      if (e.clientY < tr.top) target.scrollTop -= page;
+      else if (e.clientY > tr.bottom) target.scrollTop += page;
+      else return;
+      e.preventDefault();
+      update();
+    });
+    track.addEventListener('wheel', (e) => {
+      if (!e.deltaY || !target) return;
+      target.scrollTop += e.deltaY;
+      e.preventDefault();
+      update();
+    }, { passive: false });
+
+    window.addEventListener('resize', schedule, { passive: true });
+    if (window.ResizeObserver) {
+      try {
+        ro = new ResizeObserver(schedule);
+        ro.observe(host);
+        ro.observe(el);
+        if (target) ro.observe(target);
+      } catch (e) {}
+    }
+    if (opts.observe !== false) {
+      new MutationObserver(schedule).observe(el, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class'],
+      });
+    }
+    if (document.body) {
+      new MutationObserver(schedule).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    update();
+    return { update, schedule, track, thumb, getTarget: () => target };
   }
-  function onThumbDown(e) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    dragging = true;
-    scThumb.classList.add('dragging');
-    dragStartY = e.clientY;
-    dragStartScroll = ed.scrollTop;
-    dragMaxTop = Math.max(1, sc.clientHeight - scThumb.offsetHeight);
-    dragMaxScroll = Math.max(1, ed.scrollHeight - ed.clientHeight);
-    try { scThumb.setPointerCapture(e.pointerId); } catch (err) {}
-  }
-  function onThumbMove(e) {
-    if (!dragging) return;
-    const dy = e.clientY - dragStartY;
-    ed.scrollTop = dragStartScroll + dy * dragMaxScroll / dragMaxTop;
-  }
-  function onThumbUp(e) {
-    if (!dragging) return;
-    dragging = false;
-    scThumb.classList.remove('dragging');
-    try { scThumb.releasePointerCapture(e.pointerId); } catch (err) {}
-  }
+
+  const edSb = attachFakeScrollbar(ed, { host: wrap, width: 14, minThumb: 40, observe: false });
+  function updateScrollbar() { if (edSb) edSb.update(); }
   function schedule() {
     if (composing) return;
     clearTimeout(timer);
@@ -5095,40 +5196,8 @@ setTimeout(checkRemote, 1200);
   ed.addEventListener('input', () => { lastValue = ed.value; schedule(); });
   ed.addEventListener('compositionstart', () => { composing = true; });
   ed.addEventListener('compositionend', () => { composing = false; lastValue = ed.value; render(); });
-  scThumb.addEventListener('pointerdown', onThumbDown);
-  scThumb.addEventListener('pointermove', onThumbMove);
-  scThumb.addEventListener('pointerup', onThumbUp);
-  scThumb.addEventListener('pointercancel', onThumbUp);
-  scThumb.addEventListener('lostpointercapture', () => { dragging = false; scThumb.classList.remove('dragging'); });
-  sc.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || e.target === scThumb) return;
-    const thumbRect = scThumb.getBoundingClientRect();
-    const page = ed.clientHeight * 0.9;
-    if (e.clientY < thumbRect.top) ed.scrollTop -= page;
-    else if (e.clientY > thumbRect.bottom) ed.scrollTop += page;
-    else return;
-    e.preventDefault();
-    syncScroll();
-    updateScrollbar();
-  });
-  sc.addEventListener('wheel', (e) => {
-    if (!e.deltaY) return;
-    ed.scrollTop += e.deltaY;
-    e.preventDefault();
-    syncScroll();
-    updateScrollbar();
-  }, { passive: false });
-
-  ed.addEventListener('scroll', () => { syncScroll(); updateScrollbar(); }, { passive: true });
-  window.addEventListener('resize', () => { syncScroll(); updateScrollbar(); }, { passive: true });
-  if (window.ResizeObserver) {
-    try {
-      new ResizeObserver(() => { syncScroll(); updateScrollbar(); }).observe(wrap);
-    } catch (e) {}
-  }
-  // 面板打开/关闭会切 body.panel：等一帧重算 thumb
-  new MutationObserver(() => requestAnimationFrame(() => { syncScroll(); updateScrollbar(); }))
-    .observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  ed.addEventListener('scroll', () => { syncScroll(); }, { passive: true });
+  window.addEventListener('resize', () => { syncScroll(); }, { passive: true });
 
   // 程序化改 value（打开文件 / 删除 / 面板里编辑）也要刷新：轻量轮询兜底
   setInterval(() => {
@@ -5155,6 +5224,40 @@ setTimeout(checkRemote, 1200);
   wrap.classList.toggle('dim-tags', dimOn);
   if (syntaxOn) { lastValue = ed.value; render(); }
   updateScrollbar();
+
+  /* ---- 7. 侧栏 / 工具面板：接同一套自绘滚动条 ---- */
+  function findPrimaryScroller(root) {
+    if (root.scrollHeight > root.clientHeight + 1) return root;
+    let best = null;
+    const walk = (node) => {
+      for (const child of node.children) {
+        const cs = getComputedStyle(child);
+        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        const scrollable = cs.overflowY === 'auto' || cs.overflowY === 'scroll' || cs.overflowY === 'overlay';
+        if (scrollable && child.scrollHeight > child.clientHeight + 1) {
+          if (!best || child.scrollHeight * child.clientWidth > best.scrollHeight * best.clientWidth) best = child;
+        }
+        walk(child);
+      }
+    };
+    walk(root);
+    return best || root;
+  }
+  let treeSb = null, panelSb = null;
+  const treeEl = document.getElementById('tree');
+  if (treeEl && treeEl.parentElement && treeEl.parentElement.classList.contains('tree-wrap')) {
+    treeSb = attachFakeScrollbar(treeEl, { host: treeEl.parentElement, width: 12, minThumb: 40 });
+  }
+  const panelEl = document.getElementById('panel');
+  if (panelEl && panelEl.parentElement && panelEl.parentElement.classList.contains('panel-wrap')) {
+    panelSb = attachFakeScrollbar(panelEl, {
+      host: panelEl.parentElement,
+      width: 14,
+      minThumb: 40,
+      getTarget: () => findPrimaryScroller(panelEl),
+    });
+  }
+  window.__edSb = { editor: edSb, tree: treeSb, panel: panelSb };
 
   // 给自测 / 调试用（不参与业务）
   window.__edHl = {
