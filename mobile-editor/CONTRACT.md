@@ -285,7 +285,18 @@ description: ""
   有未保存内容时离开页面要 `beforeunload` 提醒。发布成功后清掉。
 - 样式：移动优先，`viewport-fit=cover`，安全区 `env(safe-area-inset-*)`，
   输入框字号 ≥16px（防 iOS 缩放），点击目标 ≥44px，底部固定主按钮。
-  深浅两套靠 `prefers-color-scheme`，正文对比度至少 4.5:1。
+  和电脑端编辑器（`.editor/ui.html`）同一套 **Win7 拟物化**语言，**深浅两套、
+  跟随系统** `prefers-color-scheme`（不加手动开关；所有颜色走 CSS 变量）：
+  - 浅色：Aero 蓝渐变标题栏（`#4c93dc → #1c5c9f`）、`#eef2f7` 底、白色塑料面板
+    （上亮下暗渐变 + 顶沿内白高光 + 内描边 + 底部内暗影 + 近投影）、
+    橙色主按钮（`#ffb84d` / `#e08600` / `#4a2b00` 文字）、输入框内阴影 + 聚焦蓝环。
+  - 深色（Dark Aero Glass）：`#171d26` 底 / `#1f2732` 面板，标题栏压深到
+    `#3f7fbe → #0d2f52` 但保留 48%/52% 弧线，高光降到 8–12%、阴影加深加长，
+    橙色主按钮压一档但保留暖色强调，彩色图标加 1px 暗投影（别糊在深面板上）。
+  - 两套都是底部操作条顶部亮线 + 向上投影；正文对比度至少 4.5:1。
+- 图标：**Fugue Icons**（Yusuke Kamiyamane，CC BY 3.0），图和逻辑名映射在
+  `public/icons/fugue/`（含署名 README），首页页脚必须有署名链接
+  <https://p.yusukekamiyamane.com/icon/attribution/>。不要引别的图标集。
 - PWA：`manifest.webmanifest`（`display:standalone`、`theme_color`、三个图标）、
   `apple-touch-icon`、`<meta name="apple-mobile-web-app-capable">`；
   `sw.js` 只缓存 app shell（HTML/JS/CSS/图标），`/api/*` 一律 network-only，别缓存。

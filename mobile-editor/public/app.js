@@ -62,32 +62,36 @@ const shortPath = (p) =>
   String(p || '').replace(/^content\//, '').replace(/\.md$/i, '');
 
 /* ==========================================================================
-   1. 图标（内联 SVG，离线可用，不引任何 CDN）
+   1. 图标（Fugue Icons / Yusuke Kamiyamane / CC BY 3.0）
+   --------------------------------------------------------------------------
+   和电脑端编辑器同一套图（.editor/icons/fugue），32×32 的 2x 版，按 16px 显示。
+   逻辑名保持不变，只换实现：以前是内联 SVG，现在是 <img>，调用点一个都没动。
+   溯源 / 许可见 icons/fugue/README.md。
    ========================================================================== */
 
-const ICONS = {
-  'chevron-left': '<path d="M15 5l-7 7 7 7"/>',
-  'chevron-right': '<path d="M9 5l7 7-7 7"/>',
-  pen: '<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M14 7l3 3"/>',
-  book: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>',
-  file: '<path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/>',
-  board: '<path d="M20 12a7 7 0 0 1-7 7H8l-4 2v-9a7 7 0 0 1 7-7h2a7 7 0 0 1 7 7z"/>',
-  image: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.8" cy="9.6" r="1.5"/><path d="M4 17l5-5 4 4 3-2.6 4 3.6"/>',
-  refresh: '<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/>',
-  logout: '<path d="M14 12H4"/><path d="M8 8l-4 4 4 4"/><path d="M11 4h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7"/>',
-  reply: '<path d="M9 5L4 10l5 5"/><path d="M4 10h9a7 7 0 0 1 7 7v2"/>',
-  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
-  'eye-off': '<path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.5 3.2"/><path d="M6.4 7.6C4 9.2 2.5 12 2.5 12S6 18 12 18a9.9 9.9 0 0 0 4.2-.9"/>',
-  trash: '<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"/>',
-  spark: '<path d="M12 3l2.1 5.4L20 11l-5.9 2.6L12 19l-2.1-5.4L4 11l5.9-2.6z"/>',
-  check: '<path d="M20 6L9 17l-5-5"/>',
-  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.4l3 1.8"/>',
+const FUGUE = {
+  'chevron-left': 'arrow-180-small',
+  'chevron-right': 'arrow-000-small',
+  pen: 'pencil',
+  book: 'book',
+  file: 'document-text',
+  board: 'balloon-quotation',
+  image: 'image',
+  refresh: 'arrow-repeat',
+  reply: 'paper-plane',
+  trash: 'cross',      // 桌面端就是红叉，不是垃圾桶
+  spark: 'diamond',
+  check: 'tick',
+  eye: 'eye',
+  'eye-off': 'cross',
+  clock: 'calendar',   // Fugue 里没有时钟，用最接近的日历
+  logout: 'external',
 };
 
 function icon(name) {
-  return `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-    focusable="false">${ICONS[name] || ''}</svg>`;
+  const file = FUGUE[name] || 'tick';
+  return `<img class="ico" src="/icons/fugue/${file}.png" width="16" height="16"
+    alt="" aria-hidden="true" draggable="false">`;
 }
 
 /* ==========================================================================
@@ -333,7 +337,7 @@ function renderBuildBar(el, data) {
     el.dataset.state = 'idle';
     el.innerHTML =
       '<span class="builddot" aria-hidden="true"></span>' +
-      '<div class="buildmain"><strong>还没有构建记录</strong>' +
+      `<div class="buildmain"><strong>${icon('clock')}还没有构建记录</strong>` +
       '<span class="buildsub">发布之后，这里会显示站点构建的进度</span></div>';
     return;
   }
@@ -355,7 +359,7 @@ function renderBuildBar(el, data) {
   el.dataset.state = state;
   el.innerHTML =
     '<span class="builddot" aria-hidden="true"></span>' +
-    `<div class="buildmain"><strong>${esc(title)}</strong>` +
+    `<div class="buildmain"><strong>${icon('clock')}${esc(title)}</strong>` +
     `<span class="buildsub">${esc(sub.join(' · '))}</span></div>` +
     (data.htmlUrl
       ? `<a class="buildlink" href="${esc(data.htmlUrl)}" target="_blank" rel="noopener noreferrer">日志</a>`
@@ -765,19 +769,23 @@ views.login = async (route, seq) => {
   const root = appEl();
   root.innerHTML = `
     <div class="login">
-      <div class="login-mark">${icon('spark')}</div>
-      <h1>星虹巢<span>·写作间</span></h1>
-      <p class="login-sub">输入口令，进到写东西的地方。这台设备会记住 30 天。</p>
-      <form class="login-form" id="login-form" novalidate>
-        <label class="field field--flush">
-          <span class="field-label">口令</span>
-          <input class="input" id="pass" type="password" name="pass"
-            autocomplete="current-password" autocapitalize="off" autocorrect="off"
-            spellcheck="false" enterkeyhint="go" required>
-        </label>
-        <p class="formerror" id="login-error" role="alert" hidden></p>
-        <button class="btn btn--primary btn--block" id="login-btn" type="submit">进入写作间</button>
-      </form>
+      <div class="login-window">
+        <h1 class="login-titlebar">星虹巢 · 写作间</h1>
+        <div class="login-body">
+          <div class="login-mark">${icon('spark')}</div>
+          <p class="login-sub">输入口令，进到写东西的地方。这台设备会记住 30 天。</p>
+          <form class="login-form" id="login-form" novalidate>
+            <label class="field field--flush">
+              <span class="field-label">口令</span>
+              <input class="input" id="pass" type="password" name="pass"
+                autocomplete="current-password" autocapitalize="off" autocorrect="off"
+                spellcheck="false" enterkeyhint="go" required>
+            </label>
+            <p class="formerror" id="login-error" role="alert" hidden></p>
+            <button class="btn btn--primary btn--block" id="login-btn" type="submit">进入写作间</button>
+          </form>
+        </div>
+      </div>
     </div>`;
 
   const form = $('#login-form', root);
@@ -865,7 +873,9 @@ views.home = async (route, seq) => {
       </div>
       <footer class="homefoot">
         已登录${where ? ' · <span class="mono">' + esc(where) + '</span>' : ''}<br>
-        写的东西会提交到仓库，然后等站点构建。
+        写的东西会提交到仓库，然后等站点构建。<br>
+        图标：<a href="https://p.yusukekamiyamane.com/icon/attribution/" target="_blank"
+          rel="noopener noreferrer">Fugue Icons</a> by Yusuke Kamiyamane（CC BY 3.0）
       </footer>
     </div>`;
 

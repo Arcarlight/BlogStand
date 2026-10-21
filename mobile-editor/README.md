@@ -70,6 +70,13 @@ npx wrangler pages deploy public --project-name nijiboshi-edit --branch main
 - **改文章**：博客/日记/页面列表，原始 Markdown 全量编辑（自动刷 `lastmod`）；
 - **留言板**：看、回、隐藏/恢复、真删。
 
+界面和电脑端编辑器是同一套 **Win7 拟物化**语言（Aero 蓝标题栏、塑料按钮、
+凹进去的输入框、橙色主按钮）。**深浅两套，跟随系统**：浅色照桌面编辑器；
+深色是 Dark Aero Glass（`#171d26` 底 / `#1f2732` 面板，标题栏压深但保留
+Aero 弧线，阴影加深、高光变薄，彩色图标加 1px 暗投影）。图标用
+[Fugue Icons](https://p.yusukekamiyamane.com/) by Yusuke Kamiyamane（CC BY 3.0），
+署名放在首页页脚，来源与映射见 `public/icons/fugue/README.md`。
+
 改完不是立刻生效：**要等 GitHub Actions 构建**（一般 1～2 分钟）。
 首页顶部有构建状态条，发布后每 15 秒查一次，出结果就停。
 

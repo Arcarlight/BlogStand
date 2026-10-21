@@ -10,8 +10,28 @@
      · 图标：先缓存（基本不变）
    ========================================================================== */
 
-const VERSION = 'blogstand-mobile-v1';
+const VERSION = 'blogstand-mobile-v2';
 const CACHE = 'shell-' + VERSION;
+
+// Fugue 界面图标（32×32 PNG，按 16px 显示），和 app.js 的 FUGUE 映射表一一对应。
+// 换图标 / 加图标时这里要同步，否则第一次离线打开会少图。
+const FUGUE_ICONS = [
+  'arrow-180-small',
+  'arrow-000-small',
+  'pencil',
+  'book',
+  'document-text',
+  'balloon-quotation',
+  'image',
+  'arrow-repeat',
+  'paper-plane',
+  'cross',
+  'diamond',
+  'tick',
+  'eye',
+  'calendar',
+  'external',
+];
 
 const SHELL = [
   '/',
@@ -22,6 +42,7 @@ const SHELL = [
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',
+  ...FUGUE_ICONS.map((name) => `/icons/fugue/${name}.png`),
 ];
 
 // 这几个走「网络优先」：改版后能立刻拿到新文件
