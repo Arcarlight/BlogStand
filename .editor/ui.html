@@ -1072,6 +1072,161 @@
       linear-gradient(180deg, #7fb2e2 0%, #3d7fc0 50%, #2a6cae 100%);
   }
 
+  /* ============================================================
+     拟物化动效（第四轮，2026-10-21）
+     ------------------------------------------------------------
+     动效只服务于手感，不当装饰：
+       · 只动 transform / opacity / box-shadow / filter / border-color /
+         color —— 都是纯绘制属性，不触发 layout；
+       · 不碰 width / height / margin / padding / top / left；
+       · 微交互 100–120ms，面板/弹窗 140–180ms，ease-out 为主；
+       · 没有持续闪烁、没有大幅弹跳；减少动态效果时全部关掉（文件末尾）。
+     ============================================================ */
+  :root{
+    --mo-fast:100ms;      /* 按钮 / 行 / 输入聚焦 */
+    --mo-mid:140ms;       /* 侧栏组展开 / 弹窗 */
+    --mo-slow:160ms;      /* 面板子元素 / toast */
+    --mo-ease:cubic-bezier(.2,.7,.3,1);
+  }
+
+  /* ---------- 1. 按钮：hover 过渡 + 按下回弹；禁用态没有动效 ---------- */
+  button{
+    transition:
+      background-color var(--mo-fast) var(--mo-ease),
+      border-color var(--mo-fast) var(--mo-ease),
+      box-shadow var(--mo-fast) var(--mo-ease),
+      transform var(--mo-fast) var(--mo-ease),
+      color var(--mo-fast) var(--mo-ease),
+      filter var(--mo-fast) var(--mo-ease);
+  }
+  button:active:not(:disabled){ transform:translateY(1px); }
+  button:disabled{ transition:none; }
+
+  /* ---------- 2. 主按钮：hover 时顶部高光轻轻亮起，按下时压暗 ---------- */
+  button.primary{ position:relative; overflow:hidden; }
+  button.primary::after{
+    content:"";position:absolute;left:0;right:0;top:0;height:46%;
+    border-radius:inherit;pointer-events:none;
+    background:linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 100%);
+    opacity:0;
+    transition:opacity var(--mo-fast) var(--mo-ease);
+  }
+  button.primary:hover::after{ opacity:1; }
+  button.primary:active::after{ opacity:.45; }
+  button.primary:disabled::after{ opacity:0; }
+
+  /* ---------- 3. 侧栏组展开：组体出现时 fade + 上移 4px（折叠是 display:none，不会闪） ---------- */
+  body #tree .grpbody:not([hidden]){
+    animation:grpBodyIn var(--mo-mid) var(--mo-ease) 1;
+  }
+  @keyframes grpBodyIn{
+    from{ opacity:0; transform:translateY(-4px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  /* ---------- 4. 面板切换：innerHTML 每次重建，子元素入场自然重播 ---------- */
+  body #panel > *{
+    animation:panelChildIn var(--mo-slow) var(--mo-ease) 1;
+  }
+  @keyframes panelChildIn{
+    from{ opacity:0; transform:translateY(7px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  /* ---------- 5. 弹窗：遮罩淡入 + 窗口从 0.97 到 1 ---------- */
+  #modal:not([hidden]){
+    animation:modalFadeIn var(--mo-mid) var(--mo-ease) 1;
+  }
+  #modal:not([hidden]) .mbox{
+    animation:modalWinIn var(--mo-mid) var(--mo-ease) 1;
+  }
+  @keyframes modalFadeIn{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes modalWinIn{
+    from{ opacity:.72; transform:scale(.97); }
+    to{ opacity:1; transform:scale(1); }
+  }
+
+  /* ---------- 6. Toast：8px 滑入 + 淡入 160ms；错误多一次轻微 shake（只播一次） ---------- */
+  body #toast{
+    transition:opacity var(--mo-slow) var(--mo-ease), transform var(--mo-slow) var(--mo-ease);
+    transform:translateX(-50%) translateY(2px);
+  }
+  body #toast.show{ transform:translateX(-50%) translateY(-6px); }
+  body #toast.err.show{
+    animation:toastShake var(--mo-slow) var(--mo-ease) 180ms 1;
+  }
+  @keyframes toastShake{
+    0%,100%{ transform:translateX(-50%) translateY(-6px); }
+    25%{ transform:translateX(calc(-50% - 3px)) translateY(-6px); }
+    70%{ transform:translateX(calc(-50% + 3px)) translateY(-6px); }
+  }
+
+  /* ---------- 7. 行 / 列表项：hover 与选中态的背景、内阴影过渡 ---------- */
+  body #tree .row{
+    transition:
+      background-color var(--mo-fast) var(--mo-ease),
+      box-shadow var(--mo-fast) var(--mo-ease),
+      color var(--mo-fast) var(--mo-ease),
+      filter var(--mo-fast) var(--mo-ease);
+  }
+  body #tree .row:hover{ filter:brightness(1.02); }
+  body #tree .row.active{ filter:none; }
+  body #tree .grp{
+    transition:
+      color var(--mo-fast) var(--mo-ease),
+      box-shadow var(--mo-fast) var(--mo-ease),
+      filter var(--mo-fast) var(--mo-ease);
+  }
+
+  /* ---------- 8. 输入框 / 下拉 / 复选框：聚焦 120ms ---------- */
+  body input[type=text], body input[type=search], body input[type=number],
+  body input[type=password], body textarea, body select,
+  body input[type=checkbox]{
+    transition:
+      border-color 120ms var(--mo-ease),
+      box-shadow 120ms var(--mo-ease),
+      background-color 120ms var(--mo-ease);
+  }
+
+  /* ---------- 9. 「未保存」徽标：轻微呼吸；隐藏时 display:none，不占资源 ---------- */
+  #dirtyFlag:not([hidden]){
+    animation:dirtyPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes dirtyPulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:.75; }
+  }
+
+  /* ---------- 10. 状态栏绿点：柔和呼吸光晕（幅度很小） ---------- */
+  #statusbar .sb-conn:not(.off) .sb-dot{
+    animation:sbDotGlow 1.8s ease-in-out infinite;
+  }
+  @keyframes sbDotGlow{
+    0%,100%{ box-shadow:0 0 4px rgba(46,158,87,.55), inset 0 1px 0 rgba(255,255,255,.7); }
+    50%{ box-shadow:0 0 7px rgba(46,158,87,.80), inset 0 1px 0 rgba(255,255,255,.7); }
+  }
+
+  /* ============================================================
+     动效总开关：系统「减少动态效果」时全部关掉
+     ============================================================ */
+  @media (prefers-reduced-motion: reduce){
+    button, button.primary::after,
+    body #tree .row, body #tree .grp, body #tree .grpbody,
+    body #panel > *, #modal, #modal .mbox, body #toast,
+    body input[type=text], body input[type=search], body input[type=number],
+    body input[type=password], body textarea, body select, body input[type=checkbox],
+    #dirtyFlag, #statusbar .sb-conn .sb-dot{
+      animation:none !important;
+      transition:none !important;
+    }
+    *, *::before, *::after{
+      animation-duration:.001ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:.001ms !important;
+      scroll-behavior:auto !important;
+    }
+  }
+
 </style>
 </head>
 <body>
