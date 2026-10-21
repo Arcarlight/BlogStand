@@ -1351,6 +1351,14 @@
   .panel-wrap #panel{flex:1;min-width:0;min-height:0;padding-right:30px;scrollbar-width:none}
   .panel-wrap #panel::-webkit-scrollbar{width:0;height:0}
 
+/* ---- 吐槽面板：表情缩略图 ---- */
+.sn-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+.sn-item{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:10px;color:#5b6b7c;cursor:pointer;background:none;border:0;padding:0}
+.sn-face{width:40px;height:40px;border:2px solid #b08a52;background-color:#fff;background-repeat:no-repeat;image-rendering:pixelated;display:block}
+.sn-item:hover .sn-face{border-color:#8a6a3a}
+.sn-item.on .sn-face{border-color:#c94800;box-shadow:0 0 0 2px #ffd9c0}
+.sn-item.on{color:#c94800;font-weight:bold}
+.sn-sect{font-size:11px;color:#8a7550;margin:6px 0 1px}
 </style>
 </head>
 <body>
@@ -1409,6 +1417,7 @@
       <button id="btnApplyWidth" title="把上面选的宽度应用到选中的 &lt;img&gt;"><img class="ico" src="/editor-icons/fugue/application-resize.png" alt="">应用</button>
       <span class="sep"></span>
       <button id="btnInsertImg" title="插入图片（也可以直接把图片拖进编辑区）"><img class="ico" src="/editor-icons/fugue/image.png" alt="">插图</button>
+      <button id="btnSnark" title="吐槽：在正文里插一句宝可梦说的话"><img class="ico" src="/editor-icons/fugue/balloon-ellipsis.png" alt="">吐槽</button>
       <button id="btnInsertDay" title="插入某一天的锚点段落" hidden><img class="ico" src="/editor-icons/fugue/calendar.png" alt="">插入日期</button>
       <button id="btnToggleDraft" hidden><img class="ico" src="/editor-icons/fugue/pin.png" alt=""><span id="btnDraftText">设为草稿</span></button>
       <button id="btnSave" class="primary" disabled title="Ctrl+S"><img class="ico" src="/editor-icons/fugue/disk.png" alt="">保存</button>
@@ -4005,6 +4014,105 @@ async function renderScripts() {
     toast('外部脚本已保存', 'ok');
   });
 }
+
+/* ---------- 吐槽：在正文里插一句宝可梦说的话 ----------
+   名单在 data/pkmn-say.toml，脸图几何由后端 /api/pkmn-say 从精灵表索引里算出来。
+   面板里能选谁出场、选哪张表情（可视化缩略图）、临时改名、写一句话，
+   确定后往光标处插一段短代码，站点那边由 layouts/_shortcodes/pkmn-say.html 渲染。 */
+let SNARK = null;
+
+async function openSnark() {
+  if (!SNARK) {
+    try {
+      SNARK = (await apiGet('/api/pkmn-say')).cast || [];
+    } catch (e) { toast('读不到吐槽名单：' + e.message, 'err'); return; }
+  }
+  if (!SNARK.length) { toast('data/pkmn-say.toml 里还没写谁可以吐槽', 'err'); return; }
+
+  const lastDex = Number(localStorage.getItem('snark.dex') || 0);
+  let cur = SNARK.find((c) => c.dex === lastDex) || SNARK[0];
+  let pick = null;
+
+  const facesOf = (c) => c.emotions.length ? c.emotions : c.faces;
+  const pickKey = () => (pick ? pick.key : null);
+
+  const html =
+    '<div class="field"><label>谁来吐槽</label><select id="snDex">' +
+      SNARK.map((c) => `<option value="${c.dex}">${esc(c.name)}（${esc(c.note)}）</option>`).join('') +
+    '</select></div>' +
+    '<div class="field"><label>表情</label><div id="snPick"></div></div>' +
+    '<div class="field"><label>名字</label><input id="snName" type="text" maxlength="20">' +
+      '<span class="cmt">留空就用名单里的名字</span></div>' +
+    '<div class="field"><label>说什么</label><textarea id="snText" rows="3" placeholder="写一句吐槽…"></textarea></div>';
+
+  const m = $('#modal');
+  $('#mTitle').textContent = '吐槽';
+  $('#mBody').innerHTML = html;
+  m.hidden = false;
+
+  const drawPick = () => {
+    const box = $('#snPick');
+    const list = facesOf(cur);
+    const want = localStorage.getItem('snark.pick.' + cur.dex);
+    if (!pick || pick.dex !== cur.dex) {
+      pick = list.find((f) => f.key === want) || list[0] || null;
+    }
+    /* 缩略图是 1:1 抠的：**不要**设 background-size（设成 cw 会把整张精灵表缩成一格宽，
+       坐标就全错、格子是空的）。位置直接用精灵表里的真实像素坐标。 */
+    const bg = (f) => `background-image:url('/${cur.sprite}');` +
+      `background-position:-${f.x}px -${f.y}px`;
+    let h = '';
+    const emo = list.filter((f) => f.kind === 'emotion');
+    const fac = list.filter((f) => f.kind === 'face');
+    const sect = (title, arr) => arr.length
+      ? `<div class="sn-sect">${esc(title)}</div><div class="sn-wrap">` + arr.map((f) =>
+          `<button class="sn-item${pick && pick.key === f.key ? ' on' : ''}" data-key="${esc(f.key)}">` +
+          `<span class="sn-face" style="${bg(f)}"></span><span>${esc(f.label)}</span></button>`).join('') + '</div>'
+      : '';
+    h += sect('表情', emo);
+    h += sect('其他脸', fac);
+    if (!h) h = '<span class="cmt">这只没有可选的图</span>';
+    box.innerHTML = h;
+    box.querySelectorAll('[data-key]').forEach((el) => {
+      el.addEventListener('click', () => {
+        pick = list.find((f) => f.key === el.dataset.key) || pick;
+        localStorage.setItem('snark.pick.' + cur.dex, pick.key);
+        drawPick();
+      });
+    });
+  };
+
+  $('#snDex').value = String(cur.dex);
+  $('#snName').value = cur.name === cur.note ? '' : cur.name;
+  $('#snDex').addEventListener('change', () => {
+    cur = SNARK.find((c) => c.dex === Number($('#snDex').value)) || cur;
+    localStorage.setItem('snark.dex', String(cur.dex));
+    $('#snName').value = cur.name === cur.note ? '' : cur.name;
+    pick = null;
+    drawPick();
+  });
+  drawPick();
+
+  $('#mOk').innerHTML = '<img class="ico" src="/editor-icons/fugue/tick.png" alt="" draggable="false">插进正文';
+  $('#mCancel').onclick = () => { m.hidden = true; };
+  $('#mOk').onclick = () => {
+    const nm = ($('#snName').value || '').trim();
+    const say = ($('#snText').value || '').trim() || '……';
+    let head = '{{< pkmn-say dex="' + cur.dex + '"';
+    if (nm && nm !== cur.name) head += ' name="' + nm.replace(/"/g, '') + '"';
+    if (pick) {
+      if (pick.kind === 'emotion') head += ' emotion="' + pick.name + '"';
+      else head += ' face="' + (cur.faces.indexOf(pick) >= 0 ? cur.faces.indexOf(pick) : 0) + '"';
+    }
+    head += ' >}}';
+    insertText('\n' + head + '\n' + say + '\n{{< /pkmn-say >}}\n');
+    localStorage.setItem('snark.dex', String(cur.dex));
+    m.hidden = true;
+    toast('吐槽插进去了（预览里能看到）', 'ok');
+  };
+}
+
+$('#btnSnark').addEventListener('click', openSnark);
 
 /* ---------- 图片：拖拽 / 选择 / 粘贴 ---------- */
 function isDraft(text) {

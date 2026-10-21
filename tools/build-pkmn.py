@@ -51,6 +51,7 @@ SpriteCollab 的素材是 CC BY-NC 4.0：非商业使用 + 署名。这个站是
 from __future__ import annotations
 
 import argparse
+import os
 import io
 import json
 import random
@@ -308,31 +309,64 @@ def why_text(ch: str, why: str) -> str:
 #  下载（带缓存：tools/.pkmn-cache/，已在 .gitignore 里）
 # ============================================================
 
-def fetch(rel: str, force: bool = False):
-    """下载仓库里的一个文件，返回 bytes；404 返回 None。结果缓存在本地。"""
-    cache_path = CACHE / rel.replace("/", "_")
-    if cache_path.exists() and not force:
-        return cache_path.read_bytes()
-    url = f"{BASE}/{rel}"
+# 国内直连 raw.githubusercontent / api.github.com 基本不通。这两个 CDN 是通的，
+# 主站失败时按顺序换过去（站长机器上实测：jsdelivr、ghfast 都能 200）。
+MIRRORS = [
+    "https://cdn.jsdelivr.net/gh/PMDCollab/SpriteCollab@master",
+    "https://ghfast.top/https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master",
+]
+
+
+# 主站连不上就整轮不再试它 —— 否则每个文件都要先等几分钟才轮到镜像。
+_PRIMARY_DEAD = False
+# 国内 DNS 有时会把 raw.githubusercontent 直接卡住（DNS 卡死不归 socket 超时管），
+# 那种情况下设 PKMN_MIRROR=1 直接跳过主站和 GitHub API，只走镜像。
+_MIRROR_ONLY = bool(os.environ.get("PKMN_MIRROR"))
+
+
+def _try_get(url: str, timeout: int = 60, tries: int = 4):
+    """GET 一个网址。返回 (bytes 或 None, 最后异常或 None)；404 返回 (None, '404')。"""
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     last = None
-    for attempt in range(4):
+    for attempt in range(tries):
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = resp.read()
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path.write_bytes(data)
-            return data
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read(), None
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                return None
+                return None, '404'
             last = e
         except Exception as e:  # 网络抖动 / 代理没开
             last = e
         time.sleep(1.0 + 2.0 * attempt)
+    return None, last
+
+
+def fetch(rel: str, force: bool = False):
+    """下载仓库里的一个文件，返回 bytes；404 返回 None。结果缓存在本地。
+    主站连不上会依次换 MIRRORS 里的镜像。"""
+    cache_path = CACHE / rel.replace("/", "_")
+    if cache_path.exists() and not force:
+        return cache_path.read_bytes()
+    global _PRIMARY_DEAD
+    last = None
+    bases = ([] if _MIRROR_ONLY else ([BASE] if not _PRIMARY_DEAD else [])) + MIRRORS
+    for base in bases:
+        primary = (base == BASE)
+        data, err = _try_get(f"{base}/{rel}", timeout=8 if primary else 60, tries=1 if primary else 4)
+        if err == '404':
+            return None
+        if data is not None:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_bytes(data)
+            return data
+        last = err
+        if primary:
+            _PRIMARY_DEAD = True
+            print(f"  （主站连不上，这次运行改走镜像：{MIRRORS[0]}）")
     raise SystemExit(
-        f"下载失败：{url}\n  {last}\n"
-        "  国内直连 githubusercontent 基本不通，先开代理再跑：\n"
+        f"下载失败：{rel}（主站和两个镜像都试过了）\n  {last}\n"
+        "  先开代理再跑，或者等网络好点：\n"
         r"  $env:HTTPS_PROXY='http://127.0.0.1:7897'"
     )
 
@@ -346,7 +380,7 @@ def fetch_url(url: str, cache_key: str, force: bool = False):
     last = None
     for attempt in range(4):
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 data = resp.read()
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_bytes(data)
@@ -512,10 +546,10 @@ def list_portraits(dex: int, cache: dict, force: bool) -> list[str]:
     if dd in cached and not force:
         return cached[dd]
 
-    names: list[str] | None = None
+    names: list[str] | None = [] if _MIRROR_ONLY else None
     url = f"https://api.github.com/repos/PMDCollab/SpriteCollab/contents/portrait/{dd}"
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/vnd.github+json"})
-    for attempt in range(3):
+    for attempt in range(0 if _MIRROR_ONLY else 1):
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
                 items = json.loads(resp.read().decode("utf-8"))
@@ -530,11 +564,21 @@ def list_portraits(dex: int, cache: dict, force: bool) -> list[str]:
         except Exception:
             time.sleep(1.0 + 2.0 * attempt)
     if names is None:
-        raise SystemExit(
-            f"列表情失败：{url}\n"
-            "  国内直连 github API 基本不通，先开代理再跑：\n"
-            r"  $env:HTTPS_PROXY='http://127.0.0.1:7897'"
-        )
+        # 兜底：不列目录，直接按 EMOTION_ORDER 挨个探 portrait/{dd}/{名字}.png。
+        # 一个 200 就说明这只真有这张表情；探测走 fetch()，主站不通会自动换镜像。
+        print(f"  列 {dd} 的表情清单（逐个探，走镜像）…", flush=True)
+        names = []
+        for i, n in enumerate(EMOTION_ORDER):
+            if fetch(f"portrait/{dd}/{n}.png") is not None:
+                names.append(n)
+            if (i + 1) % 6 == 0:
+                print(f"    探了 {i + 1}/{len(EMOTION_ORDER)}，命中 {len(names)} 张", flush=True)
+        if not names:
+            raise SystemExit(
+                f"列表情失败：{url}\n"
+                "  api.github.com 和两个镜像都不通 —— 先开代理再跑：\n"
+                r"  $env:HTTPS_PROXY='http://127.0.0.1:7897'"
+            )
 
     # 去掉 '<名字>^.png' 这种变体（^ 是另一个朝向的版本，挂件用不上）
     names = [n for n in names if "^" not in n]
@@ -1155,6 +1199,7 @@ def main() -> None:
     ap.add_argument("--sprites", action="store_true", help="只重做精灵表和图标，不碰台词")
     ap.add_argument("--force", action="store_true", help="无视缓存重新下载")
     ap.add_argument("--ascii", type=int, metavar="DEX", help="把某只的精灵表打成字符画")
+    ap.add_argument("--only", metavar="DEX[,DEX]", help="只重做这几只（其它只的素材和索引条目原样保留）")
     args = ap.parse_args()
 
     if args.ascii:
@@ -1168,15 +1213,29 @@ def main() -> None:
         return
 
     pool = load_pool()
+    only = set()
+    if args.only:
+        only = {int(x) for x in args.only.replace(" ", "").split(",") if x}
+        missing = only - {it["dex"] for it in pool}
+        if missing:
+            raise SystemExit(f"--only 里这几只不在名单 data/pkmn-pool.toml 里：{sorted(missing)}")
     faces_cache_path = CACHE / "_faces.json"
     faces_cache = json.loads(faces_cache_path.read_text(encoding="utf-8")) if faces_cache_path.exists() else {}
 
     if not args.talk:
-        print(f"名单：{len(pool)} 只")
+        todo = [it for it in pool if not only or it["dex"] in only]
+        print(f"名单：{len(pool)} 只" + (f"；这次只重做 {sorted(x['dex'] for x in todo)}" if only else ""))
         index = {"_doc": "由 tools/build-pkmn.py 生成；行号 0=Idle下 1=Walk左 2=Walk右 3=脸图 4=影子 5=Sleep"
                           "；开了 emotions 的还有 6 起的一行一个表情（见该只的 e.r）",
                  "gen": 4, "sheet": {}}
-        for item in pool:
+        if only and OUT_INDEX.exists():
+            # --only 的时候**不能**把索引清空重建：其它只没重做，
+            # 它们的条目、图标表都得原样留着。
+            old = json.loads(OUT_INDEX.read_text(encoding="utf-8"))
+            index["sheet"].update(old.get("sheet", {}))
+            if old.get("icons"):
+                index["icons"] = old["icons"]
+        for item in todo:
             e = build_sprite(item, faces_cache, args.force)
             face_file = e.pop("_face")
             index["sheet"][str(item["dex"])] = e
@@ -1186,10 +1245,13 @@ def main() -> None:
                   f"表情 {face_file['normal']}/{face_file['smile']}/{face_file['nag']}")
         CACHE.mkdir(parents=True, exist_ok=True)
         faces_cache_path.write_text(json.dumps(faces_cache, ensure_ascii=False, indent=1), encoding="utf-8")
-        write_pen_tile(OUT_TILE)
-        write_icon_sheet(OUT_ICONS, args.force)
-        index["icons"] = {"size": ICON_SIZE, "keys": ICON_KEYS,
-                          "_doc": "第 0 行是深色图标（白天用）、第 1 行是白色（夜里用）；列号 = keys 里的下标"}
+        if not only:
+            # 笔尖草地和天气图标是全站共用的，--only 时别动它们（也不用联网）
+            write_pen_tile(OUT_TILE)
+            write_icon_sheet(OUT_ICONS, args.force)
+        if not only:
+            index["icons"] = {"size": ICON_SIZE, "keys": ICON_KEYS,
+                              "_doc": "第 0 行是深色图标（白天用）、第 1 行是白色（夜里用）；列号 = keys 里的下标"}
         OUT_INDEX.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         print(f"索引：{OUT_INDEX.relative_to(ROOT)}  {OUT_INDEX.stat().st_size / 1024:.1f} KB")
         print(f"草地：{OUT_TILE.relative_to(ROOT)}")

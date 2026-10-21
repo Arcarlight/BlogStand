@@ -2378,6 +2378,19 @@ async function handle(req, res, url) {
     return res.end(buf);
   }
 
+  /* ---------- 精灵表（吐槽面板的表情缩略图要用） ----------
+     吐槽按表情裁剪同一张精灵表，所以面板得能自己取到 static/pkmn/ 里的 png。
+     只读、只认 .png、不认 ..（和 /images/ 那条一个规矩）。 */
+  if (req.method === 'GET' && p.startsWith('/pkmn/')) {
+    const rel = decodeURIComponent(p.slice('/pkmn/'.length)).replace(/\\/g, '/');
+    if (rel.includes('..') || !/\.png$/i.test(rel)) { json(res, 404, { error: 'not found' }); return; }
+    let buf = null;
+    try { buf = await fsp.readFile(safePath('static/pkmn/' + rel)); } catch { buf = null; }
+    if (!buf) { json(res, 404, { error: 'not found' }); return; }
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
+    return res.end(buf);
+  }
+
   /* ---------- 自己把 static/ 下的图供出来 ----------
      面板里的缩略图、挑图器、画廊预览都直接用 /images/xxx 这种站点路径。
      以前这些 <img> 是相对地址，会打到编辑器自己的端口（4321），而编辑器
@@ -2879,6 +2892,54 @@ async function handle(req, res, url) {
       saved.push(rel);
     }
     return json(res, 200, { ok: true, count: saved.length, saved, rescued });
+  }
+
+  /* ---------- 吐槽（正文里插一句宝可梦说的话）----------
+     名单在 data/pkmn-say.toml；脸图几何从 static/pkmn/index.json 推：
+       第 3 行（row 3）是那几只「天气/姿态」脸；
+       开了 emotions 的还有第 6 行起、一行一个表情（名字在 e.r 里）。
+     面板据此画缩略图 —— 它只需要坐标，图片走 /pkmn/sprite/<dex>.png。 */
+  if (p === '/api/pkmn-say' && req.method === 'GET') {
+    const EMO_CN = {
+      Normal: '平常', Happy: '开心', Joyous: '欢呼', Inspired: '振奋', Delighted: '愉快',
+      Determined: '坚定', Angry: '生气', Sad: '难过', Crying: '大哭', 'Teary-Eyed': '含泪',
+      Worried: '担心', Sigh: '叹气', Shouting: '大喊', Surprised: '惊讶', Stunned: '发懵',
+      Dizzy: '发晕', Pain: '疼', Special0: '特别',
+    };
+    let items = [];
+    try { items = parseItems(await readText('data/pkmn-say.toml')); } catch { items = []; }
+    let sheetMap = {};
+    try { sheetMap = JSON.parse(await readText('static/pkmn/index.json')).sheet || {}; } catch { sheetMap = {}; }
+    const cast = [];
+    for (const it of items) {
+      const dex = String(it.dex || '');
+      const m = sheetMap[dex];
+      if (!m) continue;                       // 没有素材的先不列出来
+      const f = m.f || {};
+      const cols = Array.isArray(f.c) && f.c.length ? f.c : [0];
+      const faces = cols.map((c, i) => ({
+        key: 'face:' + i, kind: 'face', name: '', label: '脸 ' + (i + 1),
+        x: c * m.cw + (f.x || 0), y: 3 * m.ch + (f.y || 0),
+        w: f.w || m.cw, h: f.h || m.ch,
+      }));
+      const emotions = [];
+      if (m.e && m.e.r) {
+        for (const [ename, row] of Object.entries(m.e.r)) {
+          emotions.push({
+            key: 'emotion:' + ename, kind: 'emotion', name: ename,
+            label: EMO_CN[ename] || ename,
+            x: m.e.x || 0, y: row * m.ch + (m.e.y || 0),
+            w: m.e.w || 40, h: m.e.h || 40,
+          });
+        }
+      }
+      cast.push({
+        dex: Number(dex), name: it.name || m.n, note: it.note || m.n,
+        sprite: 'pkmn/sprite/' + dex + '.png',
+        cw: m.cw, ch: m.ch, faces, emotions,
+      });
+    }
+    return json(res, 200, { cast });
   }
 
   if (p.startsWith('/api/list/')) {

@@ -1,0 +1,78 @@
+{{/* ============================================================
+     正文里的「吐槽」对话框（编辑器「吐槽」按钮插入的就是这个）
+
+     用法：
+       {{< pkmn-say >}}这句话{{< /pkmn-say >}}
+       {{< pkmn-say emotion="Angry" >}}换个表情{{< /pkmn-say >}}
+       {{< pkmn-say face="2" >}}没开表情导出的那只，按第 3 行的第 N 张脸{{< /pkmn-say >}}
+       {{< pkmn-say dex="621" name="福波斯" >}}…{{< /pkmn-say >}}
+
+     · dex / name 不写就取 data/pkmn-say.toml 里那一段；name 写了以写的为准。
+     · emotion 是 PMD 的表情名（Normal / Happy / Angry / Sad / …），
+       只有名单里开了 emotions = true 的那几只才有；名字写错会退回普通脸。
+     · face 是精灵表第 3 行那 4 张「天气/姿态」脸里的第几张（没有表情的只用它）。
+     · 脸图直接从精灵表里**抠一格**，不额外生成图片 —— 换素材/加表情都不用改模板。
+     · 2 倍显示（整数倍，像素不糊）。
+     ============================================================ */}}
+{{- $dex := .Get "dex" | default 621 -}}
+{{- $dexN := int $dex -}}
+{{- $inner := .Inner -}}
+
+{{/* 名单里查名字（短代码里写 name 就以写的为准） */}}
+{{- $name := .Get "name" -}}
+{{- $cast := index site.Data "pkmn-say" -}}
+{{- with $cast.items -}}
+  {{- range . -}}
+    {{- if eq (int .dex) $dexN -}}
+      {{- if not $name -}}{{- $name = .name -}}{{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $idx := os.ReadFile "static/pkmn/index.json" | transform.Unmarshal -}}
+{{- $m := index $idx.sheet (printf "%d" $dexN) -}}
+
+{{- with $m -}}
+  {{- $cw := .cw -}}
+  {{- $ch := .ch -}}
+  {{- $f := .f -}}
+  {{- $s := 2 -}}
+  {{- $sx := 0 -}}{{- $sy := 0 -}}{{- $sw := 0 -}}{{- $sh := 0 -}}
+
+  {{- $emo := $.Get "emotion" -}}
+  {{- $emoRow := 0 -}}
+  {{- if and $emo .e -}}
+    {{- $emoRow = index .e.r $emo -}}
+  {{- end -}}
+
+  {{- if $emoRow -}}
+    {{/* 有这只的这张表情：第 6 行起，一行一个表情 */}}
+    {{- $sx = .e.x -}}
+    {{- $sy = add (mul $emoRow $ch) .e.y -}}
+    {{- $sw = .e.w -}}
+    {{- $sh = .e.h -}}
+  {{- else -}}
+    {{/* 退回第 3 行那几张脸 */}}
+    {{- $i := int ($.Get "face" | default 0) -}}
+    {{- if or (lt $i 0) (ge $i (len $f.c)) -}}{{- $i = 0 -}}{{- end -}}
+    {{- $sx = add (mul (index $f.c $i) $cw) $f.x -}}
+    {{- $sy = add (mul 3 $ch) $f.y -}}
+    {{- $sw = $f.w -}}
+    {{- $sh = $f.h -}}
+  {{- end -}}
+
+  {{- $sprite := printf "pkmn/sprite/%d.png" $dexN | absURL -}}
+  {{/* background-size 必须是**整张精灵表**的宽度（列数×格宽）再乘 2 ——
+       只写一格宽的话整张图会被缩到一格大小，坐标就全指到空白处了（踩过）。 */}}
+  {{- $sheetW := mul (mul .cols .cw) $s -}}
+  <figure class="pkmn-say">
+    <span class="pkmn-say-face" aria-hidden="true" style="width:{{ mul $sw $s }}px;height:{{ mul $sh $s }}px;background-image:url({{ $sprite }});background-size:{{ $sheetW }}px auto;background-position:-{{ mul $sx $s }}px -{{ mul $sy $s }}px"></span>
+    <span class="pkmn-say-words">
+      <span class="pkmn-say-name">{{ $name | default "？" }}</span>
+      <span class="pkmn-say-text">{{ $inner | markdownify }}</span>
+    </span>
+  </figure>
+{{- else -}}
+  {{/* 素材里没有这只：别让整页报销，留一句看得见的提醒 */}}
+  <p class="pkmn-say-missing">（吐槽：图鉴 {{ $dexN }} 的脸图还没生成，先跑一次 tools/build-pkmn.py）</p>
+{{- end -}}

@@ -2405,3 +2405,45 @@ html.tbtak-night #tbtak-pasture .tbtak-pen { background-color: #24365c; }
   color: #8a9aad;
   font-size: var(--px-sm, 11px) !important;
 }
+
+/* ============================================================
+   正文里的「吐槽」对话框（shortcodes/pkmn-say.html）
+   编辑器里点「吐槽」插进来的就是这块：宝可梦的脸 + 名字 + 一句话。
+   脸图是从精灵表里抠一格的（background-position 在短代码里按图鉴算好）。
+   ============================================================ */
+.pkmn-say {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 12px 0 14px;
+  padding: 8px 10px;
+  background: #fff9e8;
+  border: 2px solid #6b5a3a;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, .14);
+}
+.pkmn-say-face {
+  flex: 0 0 auto;
+  display: block;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  border: 1px solid #c9b98d;
+}
+.pkmn-say-words { display: block; min-width: 0; }
+.pkmn-say-name {
+  display: block;
+  font-weight: bold;
+  line-height: 1.4;
+  color: #a8500f;
+  margin-bottom: 2px;
+}
+.pkmn-say-text { display: block; }
+/* 短代码里的 markdownify 会套一个 <p>，而正文段落有 text-indent: 2em —— 这里不能缩进 */
+.pkmn-say-text p { margin: 0; text-indent: 0; }
+.pkmn-say-text p + p { margin-top: 4px; }
+.pkmn-say-missing { color: #a00; font-size: 12px; }
+
+/* 窄屏：脸图小一点（1 倍，整数倍像素不糊），别把话挤成一列 */
+@media (max-width: 560px) {
+  .pkmn-say { gap: 8px; padding: 7px 8px; }
+  .pkmn-say-face { zoom: 1; }
+}

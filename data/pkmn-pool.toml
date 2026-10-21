@@ -40,6 +40,8 @@
   dex  = 621
   name = "赤面龙"
   en   = "Druddigon"
+  # 编辑器「吐槽」要能选表情，所以把这只的全套表情也导出（精灵表第 6 行起）
+  emotions = true
 
 [[items]]
   dex  = 181
