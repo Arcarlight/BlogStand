@@ -1894,19 +1894,23 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
    这样不需要给 HTML 加任何 lang 标记或额外 class。
    注意它排在字体栈最前面，靠 unicode-range 把范围限死，不会抢走别的字符。
 
-   度量对齐宋体（宋体 hhea = 1280/1536 = 83.3333%，MS Gothic 原本是 1320），
-   否则同一行里日文和汉字的内容盒高度不同，行高会跳。 */
+   度量对齐宋体（宋体 hhea = 1280/1536 = 83.3333%）。
+    2026-10-21 起这份字体改用站长找到的**人工提取版** msgothic-12px.ttf
+    （来自 Windows XP SP3 镜像）重建，它的 hhea 是 1000/1200 = 83.3333%，
+    本来就和宋体一致；下面的 override 留着不碍事，也防以后换源时行高跳。 */
 @font-face {
   font-family: 'MSGothic12JPPixel';
   src: url(../fonts/msgothic12-jp-pixel.woff2) format('woff2');
-  /* 这里列的是这份字体**真正有的**字（由 tools/build-pixel-font.py --ja 打印出来）：
+  /* 这里列的是这份字体**真正有的**字（由 tools/build-ja-font-from-ttf.py 打印出来）：
      假名 / 半角片假名 / 〜，外加 2026-09-14 补进来的一批符号。
      为什么补符号：站长想在台词里写 ♪，而 ♪（以及 ■ ★ ♥ ← 这一整片）宋体那份
      12px 点阵里没有、MS Gothic 的 12ppem 点阵里全有，所以塞进这份日文字体、
      由 unicode-range 把那些码位路由过来。
-     ♡ ♢ ♤ ♧ ♨ ♩ ♬ ♮ 和 ゔゕゖ 这些**连 MS Gothic 也没有**，会退到宋体或系统字体上，
-     所以「宝可梦台词」的校验脚本会把这些字直接拦下来（见 tools/build-pkmn.py
-     里的 unsupported_char()：它读的就是这三份字体的 cmap）。 */
+     ♡ ♢ ♤ ♧ ♨ ♩ ♬ ♮ 和 ゔゕゖ 这些**连手工版 MS Gothic 也没有**（两版都缺），
+     会退到宋体或系统字体上，所以「宝可梦台词」的校验脚本会把这些字直接拦下来
+     （见 tools/build-pkmn.py 里的 unsupported_char()：它读的就是这三份字体的 cmap）。
+     ⚠️ 手工版**缺 〜 U+301C**（旧版有），构建脚本会从 tools/sources/
+        msgothic12-jp-1536.woff2 把它缩放补进来 —— 别删那个源文件。 */
   unicode-range:
     U+2190-2193, U+25A0, U+25A1, U+25B2, U+25B3, U+25CB, U+25CE, U+25CF,
     U+2605, U+2606, U+2660, U+2663, U+2665, U+2666, U+266A, U+266B, U+266D, U+266F,
