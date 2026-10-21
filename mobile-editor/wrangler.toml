@@ -1,0 +1,38 @@
+# ============================================================
+# mobile-editor / wrangler.toml —— 手机写作间的 Pages 配置
+# ------------------------------------------------------------
+# 部署（在 mobile-editor/ 目录下）：
+#   npx wrangler pages project create nijiboshi-edit --production-branch main
+#   npx wrangler pages secret put EDITOR_PASS     --project-name nijiboshi-edit
+#   npx wrangler pages secret put SESSION_SECRET  --project-name nijiboshi-edit
+#   npx wrangler pages secret put GITHUB_TOKEN    --project-name nijiboshi-edit
+#   npx wrangler pages secret put BOARD_ADMIN_TOKEN --project-name nijiboshi-edit
+#   npx wrangler pages deploy public --project-name nijiboshi-edit --branch main
+#
+# 本地跑（不用登录 Cloudflare）：
+#   npx wrangler pages dev public --port 8789
+#   本地变量放 .dev.vars（已 gitignore），模板见 .dev.vars.example
+#
+# ⚠️ 和 board-api 一样的坑：vars 和 secret 共用同一个绑定命名空间，
+#    同名会让部署直接失败（Binding name 'X' already in use）。
+#    所以下面 [vars] 里**不要**出现下面四个 secret 的名字。
+# ============================================================
+
+name = "nijiboshi-edit"
+compatibility_date = "2026-10-01"
+
+# Pages 的静态根目录。functions/ 会被自动识别成 /api/*。
+pages_build_output_dir = "public"
+
+[vars]
+GITHUB_REPO = "Arcarlight/BlogStand"
+GITHUB_BRANCH = "main"
+GITHUB_API = "https://api.github.com"
+BOARD_API = "https://nijiboshi-board.pages.dev"
+APP_NAME = "星虹巢·写作间"
+
+# secrets（用 wrangler pages secret put 写，不写在这里）：
+#   EDITOR_PASS       访问口令（长一点，比如 12 位以上）
+#   SESSION_SECRET    cookie 签名密钥（随机 32 字节）
+#   GITHUB_TOKEN      fine-grained PAT，只给 BlogStand 的 Contents: Read and write
+#   BOARD_ADMIN_TOKEN board-api 的 ADMIN_TOKEN

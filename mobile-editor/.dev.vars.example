@@ -1,0 +1,10 @@
+# 复制成 .dev.vars 再填。.dev.vars 已 gitignore，不会进仓库。
+# 注意：本地 GITHUB_BRANCH 必须指向一个测试分支，别拿 main 练手。
+EDITOR_PASS=dev-pass-change-me
+SESSION_SECRET=dev-session-secret-change-me-0123456789
+GITHUB_TOKEN=ghp_xxx
+GITHUB_REPO=Arcarlight/BlogStand
+GITHUB_BRANCH=test-mobile-editor
+GITHUB_API=https://api.github.com
+BOARD_API=https://nijiboshi-board.pages.dev
+BOARD_ADMIN_TOKEN=dev-board-token

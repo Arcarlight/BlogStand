@@ -1,0 +1,33 @@
+# ============================================================
+# mobile-editor/public/_headers —— Cloudflare Pages 响应头
+# ------------------------------------------------------------
+# 页面本身公开可打开，但所有 /api/* 除了 ping/login 都要登录；
+# 这里不做访问控制（那是 Functions 的事），只做：
+#   · 别被搜索引擎收录（noindex，双保险：X-Robots-Tag + meta robots）
+#   · 不许被别的站点 iframe 套走（X-Frame-Options / frame-ancestors）
+#   · 不把来源页带出去（Referrer-Policy）
+#   · 基本 CSP（同源脚本 + data:/blob: 图片，别的一概不放）
+# ============================================================
+
+/*
+  X-Robots-Tag: noindex, nofollow
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; font-src 'self'
+
+# service worker 和入口页要能被浏览器拿到最新的，别被长缓存冻住
+/sw.js
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+# 图标是可以长缓存的死文件
+/icons/*
+  Cache-Control: public, max-age=604800
+
+# API 一律不缓存（Functions 自己也会带 no-store，这里是双保险）
+/api/*
+  Cache-Control: no-store

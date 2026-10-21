@@ -59,3 +59,8 @@ data/*.toml.bak
 Thumbs.db
 Desktop.ini
 .DS_Store
+# ---------- 手机写作间（mobile-editor） ----------
+# 本地变量里有 GitHub token 和口令，绝不能进仓库
+mobile-editor/.dev.vars
+# wrangler 本地状态（模拟线上环境用）
+mobile-editor/.wrangler/
