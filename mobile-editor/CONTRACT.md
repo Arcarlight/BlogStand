@@ -201,15 +201,23 @@ description: ""
 
 ### 3.5 图片
 
-存 `static/images/`（不用子目录），原图和 webp 兄弟同名不同后缀。
-前端在**浏览器里**压好再传（不指望 Worker 压图）：
+存 `static/images/`（不用子目录）。前端在**浏览器里**压好再传（不指望 Worker 压图），
+一次上传 = 原图 + 1x/2x 两档 webp，命名和站上旧图一致（`tools/build-images.py` 的规则）：
 
 - 长边 > 1600 先缩到 1600；
 - 原图：JPEG 照片编 `image/jpeg` q0.85；带透明的 PNG 保持 PNG；
-- 兄弟文件：`image/webp` q0.82。
+- 派生图：`<原名>-<宽>.webp`，宽度取 `min(显示宽, 原图宽)` 和 `min(显示宽×2, 原图宽)`
+  两档（不放大），q0.9（带透明 PNG 用 q0.95，避免平涂边缘出彩噪）；
+- 正文写法（`sizes` 跟 `width` 属性一致）：
+
+  ```html
+  <center><picture><source type="image/webp" srcset="/images/x-350.webp 350w, /images/x-700.webp 700w" sizes="350px" /><img src="/images/x.jpg" alt="x" width="350" loading="lazy" /></picture></center>
+  ```
+
+  `build-images.py` 会跳过已经包在 `<picture>` 里的图，两边不打架。
 
 后端只做「落盘 + 去重命名 + 一次提交」：`name` 已存在就 `name-1`、`name-2`…
-（原图和 webp 同时为空闲名才算可用）。
+（原图和所有派生图都空闲才算可用）。
 
 ## 4. API 清单
 
@@ -228,7 +236,7 @@ description: ""
 | POST | `/api/new` | `{kind, name, title, date?, draft?, text?}` | `{ok:true, path, sha, commit, htmlUrl, text}`；已存在 409 |
 | POST | `/api/diary` | `{year, month, day, html}` | `{ok:true, path, sha, commit, htmlUrl, text}` |
 | GET | `/api/diary?year=&month=` | – | `{path, exists, text, days:[{day, id, date}]}` |
-| POST | `/api/upload` | `{name, original:{mime,b64}, webp:{b64}\|null}` | `{ok:true, url, webp, path, bytes, commit}` |
+| POST | `/api/upload` | `{name, original:{mime,b64}, variants?:[{w,b64}], webp?}` | `{ok:true, url, path, variantList:[{w,url,path}], bytes, commit}` |
 | GET | `/api/board?status=all\|visible\|hidden` | – | 布告栏后端原样返回 `{ok:true, status, notes:[...]}` |
 | POST | `/api/board/reply` | `{id, body}` | 布告栏后端原样 |
 | POST | `/api/board/hide` | `{id, hidden}` | 布告栏后端原样 |
@@ -266,10 +274,8 @@ description: ""
 - 首页：四张卡（写博客 / 写日记 / 改文章 / 留言板）+ 构建状态条
   （发布后每 15 秒轮询 `/api/build`，`conclusion` 出来就停）。
 - 写博客：标题、文件名（默认 `post-{YYYYMMDD}`，可改）、日期、草稿开关、正文
-  `<textarea>`；「插入图片」按钮走 `/api/upload` 后把下面这段插到光标处：
-  ```html
-  <center><picture><source type="image/webp" srcset="{webpUrl}"><img src="{url}" alt="{alt}" width="350" loading="lazy" /></picture></center>
-  ```
+  `<textarea>`；「插入图片」按钮 + 宽度下拉（350 / 500 / 634 满栏）走 `/api/upload`
+  后把 §3.5 那段插到光标处；宽度记在 localStorage。写日记同款按钮。
 - 写日记：日期默认今天（`<input type="date">`），载入当天已有内容可直接改；
   保存走 `POST /api/diary`；另给「本月已写日期」列表（点一下跳过去）。
 - 改文章：列表可搜索（标题/文件名），点开是**原始 Markdown 全文**（含 front matter），

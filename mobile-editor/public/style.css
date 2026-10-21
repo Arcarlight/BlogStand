@@ -235,6 +235,18 @@ h1, h2, h3, p { margin: 0; }
 .toolbtn[disabled] { opacity: .55; pointer-events: none; }
 .toolbtn .ico { width: 18px; height: 18px; }
 
+/* 插图宽度下拉（和 .toolbtn 同一排，高度对齐点击目标） */
+.toolselect {
+  min-height: var(--tap);
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--bg-elev);
+  color: var(--text-soft);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
 .minibtn {
   display: inline-flex;
   align-items: center;

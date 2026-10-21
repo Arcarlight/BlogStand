@@ -417,6 +417,38 @@ const JPEG_QUALITY = 0.85;
 const WEBP_QUALITY = 0.82;
 const MAX_UPLOAD_JSON = 11.5 * 1024 * 1024; // 后端 JSON 上限 12MB
 
+/* ---------- 插图宽度与派生图 ----------
+   站上正文的图是 <picture> + webp 的 1x/2x 两档（tools/build-images.py 的规则：
+   <原名>-<显示宽>.webp 和 <原名>-<2x>.webp，sizes 跟着 width 属性）。手机端
+   上传时也按这套出，插图后不用再回电脑跑脚本。 */
+const IMG_WIDTH_OPTIONS = [350, 500, 634];
+const IMG_WIDTH_DEFAULT = 350;
+const IMG_WIDTH_KEY = 'mobile-editor.imgWidth';
+const VARIANT_WEBP_QUALITY = 0.9;      // 照片
+const VARIANT_WEBP_QUALITY_ART = 0.95; // 带透明的 PNG（平涂/像素图，边缘别出彩噪）
+
+function getImgWidth() {
+  const saved = Number(localStorage.getItem(IMG_WIDTH_KEY));
+  return IMG_WIDTH_OPTIONS.includes(saved) ? saved : IMG_WIDTH_DEFAULT;
+}
+
+function imgWidthOptionsHTML(current) {
+  return IMG_WIDTH_OPTIONS
+    .map((w) => `<option value="${w}"${w === current ? ' selected' : ''}>${w}px${w === 634 ? ' 满栏' : ''}</option>`)
+    .join('');
+}
+
+/** 插图宽度下拉：记住选择，下一次插图沿用 */
+function wireImgWidth(root) {
+  const sel = $('#img-width', root);
+  if (!sel) return;
+  sel.value = String(getImgWidth());
+  sel.addEventListener('change', () => {
+    const v = Number(sel.value);
+    if (IMG_WIDTH_OPTIONS.includes(v)) localStorage.setItem(IMG_WIDTH_KEY, String(v));
+  });
+}
+
 function loadImageEl(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -480,8 +512,31 @@ function safeUploadName(originalName, mime) {
   return stem + ext;
 }
 
-/** 把一张 File 压成 {name, original:{mime,b64}, webp:{b64}|null} */
-async function compressForUpload(file) {
+let webpEncodeOk = null;
+/** 浏览器能不能用 canvas 编 webp（Safari 14 之前不行，会回落到 png） */
+async function canEncodeWebp() {
+  if (webpEncodeOk !== null) return webpEncodeOk;
+  const c = document.createElement('canvas');
+  c.width = 1;
+  c.height = 1;
+  const b = await canvasToBlob(c, 'image/webp', 0.8);
+  webpEncodeOk = !!b && b.type === 'image/webp';
+  return webpEncodeOk;
+}
+
+/** 1x / 2x 两档，不超过原图（同 tools/build-images.py: min(2W, natural)） */
+function variantWidths(displayW, naturalW) {
+  const out = new Set();
+  out.add(Math.min(displayW, naturalW));
+  out.add(Math.min(displayW * 2, naturalW));
+  return [...out].filter((w) => w >= 16).sort((a, b) => a - b);
+}
+
+/**
+ * 把一张 File 压成 {name, width, original:{mime,b64}, variants:[{w,b64}]}。
+ * displayWidth 是正文里要显示的宽度，派生图按它出 1x/2x。
+ */
+async function compressForUpload(file, displayWidth = IMG_WIDTH_DEFAULT) {
   if (!file || !String(file.type || '').startsWith('image/')) {
     throw new Error('只支持图片文件');
   }
@@ -510,31 +565,56 @@ async function compressForUpload(file) {
   const mainBlob = await canvasToBlob(canvas, mime, keepPng ? undefined : JPEG_QUALITY);
   if (!mainBlob) throw new Error('浏览器压不出这张图，换个格式试试');
 
-  // webp 兄弟。浏览器不支持 webp 编码时 toBlob 会回落成 png，那就传 null。
-  const webpBlob = await canvasToBlob(canvas, 'image/webp', WEBP_QUALITY);
-  const webpOk = !!webpBlob && webpBlob.type === 'image/webp';
+  // 实际显示宽度不能超过原图（否则等于硬放大）
+  const shownW = Math.min(displayWidth, image.w);
+
+  // 派生图：按显示宽度出 1x/2x 的 webp，命名交给后端加 -<宽> 后缀
+  const variants = [];
+  if (await canEncodeWebp()) {
+    const quality = keepPng ? VARIANT_WEBP_QUALITY_ART : VARIANT_WEBP_QUALITY;
+    for (const vwRaw of variantWidths(shownW, image.w)) {
+      const vw = Math.min(vwRaw, w);
+      if (vw < 16) continue;
+      const vh = Math.max(1, Math.round((image.h * vw) / image.w));
+      const vCanvas = document.createElement('canvas');
+      vCanvas.width = vw;
+      vCanvas.height = vh;
+      const vCtx = vCanvas.getContext('2d', { alpha: true });
+      if (!vCtx) continue;
+      vCtx.imageSmoothingEnabled = true;
+      vCtx.imageSmoothingQuality = 'high';
+      vCtx.drawImage(canvas, 0, 0, w, h, 0, 0, vw, vh);
+      const blob = await canvasToBlob(vCanvas, 'image/webp', quality);
+      if (!blob || blob.type !== 'image/webp') continue;
+      variants.push({ w: vw, b64: await blobToBase64(blob) });
+    }
+  }
 
   const original = { mime: mainBlob.type || mime, b64: await blobToBase64(mainBlob) };
-  const webp = webpOk ? { b64: await blobToBase64(webpBlob) } : null;
 
-  const total = original.b64.length + (webp ? webp.b64.length : 0);
+  const total = original.b64.length + variants.reduce((n, v) => n + v.b64.length, 0);
   if (total > MAX_UPLOAD_JSON) {
     throw new Error(`压完还有 ${(total / 1024 / 1024).toFixed(1)}MB（base64），太大了`);
   }
 
   return {
     name: safeUploadName(file.name, original.mime),
+    width: shownW,
     original,
-    webp,
+    variants,
   };
 }
 
-function pictureSnippet({ url, webp }, altText) {
-  const source = webp && webp.url
-    ? `<source type="image/webp" srcset="${esc(webp.url)}">`
-    : '';
+function pictureSnippet(result, altText, displayWidth) {
+  const w = Math.round(displayWidth || IMG_WIDTH_DEFAULT);
   const alt = esc(altText || '插图');
-  return `<center><picture>${source}<img src="${esc(url)}" alt="${alt}" width="350" loading="lazy" /></picture></center>`;
+  const img = `<img src="${esc(result.url)}" alt="${alt}" width="${w}" loading="lazy" />`;
+  const list = Array.isArray(result.variantList)
+    ? result.variantList.slice().sort((a, b) => a.w - b.w)
+    : [];
+  if (!list.length) return `<center>${img}</center>`;
+  const srcset = list.map((v) => `${esc(v.url)} ${v.w}w`).join(', ');
+  return `<center><picture><source type="image/webp" srcset="${srcset}" sizes="${w}px" />${img}</picture></center>`;
 }
 
 function insertAtCursor(textarea, text) {
@@ -562,12 +642,13 @@ function insertAtCursor(textarea, text) {
  */
 async function insertImages(files, textarea) {
   let done = 0;
+  const width = getImgWidth();
   for (const file of files) {
     try {
       toast(`正在处理 ${file.name}…`, 'info', 1400);
-      const payload = await compressForUpload(file);
+      const payload = await compressForUpload(file, width);
       const result = await api('/api/upload', { method: 'POST', json: payload });
-      const snippet = pictureSnippet(result, file.name.replace(/\.[^.]+$/, ''));
+      const snippet = pictureSnippet(result, file.name.replace(/\.[^.]+$/, ''), payload.width);
       insertAtCursor(textarea, snippet);
       done += 1;
     } catch (err) {
@@ -895,6 +976,8 @@ views.blogNew = async (route, seq) => {
           <div class="field-head">
             <span class="field-label">正文</span>
             <div class="field-tools">
+              <select id="img-width" class="toolselect" aria-label="插图宽度（决定出多大的 webp）"
+                title="插图宽度：会按这个宽度出 1x/2x 两档 webp">${imgWidthOptionsHTML(getImgWidth())}</select>
               <button type="button" class="toolbtn" id="btn-img">${icon('image')} 插入图片</button>
             </div>
           </div>
@@ -920,6 +1003,7 @@ views.blogNew = async (route, seq) => {
   const wcEl = $('#wordcount', root);
   const draftHint = $('#draft-hint', root);
   const imgBtn = $('#btn-img', root);
+  wireImgWidth(root);
 
   const collect = () => ({
     title: titleEl.value,
@@ -1118,6 +1202,8 @@ views.diary = async (route, seq) => {
           <div class="field-head">
             <span class="field-label">当天内容（HTML）</span>
             <div class="field-tools">
+              <select id="img-width" class="toolselect" aria-label="插图宽度（决定出多大的 webp）"
+                title="插图宽度：会按这个宽度出 1x/2x 两档 webp">${imgWidthOptionsHTML(getImgWidth())}</select>
               <button type="button" class="toolbtn" id="btn-img">${icon('image')} 插入图片</button>
             </div>
           </div>
@@ -1137,6 +1223,7 @@ views.diary = async (route, seq) => {
   const fileEl = $('#f-file', root);
   const saveBtn = $('#btn-save', root);
   const imgBtn = $('#btn-img', root);
+  wireImgWidth(root);
   const chipsEl = $('#day-chips', root);
   const monthLabel = $('#month-label', root);
   const monthPath = $('#month-path', root);

@@ -44,7 +44,7 @@ functions/
 | POST | `/api/new` | `{kind, name, title, date?, draft?, text?}`；已存在 409；kind = `blog`/`page`/`collection`/`niki` |
 | GET | `/api/diary?year=&month=` | `{path, exists, text, days:[{day,id,date}]}` |
 | POST | `/api/diary` | `{year, month, day, html}` → 定位/替换/按 id 排序插入，返回 `{ok,path,sha,commit,htmlUrl,text}` |
-| POST | `/api/upload` | `{name, original:{mime,b64}, webp:{b64}\|null}`；12MB 上限、去重命名、原图+webp 一次提交 |
+| POST | `/api/upload` | `{name, original:{mime,b64}, variants?:[{w,b64}], webp?}`；12MB 上限、去重命名、原图 + 各档 webp 一次提交 |
 | GET | `/api/board?status=all\|visible\|hidden` | 带 `x-board-token` 转发到 `env.BOARD_API` 的 `/api/admin/list`，JSON 原样返回 |
 | POST | `/api/board/reply` | `{id, body}` → 转发 `/api/admin/reply` |
 | POST | `/api/board/hide` | `{id, hidden}` → 转发 `/api/admin/hide` |
@@ -53,8 +53,9 @@ functions/
 
 ### 响应里契约没写死、前端需要知道的形状
 
-- `POST /api/upload`：`webp` 是对象 `{url, path, bytes}`（没 webp 时 `null`），另外多给一个
-  `webpUrl` 字符串（同样内容），前端二选一即可。`url` / `webpUrl` 都是 `/images/xxx` 形式。
+- `POST /api/upload`：主字段是 `variantList`，形如 `[{w:350, url:"/images/x-350.webp", path:"static/images/x-350.webp"}, {w:700, …}]`，
+  按宽度升序；前端拿它拼 `srcset`。`url` 是原图地址。兼容字段 `webp` / `webpUrl` 仍保留
+  （旧前端只传 `webp` 时也能用）。
 - `GET /api/diary` 的 `days`：`day` 是数字（1–31），`id` 是四位字符串（如 `"1021"`），
   `date` 是 `YYYY-MM-DD`。
 - `PUT /api/file` 额外返回写入后的 `text`（`lastmod` 可能被刷新过）。
