@@ -77,6 +77,10 @@ Aero 弧线，阴影加深、高光变薄，彩色图标加 1px 暗投影）。�
 [Fugue Icons](https://p.yusukekamiyamane.com/) by Yusuke Kamiyamane（CC BY 3.0），
 署名放在首页页脚，来源与映射见 `public/icons/fugue/README.md`。
 
+动效和电脑端编辑器是同一套语言（按钮按下回弹、主按钮高光、视图/面板入场、
+弹窗缩放、Toast 滑入与错误轻 shake、输入聚焦过渡），只动画绘制属性、不动布局；
+系统开启「减少动态效果」时会全部关掉。
+
 改完不是立刻生效：**要等 GitHub Actions 构建**（一般 1～2 分钟）。
 首页顶部有构建状态条，发布后每 15 秒查一次，出结果就停。
 

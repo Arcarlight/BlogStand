@@ -1745,3 +1745,210 @@ button .ico, a .ico { margin-right: 2px; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ==========================================================================
+   拟物化动效（2026-10-21，同步自电脑端编辑器）
+   --------------------------------------------------------------------------
+   只动 transform / opacity / box-shadow / background-position / filter，
+   不碰 width / height / margin / padding / top / left（不会抖、不会改布局）。
+   时长：微交互 100–120ms，视图/面板/弹窗 140–160ms，ease-out 为主。
+   浅色深色共用同一套动效；底部操作条和稿纸纹理的颜色走下面的变量，
+   两套皮肤各有一份值。桌面端专属的（窗口外框 / 状态栏 / 侧栏凹槽 /
+   工具栏金属 / 图标底槽）手机没有对应物，没有照搬。
+   ========================================================================== */
+:root {
+  --mo-fast: 100ms;
+  --mo-mid: 150ms;
+  --mo-slow: 180ms;
+  --mo-ease: cubic-bezier(.2, .7, .3, 1);
+
+  /* 编辑区「凹陷稿纸」的极淡横纹与内阴影 */
+  --paper-rule: rgba(70, 92, 118, .014);
+  --paper-inset: rgba(30, 48, 68, .10);
+  /* 底部操作条再强化一档：轻微竖纹 + 顶部亮线 / 底部暗线 */
+  --bar-texture:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .18) 0 1px,
+      rgba(255, 255, 255, 0) 1px 3px);
+  --bar-line-top: #fff;
+  --bar-line-bottom: rgba(0, 0, 0, .10);
+  --bar-outer: 0 -3px 10px rgba(20, 40, 70, .16);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper-rule: rgba(255, 255, 255, .008);
+    --paper-inset: rgba(0, 0, 0, .45);
+    --bar-texture:
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px,
+        rgba(255, 255, 255, 0) 1px 3px);
+    --bar-line-top: rgba(255, 255, 255, .10);
+    --bar-line-bottom: rgba(0, 0, 0, .55);
+    --bar-outer: 0 -4px 14px rgba(0, 0, 0, .5);
+  }
+}
+
+/* ---------- 1. 触屏基础：去点击蓝框 + 消除 300ms 延迟（:active 才跟手） ---------- */
+a, button, .btn, .toolbtn, .minibtn, .iconbtn, .tab, .chip,
+.card, .listitem, .note, .linkbtn, .buildlink {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ---------- 2. 按钮 / 行 / 卡片：hover 与按下的过渡（100ms） ---------- */
+.btn, .toolbtn, .minibtn, .iconbtn, .tab, .chip,
+.card, .listitem, .linkbtn, .buildlink {
+  transition:
+    background-color var(--mo-fast) var(--mo-ease),
+    border-color var(--mo-fast) var(--mo-ease),
+    box-shadow var(--mo-fast) var(--mo-ease),
+    color var(--mo-fast) var(--mo-ease),
+    transform var(--mo-fast) var(--mo-ease),
+    filter var(--mo-fast) var(--mo-ease);
+}
+.btn[disabled], .toolbtn[disabled] { transition: none; }
+
+/* 按下：轻微下沉 1px（触屏上这是主要的“回弹”来源） */
+.btn:active:not([disabled]),
+.toolbtn:active:not([disabled]),
+.minibtn:active,
+.iconbtn:active,
+.tab:active,
+.chip:active,
+.card:active,
+.listitem:active,
+.buildlink:active,
+.linkbtn:active {
+  transform: translateY(1px);
+}
+.card:active { transform: translateY(1px) scale(.995); }
+
+/* ---------- 3. 主按钮：顶部高光伪元素，按下时亮起（桌面端同款配方） ---------- */
+.btn--primary {
+  position: relative;
+  overflow: hidden;
+}
+.btn--primary::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 46%;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0));
+  opacity: 0;
+  transition: opacity var(--mo-fast) var(--mo-ease);
+}
+@media (hover: hover) {
+  .btn--primary:hover::after { opacity: 1; }
+}
+.btn--primary:active::after { opacity: .9; }
+.btn--primary[disabled]::after { content: none; }
+
+/* ---------- 4. 视图入场：fade + 上移 7px（只动画内容区，固定底栏不受影响） ---------- */
+.vbody,
+.homebody {
+  animation: mViewIn var(--mo-mid) var(--mo-ease) 1;
+}
+.login {
+  animation: mViewIn var(--mo-mid) var(--mo-ease) 1;
+}
+@keyframes mViewIn {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 会话内出现的小横条（恢复草稿提示等）：轻轻落下来 */
+.notice {
+  animation: mNoticeIn var(--mo-mid) var(--mo-ease) 1;
+}
+@keyframes mNoticeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 5. 弹窗：遮罩淡入 + 窗口从 0.97 到 1（140ms） ---------- */
+.modal[open] {
+  animation: mModalFade var(--mo-mid) var(--mo-ease) 1;
+}
+.modal[open] .modal-card {
+  animation: mModalWin var(--mo-mid) var(--mo-ease) 1;
+}
+.modal::backdrop {
+  animation: mModalFade var(--mo-mid) var(--mo-ease) 1;
+}
+@keyframes mModalFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes mModalWin {
+  from { opacity: .72; transform: scale(.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ---------- 6. Toast：原有的 8px 滑入 + 淡入保留，错误多一次轻 shake ---------- */
+.toast {
+  transition: opacity var(--mo-slow) var(--mo-ease), transform var(--mo-slow) var(--mo-ease);
+}
+.toast.is-on[data-kind="err"] {
+  animation: mToastShake 160ms var(--mo-ease) 180ms 1;
+}
+@keyframes mToastShake {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  25% { transform: translateX(calc(-50% - 3px)) translateY(0); }
+  70% { transform: translateX(calc(-50% + 3px)) translateY(0); }
+}
+
+/* ---------- 7. 输入框 / 下拉 / 复选框：聚焦过渡 120ms（浅深通用） ---------- */
+.input,
+.toolselect,
+select,
+textarea,
+input[type="date"],
+input[type="checkbox"] {
+  transition:
+    border-color 120ms var(--mo-ease),
+    box-shadow 120ms var(--mo-ease),
+    background-color 120ms var(--mo-ease);
+}
+
+/* ---------- 8. 编辑区正文：凹陷稿纸（浅深各一版，只加极淡横纹和内阴影） ---------- */
+.vbody .textarea {
+  background:
+    repeating-linear-gradient(0deg, var(--paper-rule) 0 1px, rgba(0, 0, 0, 0) 1px 3px),
+    var(--field-bg);
+}
+.vbody .textarea:not(:focus) {
+  box-shadow:
+    var(--field-shadow),
+    inset 0 2px 6px var(--paper-inset);
+}
+
+/* ---------- 9. 底部操作条：金属质感再强化一档（亮线 / 暗线 / 轻纹理） ---------- */
+.actionbar {
+  background: var(--bar-texture), var(--metal-strip);
+  box-shadow:
+    inset 0 1px 0 var(--bar-line-top),
+    inset 0 -1px 0 var(--bar-line-bottom),
+    var(--bar-outer);
+}
+
+/* ---------- 10. 减少动态效果：以上全部关掉（含加载中转圈与呼吸点） ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .vbody, .homebody, .login, .notice,
+  .modal[open], .modal[open] .modal-card, .modal::backdrop,
+  .toast, .toast.is-on[data-kind="err"],
+  .btn, .toolbtn, .minibtn, .iconbtn, .tab, .chip,
+  .card, .listitem, .linkbtn, .buildlink,
+  .input, .toolselect, select, textarea, input[type="date"], input[type="checkbox"],
+  .actionbar, .builddot, .spinner {
+    animation: none !important;
+    transition: none !important;
+  }
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+

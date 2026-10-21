@@ -294,6 +294,16 @@ description: ""
     `#3f7fbe → #0d2f52` 但保留 48%/52% 弧线，高光降到 8–12%、阴影加深加长，
     橙色主按钮压一档但保留暖色强调，彩色图标加 1px 暗投影（别糊在深面板上）。
   - 两套都是底部操作条顶部亮线 + 向上投影；正文对比度至少 4.5:1。
+  - 动效（同步自电脑端编辑器，挑能落地的）：按钮 hover / 按下回弹、主按钮顶部
+    高光伪元素、视图与提示条入场（`fade + translateY`，150ms）、弹窗遮罩淡入 +
+    窗口 `scale(.97)→1`（140ms）、Toast 8px 滑入 + 错误轻 shake、列表 / 卡片按下
+    反馈、输入框聚焦过渡（120ms）、编辑区文本域「凹陷稿纸」内阴影、底部操作条
+    金属质感强化。只动画 `transform` / `opacity` / `box-shadow` / `filter` 这类
+    绘制属性，不动 box model；桌面端专属的窗口外框 / 状态栏 / 侧栏凹槽 /
+    工具栏拉丝金属不搬到手机。
+  - 触屏细节：`-webkit-tap-highlight-color: transparent` +
+    `touch-action: manipulation`（按下反馈用 `:active`，不延迟）。
+  - `@media (prefers-reduced-motion: reduce)` 时动画与过渡全部关闭。
 - 图标：**Fugue Icons**（Yusuke Kamiyamane，CC BY 3.0），图和逻辑名映射在
   `public/icons/fugue/`（含署名 README），首页页脚必须有署名链接
   <https://p.yusukekamiyamane.com/icon/attribution/>。不要引别的图标集。
