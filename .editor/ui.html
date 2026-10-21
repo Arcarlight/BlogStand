@@ -861,6 +861,217 @@
   *::-webkit-scrollbar-corner{background:#e8eef5}
   /* 只在不需要横滑的地方藏掉横条（原来就没有，保持原样） */
 
+  /* ============================================================
+     拟物化加强（第二轮，2026-10-21）
+     ------------------------------------------------------------
+     护栏：上面任何一条规则都不改；不动 .row / .grp / 按钮的 box model。
+     新加的立体感只用 background / box-shadow / border-radius / color /
+     text-indent / outline / 绝对定位伪元素（吸附在已有元素上，不占位）。
+     唯一的 DOM 改动是 body 末尾那个 22px 状态栏。
+     ============================================================ */
+
+  /* ---------- 1. 窗口外框：整窗 1px 倒角内亮线 + 极淡暗角 ---------- */
+  body::after{
+    content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;
+    border:1px solid rgba(255,255,255,.55);border-radius:3px;
+    box-shadow:
+      inset 0 0 0 1px rgba(52,76,102,.30),   /* 内倒角暗线 */
+      inset 0 0 46px rgba(12,30,52,.09);     /* 极淡暗角 */
+  }
+
+  /* ---------- 2. 底部状态栏（唯一新增结构，22px） ---------- */
+  #statusbar{
+    flex:none;height:22px;min-height:22px;box-sizing:border-box;
+    display:flex;align-items:center;gap:2px;padding:0 8px;
+    font:11px/1.2 "Microsoft YaHei","微软雅黑","PingFang SC",-apple-system,"Segoe UI",sans-serif;
+    color:#5c7089;user-select:none;position:relative;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.85) 0px, rgba(255,255,255,0) 9px),
+      linear-gradient(180deg,#f4f8fc 0%,#e7eef6 100%);
+    box-shadow:
+      inset 0 1px 0 #fff,
+      inset 0 -1px 0 rgba(0,0,0,.10),
+      0 -1px 2px rgba(24,44,70,.10);
+  }
+  #statusbar .sb-path{
+    min-width:0;max-width:56vw;padding:0 6px;
+    font-family:Consolas,"Cascadia Mono",monospace;font-size:11px;color:#42566e;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    text-shadow:0 1px 0 #fff;
+  }
+  #statusbar .sb-spacer{flex:1}
+  #statusbar .sb-item{
+    display:inline-flex;align-items:center;gap:5px;height:14px;padding:0 8px;
+    white-space:nowrap;color:#4a5f78;text-shadow:0 1px 0 #fff;
+    border-left:1px solid rgba(120,145,170,.35);
+    box-shadow:inset 1px 0 0 rgba(255,255,255,.85);
+  }
+  #statusbar .sb-dot{
+    flex:none;width:7px;height:7px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#8cf0a9,#2e9e57 70%);
+    border:1px solid #1c6b3c;
+    box-shadow:0 0 4px rgba(46,158,87,.55), inset 0 1px 0 rgba(255,255,255,.7);
+  }
+  #statusbar .sb-conn.off .sb-dot{
+    background:radial-gradient(circle at 35% 30%,#f0a08c,#c0392b 70%);
+    border-color:#8a261e;
+    box-shadow:0 0 4px rgba(192,57,43,.55), inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  #statusbar .sb-grip{
+    flex:none;width:14px;height:14px;margin-left:2px;
+    background-image:radial-gradient(circle, rgba(80,104,132,.55) 0 1px, rgba(80,104,132,0) 1.4px);
+    background-size:4px 4px;background-position:1px 1px;
+  }
+
+  /* ---------- 3. 标题栏：应用图标 + 玻璃反光带加强 ---------- */
+  body > header{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,.26) 36%,
+        rgba(255,255,255,.06) 39%, rgba(255,255,255,0) 58%, rgba(0,0,0,.10) 100%),
+      linear-gradient(180deg, #6aabec 0%, #2f74bb 48%, #1b5a9f 52%, #124070 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.60),
+      inset 0 -1px 0 rgba(0,0,0,.45),
+      inset 0 -2px 0 rgba(255,255,255,.10),
+      0 2px 6px rgba(0,0,0,.28);
+  }
+  header .brand::before{
+    content:"";display:inline-block;width:16px;height:16px;flex:none;
+    margin-right:5px;vertical-align:-3px;
+    background:url('/editor-icons/favicon.png') center/16px 16px no-repeat;
+    filter:drop-shadow(0 1px 0 rgba(0,0,0,.45));
+  }
+
+  /* ---------- 4. 工具栏：拉丝金属 + 凿刻分隔线 + 按钮外投影 ---------- */
+  body #work > #toolbar{
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.22) 0 1px, rgba(255,255,255,0) 1px 3px),
+      linear-gradient(180deg, rgba(255,255,255,.8) 0px, rgba(255,255,255,0) 20px),
+      linear-gradient(180deg, #f9fcfe 20px, #e9f1fa calc(100% - 15px), #dfe7f1 100%);
+    box-shadow:inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.10);
+  }
+  body #work > #toolbar .sep{
+    box-shadow:1px 0 0 rgba(255,255,255,.95), -1px 0 0 rgba(80,105,135,.18);
+  }
+  body #work > #toolbar > button:not(:disabled){
+    filter:drop-shadow(0 1px 1px rgba(31,45,61,.22));
+  }
+  /* 图标底槽按站长意见撤掉（2026-10-21）：彩色 Fugue 图标加浅色小方块显得怪，
+     只保留按钮本身的立体感和图标外投影。 */
+
+  /* ---------- 5. 侧栏：组标题的层级 + 组间凿刻横线 ----------
+     ⚠️ 原来这里还有一条「缩进引导线」渐变，写成了
+     `linear-gradient(90deg, rgba(...) 26px, rgba(...,0) 27px)` ——
+     第一个色标带位置，0–26px 会被整块填成灰色，在每行左边显出灰砖。
+     站长看到的就是它（2026-10-21）。引导线没带来什么信息量，直接撤掉。
+
+     层级修正（2026-10-21 站长反馈）：
+     「展开后因为凹下去，反而比下方的子项更不醒目，层级错乱」。
+     原来展开态是浅灰按下、子项却是白色凸起（还带隔行压条），于是子项比标题还跳。
+     现在三层从深到浅：
+       子项（最凹）   —— 整组做成一条凿出来的凹槽：组体顶部内阴影 + 内描边，
+                        行与行之间只留一条刻线；hover 才浮起来一点、选中才凸出
+       展开组标题     —— 按下（浅凹），加深底色 + 左侧 3px 蓝色标记 + 深蓝粗字
+       折叠组标题     —— 凸起白条，字色淡一档
+     几何一个像素没动：只改 background / box-shadow / color。 */
+  body #tree .grp:not(.folded){
+    color:#17416e;
+    text-shadow:0 1px 0 rgba(255,255,255,.9);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.40) 0%, rgba(255,255,255,0) 18px),
+      linear-gradient(180deg, #c6d8ec 0%, #d3e2f1 55%, #dfeaf7 100%);
+    box-shadow:
+      inset 3px 0 0 0 #3f7fbe,                  /* 左侧蓝色标记：当前展开的那一组 */
+      inset 0 2px 5px rgba(46,78,116,.22),      /* 顶部内阴影：仍是「按下去」 */
+      inset 0 0 0 1px rgba(150,175,205,.70),
+      inset 0 -1px 0 rgba(255,255,255,.90);
+  }
+  body #tree .grp.folded{ color:#5a6f88; }
+  body #tree .grp.folded:hover{ color:#2f5d92; }
+
+  /* 组体：一条凿出来的凹槽（比展开标题更凹） */
+  body #tree .grpbody{
+    background:linear-gradient(180deg, #d3e0ee 0%, #dfe9f4 10%, #edf3fa 55%, #f7fafd 100%);
+    box-shadow:
+      inset 0 4px 8px rgba(46,78,116,.20),      /* 槽口内阴影：比标题的 2px 5px 更深 */
+      inset 0 0 0 1px rgba(150,175,205,.45),
+      inset 3px 0 6px -3px rgba(46,78,116,.14), /* 左右槽壁 */
+      inset -3px 0 6px -3px rgba(46,78,116,.14),
+      inset 0 -1px 0 rgba(255,255,255,.75);
+  }
+  /* 行：不争抢，只留一条刻线；hover 浮起一点、选中才凸出。
+     第一行不要顶部那条白色高光 —— 它紧贴组标题下沿，会和凹槽口连成一道白条。 */
+  body #tree .grpbody > .row{
+    background:none;
+    box-shadow:inset 0 -1px 0 rgba(120,145,175,.14), inset 0 1px 0 rgba(255,255,255,.60);
+  }
+  body #tree .grpbody > .row:first-child{
+    box-shadow:inset 0 -1px 0 rgba(120,145,175,.14);
+  }
+  body #tree .grpbody > .row:hover{
+    background:linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,.45));
+    box-shadow:inset 0 1px 0 #fff, 0 1px 1px rgba(30,50,75,.06);
+  }
+  body #tree .grpbody > .row.active{
+    background:linear-gradient(180deg, #d5e8fb 0%, #c7dcf4 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.85),
+      inset 0 0 0 1px rgba(110,150,195,.45),
+      0 1px 1px rgba(30,50,75,.08);
+  }
+  body #tree .grpbody > .row[data-file] .ico{ opacity:.72; }
+  body #tree .grpbody > .row.active .ico{ opacity:1; }
+
+  /* 组头底下那条「凿刻横线」撤掉（2026-10-21 站长：父项与子项之间多出一道白条）。
+     它原本是 1px 深线 + 1px 白投影，本意是分组的刻线，但紧贴在凹槽口上，
+     白投影正好落在子项第一行的顶边，看起来就是一条突兀的白条。
+     现在组标题自己已经能分层（展开蓝灰 / 折叠白条），不需要这条线。 */
+
+  /* ---------- 6. 编辑区 / 面板：凹陷稿纸 ----------
+     面板标题的「蚀刻标题条」按站长意见撤掉（2026-10-21）：
+     标题下多一道灰框显得多余，蓝色标题字本身就够。 */
+  body #panes #editor{
+    background:
+      repeating-linear-gradient(0deg, rgba(70,92,118,.014) 0 1px, rgba(0,0,0,0) 1px 3px),
+      linear-gradient(180deg, #f6f9fd 0%, #fdfeff 90px, #ffffff 100%);
+    box-shadow:
+      inset 0 2px 6px rgba(30,48,68,.12),
+      inset 0 -1px 0 rgba(255,255,255,.85),
+      inset 1px 0 0 rgba(0,0,0,.04);
+  }
+  body #work #panel{
+    box-shadow:inset 0 2px 5px rgba(30,48,68,.10), inset 1px 0 0 rgba(0,0,0,.04);
+  }
+
+  /* ---------- 7. 输入框 / 下拉 / 复选框：底部亮线 + 塑料槽 ---------- */
+  body .field input[type=text], body .field input[type=password],
+  body .field input[type=number], body .field textarea,
+  body #toolbar #imgWidthSel, body #mBody select, body #mBody input[type=text],
+  body #mBody textarea, body .pk-in, body .dc-text, body .dc-sel{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0) calc(100% - 2px),
+        rgba(255,255,255,.95) calc(100% - 1px), rgba(0,0,0,.03) 100%),
+      linear-gradient(180deg, #f2f5f9 0%, #fff 14%, #fff 100%);
+  }
+  body select{
+    background-color:#fff;
+    background-image:
+      linear-gradient(180deg, rgba(255,255,255,0) calc(100% - 2px),
+        rgba(255,255,255,.95) calc(100% - 1px), rgba(0,0,0,.03) 100%),
+      linear-gradient(180deg, #f2f5f9 0%, #fff 18%, #fff 100%);
+  }
+  body input[type=checkbox]{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0) calc(100% - 2px),
+        rgba(255,255,255,.9) calc(100% - 1px), rgba(0,0,0,.04) 100%),
+      linear-gradient(180deg, #eef2f7, #fff 60%);
+  }
+  body input[type=checkbox]:checked{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 55%),
+      linear-gradient(180deg, #7fb2e2 0%, #3d7fc0 50%, #2a6cae 100%);
+  }
+
 </style>
 </head>
 <body>
@@ -960,6 +1171,16 @@ let TREE = [], CUR = null, DIRTY = false;
 /* ---------- 小工具 ---------- */
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/** 本地日历日期 YYYY-MM-DD。
+    ⚠️ 别用 `toISOString().slice(0,10)`：那是 UTC，北京时间 0–8 点会差一天。
+    另外「加一条」这类默认值要在**点击时**现取，不能在面板渲染时算好存着 ——
+    页面开着一整天不刷新，存下来的 today 就过期了（站长 2026-10-21 报的「加更新
+    默认停在 12 日」就是这么来的）。 */
+function todayLocalStr(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 /** 内联引用 sprite 里的像素图标（见文件顶部那个 <svg id="sprite">） */
 /* 图标：Fugue Icons（.editor/icons/）。这里做一次「逻辑名 → 文件名」映射，
    以后想换某张图只改这张表；文件名对不上会 404，肉眼一看就知道。 */
@@ -993,12 +1214,73 @@ function toast(msg, kind) {
   t._h = setTimeout(() => { t.className = ''; }, kind === 'err' ? 6000 : 2800);
 }
 
+/* ---------- data/*.toml 面板的「乐观锁」 ----------
+   为什么需要：面板读进来是一份快照，保存是整份重写。如果这中间文件被别处
+   改过（另一个标签页 / 另一台设备 / 刚 pull 过），旧快照一覆盖就把别人写的
+   东西悄悄吃掉了。
+   做法：GET /api/list/<key> 会带回文件内容指纹（hash），这里存下来；
+   保存时自动附上 baseHash；服务端对不上就 409，弹确认让站长决定覆盖还是重载。 */
+const listHashes = new Map();   // '/api/list/changelog' -> hash
+const LIST_LABELS = {
+  links: '友情链接', buttons: '小按钮', updates: '更新日志', changelog: '更新历史',
+  notices: '公告栏', music: '音乐', gallery: '画廊',
+};
+let CURRENT_PANEL = '';
+
 async function api(path, opts) {
-  const res = await fetch(path, Object.assign({
-    headers: { 'X-Editor-Token': TOKEN, 'Content-Type': 'application/json' },
-  }, opts));
+  const method = String((opts && opts.method) || 'GET').toUpperCase();
+  const key = String(path).split('?')[0];
+  const isList = key.startsWith('/api/list/');
+  const label = LIST_LABELS[key.slice('/api/list/'.length)] || '这份数据';
+
+  let body = opts && opts.body;
+  // 保存时自动带上「读的时候」的指纹（调用方自己带了就不动）
+  if (isList && method !== 'GET' && typeof body === 'string') {
+    try {
+      const obj = JSON.parse(body);
+      const h = listHashes.get(key);
+      if (h && obj.baseHash === undefined && obj.force !== true) obj.baseHash = h;
+      body = JSON.stringify(obj);
+    } catch { /* 不是 JSON 就让服务端自己报错 */ }
+  }
+
+  const init = Object.assign(
+    { headers: { 'X-Editor-Token': TOKEN, 'Content-Type': 'application/json' } },
+    opts,
+    body === undefined ? {} : { body },
+  );
+  const res = await fetch(path, init);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+
+  if (!res.ok) {
+    if (res.status === 409 && data.stale && isList) {
+      const overwrite = confirm(
+        `「${label}」这份数据在你打开面板之后被改过。\n`
+        + '可能是另一个标签页、另一台设备，或者刚拉取过线上。\n\n'
+        + '要用**当前面板里**的内容覆盖它吗？\n'
+        + '点「取消」= 不保存，并重新载入线上最新内容。'
+      );
+      if (!overwrite) {
+        toast('已取消保存，正在重新载入最新内容…', 'err');
+        if (CURRENT_PANEL) await openPanel(CURRENT_PANEL);
+        throw new Error('数据已被别处修改，已取消保存');
+      }
+      // 确认覆盖：带 force 再发一次
+      const obj = JSON.parse(body || '{}');
+      obj.force = true;
+      const res2 = await fetch(path, Object.assign({}, init, { body: JSON.stringify(obj) }));
+      const data2 = await res2.json().catch(() => ({}));
+      if (!res2.ok) throw new Error(data2.error || ('HTTP ' + res2.status));
+      if (data2.hash) listHashes.set(key, data2.hash);
+      return data2;
+    }
+    throw new Error(data.error || ('HTTP ' + res.status));
+  }
+
+  if (isList) {
+    if (data.hash) listHashes.set(key, data.hash);
+    else if (method !== 'GET') listHashes.delete(key);  // 服务端没给就放宽一次
+  }
   return data;
 }
 const apiGet = (p) => api(p);
@@ -1502,6 +1784,7 @@ $('#btnPublish').addEventListener('click', async () => {
 function showPanel(html) { $('#panel').innerHTML = html; }
 
 async function openPanel(which) {
+  CURRENT_PANEL = which;   // 保存冲突时「重新载入」要知道重开哪个面板
   /* 各面板自己负责 showPanel()。任一环节失败（最典型的是编辑器进程还是旧代码，
      新接口 404）以前只在控制台抛错，面板上留着上一个画面 —— 看着就像「点了没反应」。
      这里兜住，把原因画在面板里，并直接给出「重启编辑器」的提示。 */
@@ -1818,7 +2101,6 @@ async function renderButtons() {
        完整列表在 /updates/ */
 async function renderUpdates() {
   const d = await apiGet('/api/list/updates');
-  const today = new Date().toISOString().slice(0, 10);
   const draw = (items) => {
     let h = '<h2 class="sec">更新日志</h2>';
     h += '<p class="hint">这里是<b>手动加的「更新通报」</b>，显示在<b>侧栏</b>那块「更新日志」，' +
@@ -1854,7 +2136,7 @@ async function renderUpdates() {
       collect(); items.splice(+b.dataset.del, 1); draw(items);
     }));
     $('#btnAddUpd').addEventListener('click', () => {
-      collect(); items.unshift({ date: today, title: '' }); draw(items);
+      collect(); items.unshift({ date: todayLocalStr(), title: '' }); draw(items);
     });
     $('#btnSaveUpd').addEventListener('click', async () => {
       collect();
@@ -1876,7 +2158,6 @@ async function renderUpdates() {
    点它那行的按钮切成「子条目」。 */
 async function renderChangelog() {
   const d = await apiGet('/api/list/changelog');
-  const today = new Date().toISOString().slice(0, 10);
   const draw = (items) => {
     let h = '<h2 class="sec">更新历史</h2>';
     h += '<p class="hint">网站结构的更新记录（建站、换字体、接留言板…），对应 <code>data/changelog.toml</code>。' +
@@ -1885,7 +2166,8 @@ async function renderChangelog() {
          '只进<b>侧栏</b>那块自动列表，存 <code>data/updates.toml</code>。<br>' +
          '<b>同一天有好几条</b>：默认<b>并列</b>（两行平级，日期只显示一次）；' +
          '如果是同一件事分了几步，把第二条切成「<b>子条目</b>」就会缩进成续行。<br>' +
-         '加一条时会自动带上上一行的日期 —— 同一天要加第二条，直接改文字就行。</div>';
+         '加一条时日期默认是<b>今天</b>（点按钮那一刻现取），要补以前的直接改日期；' +
+         '同一天加第二条也是今天，直接改文字就行。</div>';
     h += '<table class="grid"><thead><tr>' +
          '<th style="width:140px">日期</th><th>更新内容</th>' +
          '<th style="width:22%">链接（可空）</th><th style="width:118px"></th>' +
@@ -1928,8 +2210,9 @@ async function renderChangelog() {
     }));
     $('#btnAddChg').addEventListener('click', () => {
       collect();
-      const lastDate = items.length ? String(items[items.length - 1].date || '') : '';
-      items.push({ date: lastDate || today, title: '' });
+      // 默认日期在**点击那一刻**取，且就是今天；不再沿用上一行 ——
+      // 上一行可能是几天前，而且面板开久了 today 也是旧的（见 todayLocalStr 注释）。
+      items.push({ date: todayLocalStr(), title: '' });
       draw(items);
     });
     $('#btnSaveChg').addEventListener('click', async () => {
@@ -2081,7 +2364,6 @@ async function renderBoard() {
 
 async function renderNotices() {
   const d = await apiGet('/api/list/notices');
-  const today = new Date().toISOString().slice(0, 10);
   const draw = (items) => {
     let h = '<h2 class="sec">公告栏</h2>';
     h += '<p class="hint">侧栏上那块「公告」的内容，对应 <code>data/notices.toml</code>。</p>';
@@ -2109,7 +2391,7 @@ async function renderNotices() {
       collect(); items.splice(+b.dataset.del, 1); draw(items);
     }));
     $('#btnAddNotice').addEventListener('click', () => {
-      collect(); items.unshift({ date: today, text: '', url: '' }); draw(items);
+      collect(); items.unshift({ date: todayLocalStr(), text: '', url: '' }); draw(items);
     });
     $('#btnSaveNotices').addEventListener('click', async () => {
       collect();
@@ -3995,7 +4277,7 @@ async function newPage() {
       ] },
       { key: 'name', type: 'text', label: '文件名', value: d0.name, hint: '英文/数字/下划线，不用写 .md' },
       { key: 'title', type: 'text', label: '标题', value: d0.title },
-      { key: 'date', type: 'text', label: '日期', value: new Date().toISOString().slice(0, 10), hint: 'YYYY-MM-DD' },
+      { key: 'date', type: 'text', label: '日期', value: todayLocalStr(), hint: 'YYYY-MM-DD' },
       { key: 'asDraft', type: 'checkbox', label: '先存为草稿', value: true, hint: '写完在工具栏一键发布' },
     ],
   });
@@ -4270,5 +4552,45 @@ async function checkRemote() {
 }
 setTimeout(checkRemote, 1200);
 </script>
+
+<!-- ============================================================
+     状态栏（2026-10-21 拟物化加强；本轮唯一新增结构）
+     ------------------------------------------------------------
+     22px 高，body 是 flex column，#main 是 flex:1，所以它自动吃掉
+     底部 22px，不改变其它任何元素的尺寸计算。
+     路径来自已有的 #curPath（MutationObserver 只读镜像，不动原逻辑），
+     右侧连接状态来自 navigator.onLine。
+     ============================================================ -->
+<footer id="statusbar" aria-label="状态栏">
+  <span class="sb-path" id="sbPath" title="当前文件">← 从左边选一个文件</span>
+  <span class="sb-spacer"></span>
+  <span class="sb-item" title="文件编码">UTF-8</span>
+  <span class="sb-item sb-conn" id="sbConn" title="本地编辑器服务"><i class="sb-dot"></i><span id="sbConnText">已连接</span></span>
+  <span class="sb-grip" aria-hidden="true" title="窗口大小"></span>
+  <script>
+  (() => {
+    const pathEl = document.getElementById('sbPath');
+    const src = document.getElementById('curPath');
+    if (pathEl && src) {
+      const sync = () => {
+        const t = (src.textContent || '').trim();
+        if (t) { pathEl.textContent = t; pathEl.title = t; }
+      };
+      sync();
+      new MutationObserver(sync).observe(src, { childList: true, characterData: true, subtree: true });
+    }
+    const conn = document.getElementById('sbConn');
+    const connText = document.getElementById('sbConnText');
+    const paint = () => {
+      const on = navigator.onLine !== false;
+      if (conn) conn.classList.toggle('off', !on);
+      if (connText) connText.textContent = on ? '已连接' : '离线';
+    };
+    window.addEventListener('online', paint);
+    window.addEventListener('offline', paint);
+    paint();
+  })();
+  </script>
+</footer>
 </body>
 </html>

@@ -807,6 +807,13 @@ function todayLocal() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+/** 数据文件的内容指纹。面板读的时候带回给前端，保存时再比对：
+    文件要是被别处改过（另一个标签页 / 另一台设备 / 刚 pull 过），
+    就不能让旧面板直接整份覆盖 —— 那会悄悄吃掉别人写的内容。 */
+function hashText(text) {
+  return crypto.createHash('sha1').update(String(text || ''), 'utf8').digest('hex').slice(0, 16);
+}
+
 /** 取 front matter 之后的正文；没有 front matter 就返回 null */
 function bodyOf(text) {
   const s = String(text || '').replace(/^\uFEFF/, '');
@@ -2449,7 +2456,7 @@ async function handle(req, res, url) {
     const { kind, name, title, date, asDraft, headImage } = await readBody(req);
     const clean = String(name || '').trim().replace(/[\\/:*?"<>|]/g, '');
     if (!clean) throw new Error('文件名不能为空');
-    const d = date || new Date().toISOString().slice(0, 10);
+    const d = date || todayLocal();
     const draftFlag = asDraft === false ? 'false' : 'true';
 
     let rel, body;
@@ -2882,10 +2889,12 @@ async function handle(req, res, url) {
     if (req.method === 'GET') {
       const raw = await readText(spec.file);
       const items = parseItems(raw);
+      // hash 给前端记住：保存时带回来，后端据此判断文件有没有被别处改过
+      const hash = hashText(raw);
       // 音乐这份顺带告诉自己（和编辑器）哪些音频其实不在
       if (spec.music) {
         const status = await musicFileStatus(items);
-        return json(res, 200, { items, keys: spec.keys, status,
+        return json(res, 200, { items, keys: spec.keys, hash, status,
           missing: status.filter((s) => !s.exists && !s.external).map((s) => s.file) });
       }
       // 画廊：分类也一起给，面板还要用它当下拉框；顺带报「图片文件不在」的
@@ -2896,9 +2905,9 @@ async function handle(req, res, url) {
           const f = String(it.file || '').trim();
           if (f && !await fsp.stat(safePath(`static/images/${f}`)).catch(() => null)) missing.push(f);
         }
-        return json(res, 200, { items, sections, keys: spec.keys, missing });
+        return json(res, 200, { items, sections, keys: spec.keys, hash, missing });
       }
-      return json(res, 200, { items, keys: spec.keys });
+      return json(res, 200, { items, keys: spec.keys, hash });
     }
 
     // ⚠️ 请求体只能读一次：readBody(req) 把整个 body 收干，再调一次拿到的是空对象。
@@ -2907,6 +2916,23 @@ async function handle(req, res, url) {
     let items = Array.isArray(body.items) ? body.items : null;
     if (!items) throw new Error('参数不对：需要 items 数组');
     const rawSections = Array.isArray(body.sections) ? body.sections : null;
+
+    /* 乐观锁：GET 时把内容指纹给了前端，保存时带回来（baseHash）。
+       对不上说明这份文件在面板打开之后被别处改过（另一个标签页 / 另一台设备 /
+       刚 pull 过）—— 这时候整份覆盖会把别人写的东西悄悄吃掉，所以先 409，
+       由前端弹确认：要覆盖就带 force:true 再发一次。
+       没带 baseHash 的调用（旧页面、外部脚本）保持原来的行为，不拦。 */
+    {
+      const curRaw = await readText(spec.file).catch(() => '');
+      const curHash = hashText(curRaw);
+      if (body.baseHash && body.baseHash !== curHash && body.force !== true) {
+        return json(res, 409, {
+          error: '这份数据在别处被改过（可能是另一个标签页、另一台设备，或刚拉过线上）',
+          stale: true,
+          hash: curHash,
+        });
+      }
+    }
 
     if (which === 'music') {
       // 空行（点了「加一条」还没填文件名的）丢掉；顺手把结果里的「文件不在」报回去
@@ -2926,6 +2952,7 @@ async function handle(req, res, url) {
 
       const status = await musicFileStatus(clean);
       return json(res, 200, { ok: true, count: clean.length, status,
+        hash: hashText(await readText(spec.file)),
         missing: status.filter((s) => !s.exists && !s.external).map((s) => s.file) });
     }
 
@@ -2982,7 +3009,8 @@ async function handle(req, res, url) {
       for (const it of clean) {
         if (!await fsp.stat(safePath(`static/images/${it.file}`)).catch(() => null)) missing.push(it.file);
       }
-      return json(res, 200, { ok: true, count: clean.length, sections: sections.length, missing });
+      return json(res, 200, { ok: true, count: clean.length, sections: sections.length,
+        hash: hashText(await readText(spec.file)), missing });
     }
 
     if (which === 'updates' || which === 'notices') {
@@ -2996,7 +3024,7 @@ async function handle(req, res, url) {
       };
       items = items.filter(hasBody);
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayLocal();
       for (const it of items) {
         // 日期写坏的话 Hugo 构建会直接报错（模板里要 time 解析它），所以这里先拦住
         let d = String(it.date || '').trim().slice(0, 10);
@@ -3022,7 +3050,7 @@ async function handle(req, res, url) {
     }
 
     await writeText(spec.file, writeItems(spec.header, items, spec.keys));
-    return json(res, 200, { ok: true, count: items.length });
+    return json(res, 200, { ok: true, count: items.length, hash: hashText(await readText(spec.file)) });
   }
 
   /* ---------- 「蒂安希听到了」的消息 ----------
