@@ -1269,6 +1269,7 @@
     color:transparent;
     caret-color:#22303f;
     scrollbar-width:none;
+    padding-right:30px; /* 16 + 14（自绘滚动条轨道），两层同值 */
   }
   .ed-wrap #editor::-webkit-scrollbar{width:0;height:0}
   .ed-wrap #editor::placeholder{color:#9aa6b4;opacity:1}
@@ -1276,7 +1277,7 @@
   .ed-wrap #editor.dragover{background:rgba(238,247,255,.92) !important;box-shadow:inset 0 0 0 3px #7fb8f0 !important}
   #edHl{
     position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none;
-    padding:14px 16px;border:0;box-sizing:border-box;
+    padding:14px 30px 14px 16px;border:0;box-sizing:border-box;
     font:13.5px/1.75 Consolas,"SF Mono",Menlo,Monaco,"Courier New","Microsoft YaHei","PingFang SC",monospace;
     tab-size:2;color:#22303f;white-space:normal;
   }
@@ -1298,6 +1299,47 @@
   .ed-wrap.hl-off #edHl{display:none}
   .ed-wrap.hl-off #editor{color:#22303f;caret-color:#22303f}
   .ed-wrap.hl-off #editor::selection{color:#22303f}
+
+  /* 编辑区自绘 Win7 滚动条（原生条为对齐而隐藏，这里按 839–860 行那套配方复刻） */
+  #edScroll{
+    position:absolute;top:0;right:0;bottom:0;width:14px;z-index:4;
+    background:linear-gradient(90deg, #e4eaf1 0%, #f2f6fa 60%, #e8eef5 100%);
+    border-left:1px solid #c9d5e2;
+    box-shadow:
+      inset 1px 0 2px rgba(30,48,68,.12),
+      inset 0 1px 0 rgba(255,255,255,.7);
+    border-radius:2px;
+    pointer-events:auto;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:none;
+  }
+  #edScroll[hidden]{display:none}
+  .ed-scroll-thumb{
+    position:absolute;left:1px;right:1px;top:0;height:40px;
+    border:1px solid #93a4b7;border-radius:3px;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.15) 45%,
+                      rgba(0,0,0,.03) 46%, rgba(0,0,0,.10) 100%),
+      linear-gradient(90deg, #cfd9e4 0%, #b3c1d1 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+    cursor:pointer;
+    touch-action:none;
+  }
+  .ed-scroll-thumb:hover{
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.2) 45%,
+                      rgba(0,0,0,.02) 46%, rgba(0,0,0,.08) 100%),
+      linear-gradient(90deg, #c2d6ec 0%, #9fbcdc 100%);
+  }
+  .ed-scroll-thumb.dragging,
+  .ed-scroll-thumb:active{
+    background:linear-gradient(90deg, #9db7d1 0%, #b9cde3 100%);
+    box-shadow:inset 0 1px 3px rgba(20,40,70,.4);
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ed-scroll-thumb{transition:none}
+  }
 
 </style>
 </head>
@@ -4853,7 +4895,7 @@ setTimeout(checkRemote, 1200);
   let lastValue = ed.value;
   let lastRenderMs = 0;
   let longWarned = false;
-  let wrap, hl, btnSyntax, btnDim;
+  let wrap, hl, btnSyntax, btnDim, sc, scThumb;
 
   /* ---- 1. 把 textarea 包起来，并插入着色层（失败就什么都不做，保持纯文本） ---- */
   try {
@@ -4865,6 +4907,13 @@ setTimeout(checkRemote, 1200);
     hl.id = 'edHl';
     hl.setAttribute('aria-hidden', 'true');
     wrap.insertBefore(hl, ed);
+    sc = document.createElement('div');
+    sc.id = 'edScroll';
+    sc.setAttribute('aria-hidden', 'true');
+    scThumb = document.createElement('div');
+    scThumb.className = 'ed-scroll-thumb';
+    sc.appendChild(scThumb);
+    wrap.appendChild(sc);
   } catch (e) {
     return;
   }
@@ -4955,6 +5004,7 @@ setTimeout(checkRemote, 1200);
       }
       hl.innerHTML = out.join('');
       syncScroll();
+      updateScrollbar();
       lastRenderMs = performance.now() - t0;
     } catch (err) {
       fallback(err);
@@ -4972,6 +5022,46 @@ setTimeout(checkRemote, 1200);
     if (!hl) return;
     hl.scrollTop = ed.scrollTop;
     hl.scrollLeft = ed.scrollLeft;
+  }
+
+  /* ---- 3b. 自绘滚动条：位置 / 拖拽 / 点轨道翻页 / 轨道滚轮 ---- */
+  let dragging = false, dragStartY = 0, dragStartScroll = 0, dragMaxTop = 1, dragMaxScroll = 1;
+  function updateScrollbar() {
+    if (!sc || !scThumb) return;
+    const view = ed.clientHeight;
+    const total = ed.scrollHeight;
+    if (!(total > view + 1)) { sc.hidden = true; return; }
+    sc.hidden = false;
+    const trackH = sc.clientHeight;
+    if (trackH <= 0) return;
+    const maxScroll = total - view;
+    const thumbH = Math.max(40, Math.round(trackH * view / total));
+    const maxTop = Math.max(0, trackH - thumbH);
+    const top = maxScroll > 0 ? Math.round(maxTop * (ed.scrollTop / maxScroll)) : 0;
+    scThumb.style.height = thumbH + 'px';
+    scThumb.style.transform = 'translateY(' + top + 'px)';
+  }
+  function onThumbDown(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragging = true;
+    scThumb.classList.add('dragging');
+    dragStartY = e.clientY;
+    dragStartScroll = ed.scrollTop;
+    dragMaxTop = Math.max(1, sc.clientHeight - scThumb.offsetHeight);
+    dragMaxScroll = Math.max(1, ed.scrollHeight - ed.clientHeight);
+    try { scThumb.setPointerCapture(e.pointerId); } catch (err) {}
+  }
+  function onThumbMove(e) {
+    if (!dragging) return;
+    const dy = e.clientY - dragStartY;
+    ed.scrollTop = dragStartScroll + dy * dragMaxScroll / dragMaxTop;
+  }
+  function onThumbUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    scThumb.classList.remove('dragging');
+    try { scThumb.releasePointerCapture(e.pointerId); } catch (err) {}
   }
   function schedule() {
     if (composing) return;
@@ -5005,8 +5095,40 @@ setTimeout(checkRemote, 1200);
   ed.addEventListener('input', () => { lastValue = ed.value; schedule(); });
   ed.addEventListener('compositionstart', () => { composing = true; });
   ed.addEventListener('compositionend', () => { composing = false; lastValue = ed.value; render(); });
-  ed.addEventListener('scroll', () => { syncScroll(); }, { passive: true });
-  window.addEventListener('resize', syncScroll, { passive: true });
+  scThumb.addEventListener('pointerdown', onThumbDown);
+  scThumb.addEventListener('pointermove', onThumbMove);
+  scThumb.addEventListener('pointerup', onThumbUp);
+  scThumb.addEventListener('pointercancel', onThumbUp);
+  scThumb.addEventListener('lostpointercapture', () => { dragging = false; scThumb.classList.remove('dragging'); });
+  sc.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target === scThumb) return;
+    const thumbRect = scThumb.getBoundingClientRect();
+    const page = ed.clientHeight * 0.9;
+    if (e.clientY < thumbRect.top) ed.scrollTop -= page;
+    else if (e.clientY > thumbRect.bottom) ed.scrollTop += page;
+    else return;
+    e.preventDefault();
+    syncScroll();
+    updateScrollbar();
+  });
+  sc.addEventListener('wheel', (e) => {
+    if (!e.deltaY) return;
+    ed.scrollTop += e.deltaY;
+    e.preventDefault();
+    syncScroll();
+    updateScrollbar();
+  }, { passive: false });
+
+  ed.addEventListener('scroll', () => { syncScroll(); updateScrollbar(); }, { passive: true });
+  window.addEventListener('resize', () => { syncScroll(); updateScrollbar(); }, { passive: true });
+  if (window.ResizeObserver) {
+    try {
+      new ResizeObserver(() => { syncScroll(); updateScrollbar(); }).observe(wrap);
+    } catch (e) {}
+  }
+  // 面板打开/关闭会切 body.panel：等一帧重算 thumb
+  new MutationObserver(() => requestAnimationFrame(() => { syncScroll(); updateScrollbar(); }))
+    .observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
   // 程序化改 value（打开文件 / 删除 / 面板里编辑）也要刷新：轻量轮询兜底
   setInterval(() => {
@@ -5032,11 +5154,13 @@ setTimeout(checkRemote, 1200);
   wrap.classList.toggle('hl-off', !syntaxOn);
   wrap.classList.toggle('dim-tags', dimOn);
   if (syntaxOn) { lastValue = ed.value; render(); }
+  updateScrollbar();
 
   // 给自测 / 调试用（不参与业务）
   window.__edHl = {
     render,
     syncScroll,
+    updateScrollbar,
     setSyntax,
     setDim,
     isOn: () => syntaxOn,
