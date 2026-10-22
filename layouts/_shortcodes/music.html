@@ -35,7 +35,12 @@
 {{ if not (.Page.Scratch.Get "musAssets") }}
   {{ .Page.Scratch.Set "musAssets" true }}
   {{ partial "music-page-css.html" . }}
+  <script>window.__MUS_SF = window.__MUS_SF || {
+    base: "{{ "js/vendor/spessasynth/" | relURL }}",
+    bank: "{{ "soundfont/FluidR3Mono_GM.sf3" | relURL }}"
+  };</script>
   <script src="{{ "js/midi-player.js" | relURL }}" defer></script>
+  <script src="{{ "js/midi-soundfont.js" | relURL }}" defer></script>
   <script src="{{ "js/music-page.js" | relURL }}" defer></script>
 {{ end }}
 

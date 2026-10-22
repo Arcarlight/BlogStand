@@ -61,6 +61,10 @@
   </div>
   <div class="mus-tools">
     <span class="mus-badge on" id="mus-engine">合成音源</span>
+    {{/* 真实音源开关：默认关（24 MB，不能默认给人下）。
+         点开才由 midi-soundfont.js 去下载 FluidR3Mono 并换成采样回放。 */}}
+    <button class="mus-sf" id="mus-sf" type="button" aria-pressed="false"
+            title="改用 FluidR3Mono 采样音源（首次约 24 MB，之后走缓存）">真实音源</button>
     <span class="mus-note" id="mus-note">中的曲子由浏览器现场合成（不下载音源）</span>
     <span class="mus-vol">
       <span>音量</span>

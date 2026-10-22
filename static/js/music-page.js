@@ -29,6 +29,13 @@
      同一时刻只让一个响 —— 点另一个就先停掉前一个。 */
   var ACTIVE = null;
 
+  /* 曲目行副标题：MIDI 现在有两种音色来源，跟着开关走 */
+  function midiLabel() {
+    var sf = window.MidiSF;
+    return (sf && sf.enabled() && sf.supported() && sf.phase() !== 'error')
+      ? 'MIDI · FluidR3 音源' : 'MIDI · 现场合成';
+  }
+
   function createPlayer(root, opts) {
     opts = opts || {};
     var items = Array.prototype.slice.call(root.querySelectorAll('.mus-item'));
@@ -150,7 +157,7 @@
       wantAuto = !!autoplay;
       highlight(i);
       if (elTitle) elTitle.textContent = title;
-      if (elSub) elSub.textContent = artist || (fmt === 'mid' ? 'MIDI · 现场合成' : (fmt ? fmt.toUpperCase() : ''));
+      if (elSub) elSub.textContent = artist || (fmt === 'mid' ? midiLabel() : (fmt ? fmt.toUpperCase() : ''));
       setBar(0, 0);
       if (ACTIVE && ACTIVE !== api) { try { ACTIVE.pause(); } catch (e) {} }
       ACTIVE = api;
@@ -176,13 +183,72 @@
       setPlayingUI(true);
     }
 
+    /* MIDI 有两个引擎，二选一：
+         · 内置（默认）      零下载，三角/方波现场合成
+         · 真实音源（点了才开）SpessaSynth + FluidR3Mono，24 MB，采样回放
+       真实音源挂了就**静默退回**内置 —— 宁可音色差一点，也不能没声音。 */
     function startMidi(url, autoplay) {
+      var sf = window.MidiSF;
+      if (!(sf && sf.enabled() && sf.supported() && sf.phase() !== 'error')) { mountBuiltin(url, autoplay); return; }
+
+      var want = cur;
+      var off = sf.onProgress(function (p, got, total, cached) {
+        if (cur !== want) return;
+        if (cached) { say('真实音源已缓存，正在装载…'); return; }
+        say('正在下载音源 ' + Math.round(p * 100) + '%' +
+            (total ? '（' + (got / 1e6).toFixed(1) + ' / ' + (total / 1e6).toFixed(1) + ' MB，只需一次）' : '…'));
+      });
+      if (elEngine) { elEngine.textContent = '音源装载中'; elEngine.className = 'mus-badge'; }
+      say('正在准备真实音源（约 24 MB，只需一次）…');
+
+      sf.ensure().then(function () {
+        off();
+        if (cur !== want) return;      // 下载期间用户又点了别的曲子
+        mountSoundfont(url, autoplay);
+      }).catch(function (e) {
+        off();
+        if (cur !== want) return;
+        console.warn('[music] 真实音源加载失败，退回内置合成：', e);
+        say('真实音源加载失败，已退回内置合成：' + ((e && e.message) || e), true);
+        mountBuiltin(url, autoplay);
+      });
+    }
+
+    function mountSoundfont(url, autoplay) {
+      engine = 'midi';
+      if (elEngine) { elEngine.textContent = '真实音源'; elEngine.className = 'mus-badge on'; }
+      if (elSub) elSub.textContent = 'MIDI · FluidR3 音源';
+      var m = window.MidiSF.createPlayer(url, {
+        onState: function (s) {
+          setPlayingUI(s === 'playing');
+          if (s === 'playing') say('MIDI：FluidR3Mono 采样音源（真实乐器音色）');
+          if (s === 'paused') say('已暂停');
+          if (s === 'ended') say('放完了');
+          if (s === 'error') say('这个 mid 放不出来（文件缺失或解析失败）', true);
+        },
+        onTick: function (t, d) { setBar(t, d); },
+        onEnd: function () {
+          setPlayingUI(false);
+          if (cur >= 0 && cur < items.length - 1) pick(cur + 1, true);
+        },
+        onError: function (e) { say('MIDI 读取失败：' + (e && e.message || e), true); }
+      });
+      midi = m;
+      paintVol();
+      if (elDur) elDur.textContent = '–:––';
+      if (autoplay) {
+        m.play().catch(function (e) { say('MIDI 播放失败：' + (e && e.message || e), true); });
+      }
+    }
+
+    function mountBuiltin(url, autoplay) {
       if (typeof window.MidiPlayer !== 'function') {
         say('MIDI 合成器没加载（midi-player.js 缺失）', true);
         return;
       }
       engine = 'midi';
       if (elEngine) { elEngine.textContent = '合成音源'; elEngine.className = 'mus-badge on'; }
+      if (elSub) elSub.textContent = 'MIDI · 现场合成';
       say('MIDI：浏览器现场合成（三角/方波 + ADSR，不下载音源）');
       var m = new window.MidiPlayer(url, {
         onState: function (s) {
@@ -297,18 +363,111 @@
       pick: pick, toggle: toggle, pause: function () { if (playing) toggle(); },
       stop: stopAll, seekTo: seekTo,
       get index() { return cur; },
+      get fmt() { return cur >= 0 ? (items[cur].dataset.fmt || '').toLowerCase() : ''; },
+      get engine() { return engine; },
       get isPlaying() { return playing; },
     };
     return api;
+  }
+
+  /* ---- 真实音源开关 ----------------------------------------------------
+     只在音乐页有 #mus-sf 按钮；内嵌播放器没有按钮，跟着存下的偏好走。
+     切换后如果正在放 MIDI，就按新引擎重放一遍（否则要等下次点曲子才生效）。 */
+  function wireSoundfont(api) {
+    var btn = document.getElementById('mus-sf');
+    var note = document.getElementById('mus-note');
+    var sf = window.MidiSF;
+    if (!btn) return;
+    if (!sf || !sf.supported()) { btn.hidden = true; return; }
+
+    function pageSay(msg, isErr) {
+      if (!note) return;
+      note.textContent = msg;
+      note.classList.toggle('err', !!isErr);
+    }
+
+    /* 引擎徽标跟着开关走（正在放 mp3 时别抢它的徽标） */
+    function badge(txt) {
+      var b = document.getElementById('mus-engine');
+      if (!b || api.engine === 'audio') return;
+      b.textContent = txt;
+      b.className = 'mus-badge on';
+    }
+
+    function paint() {
+      var ph = sf.phase();
+      if (ph === 'loading') {
+        btn.className = 'mus-sf is-loading';
+        btn.textContent = '音源 ' + Math.round(sf.progress() * 100) + '%';
+        btn.setAttribute('aria-pressed', 'true');
+        return;
+      }
+      if (ph === 'error') {
+        btn.className = 'mus-sf is-err';
+        btn.textContent = '音源失败';
+        btn.title = '真实音源加载失败（点一下重试）：' + sf.error();
+        return;
+      }
+      if (sf.enabled()) {
+        btn.className = 'mus-sf is-on';
+        btn.textContent = '真实音源 ✓';
+        btn.setAttribute('aria-pressed', 'true');
+        btn.title = '正在用 FluidR3Mono 采样音源（' + sf.fmtMB(sf.bytes()) + '）';
+      } else {
+        btn.className = 'mus-sf';
+        btn.textContent = '真实音源';
+        btn.setAttribute('aria-pressed', 'false');
+        btn.title = '改用 FluidR3Mono 采样音源（首次约 24 MB，之后走缓存）';
+      }
+    }
+
+    function remount() {
+      var i = api.index;
+      if (i < 0 || api.fmt !== 'mid') return;   /* 放的是 mp3 就别去打断它 */
+      var was = api.isPlaying;
+      api.stop();
+      api.pick(i, was);
+    }
+
+    btn.addEventListener('click', function () {
+      var want = !sf.enabled();
+      sf.setEnabled(want);
+      if (!want) { paint(); badge('合成音源'); remount(); return; }
+
+      paint();
+      badge('音源装载中');
+      var off = sf.onProgress(function () { paint(); });
+      pageSay('正在下载真实音源…（约 24 MB，只需一次）');
+      sf.ensure().then(function () {
+        off();
+        paint();
+        badge('真实音源');
+        pageSay('真实音源就绪：' + sf.fmtMB(sf.bytes()) + (sf.fromCache() ? '（取自本地缓存）' : ''));
+        remount();
+      }).catch(function (e) {
+        off();
+        paint();
+        badge('合成音源');
+        pageSay('真实音源加载失败，继续用内置合成：' + ((e && e.message) || e), true);
+        remount();   /* 没成也要把当前 MIDI 拉回内置引擎 */
+      });
+    });
+
+    /* 刷新后偏好还留着：徽标先按偏好显示（真正点开 MIDI 时才去下载音源） */
+    if (sf.enabled()) badge('真实音源');
+    paint();
   }
 
   /* ---- 自动初始化 ---- */
   function boot() {
     var page = document.getElementById('mus-root');
     if (page) {
-      window.__mus = createPlayer(page, {});
+      var api = createPlayer(page, {});
+      window.__mus = api;
+      wireSoundfont(api);
     }
-    /* 正文内嵌的单曲播放器：每个 .mus-inline 自己一个实例 */
+    /* 正文内嵌的单曲播放器：每个 .mus-inline 自己一个实例。
+       内嵌播放器没有开关按钮，跟着音乐页存下的偏好走。 */
     document.querySelectorAll('.mus-inline').forEach(function (root) {
       createPlayer(root, {});
     });

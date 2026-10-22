@@ -44,6 +44,16 @@
   border-bottom:1px solid var(--mus-bd);color:var(--mus-dim);font-size:11px;background:#f8fbfe}
 .mus-badge{border:1px solid var(--mus-bd);border-radius:2px;padding:1px 6px;background:#fff;color:var(--mus-dim)}
 .mus-badge.on{color:#1e6b3a;border-color:#9bc9ad;background:#eefaf2}
+/* 真实音源开关：小方块按钮，状态靠底色区分（关=白 / 开=绿 / 下载中=黄 / 失败=红） */
+.mus-sf{
+  flex:0 0 auto;padding:1px 7px;border:1px solid var(--mus-bd);border-radius:2px;
+  background:#fff;color:var(--mus-dim);font-size:10px;line-height:16px;cursor:pointer;
+  letter-spacing:.3px;white-space:nowrap;font-variant-numeric:tabular-nums;
+}
+.mus-sf:hover{background:#eaf3fc;color:var(--mus-blue);border-color:var(--mus-bd-d)}
+.mus-sf.is-on{color:#1e6b3a;border-color:#9bc9ad;background:#eefaf2}
+.mus-sf.is-loading{color:#8a5a12;border-color:#dcc39a;background:#fffaf0}
+.mus-sf.is-err{color:#b3261e;border-color:#e0b4b0;background:#fdf0ef}
 .mus-vol{display:flex;align-items:center;gap:5px;margin-left:auto}
 .mus-vol input{width:78px}
 .mus-note{color:var(--mus-dim);font-size:11px}
