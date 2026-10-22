@@ -35,9 +35,11 @@
 {{ if not (.Page.Scratch.Get "musAssets") }}
   {{ .Page.Scratch.Set "musAssets" true }}
   {{ partial "music-page-css.html" . }}
+  {{/* absURL 而不是 relURL：这是内联 JS 字符串，canonifyURLs 不会改写它，
+        relURL 在子目录部署时会丢掉 /BlogStand/ 前缀。详见 layouts/music/single.html 的注释。 */}}
   <script>window.__MUS_SF = window.__MUS_SF || {
-    base: "{{ "js/vendor/spessasynth/" | relURL }}",
-    bank: "{{ "soundfont/FluidR3Mono_GM.sf3" | relURL }}"
+    base: "{{ "js/vendor/spessasynth/" | absURL }}",
+    bank: "{{ "soundfont/FluidR3Mono_GM.sf3" | absURL }}"
   };</script>
   <script src="{{ "js/midi-player.js" | relURL }}" defer></script>
   <script src="{{ "js/midi-soundfont.js" | relURL }}" defer></script>

@@ -29,11 +29,14 @@
 {{/* MIDI 走自研合成器（浏览器没有原生 MIDI 支持）；
      defer 保证 midi-player.js 先于 music-page.js 执行。
      想换真实音源时由 midi-soundfont.js 接管（见该文件头注释）：
-     这里把 vendor 目录和 sf3 的绝对路径交给它 —— 脚本里拼出来的相对路径
-     不会被 canonifyURLs 补上 baseURL 的子目录。 */}}
+     这里把 vendor 目录和 sf3 的路径交给它。
+     ⚠️ 必须 absURL：这段是 **内联 JS 字符串**，canonifyURLs 只改写
+        src/href 这类属性，不会进到 JS 字符串里；用 relURL 的话
+        子目录部署（/BlogStand/）会变成 /js/vendor/... 然后 404。
+        （本地 hugo server 因为站点挂在根上，这个坑不会暴露。） */}}
 <script>window.__MUS_SF = window.__MUS_SF || {
-  base: "{{ "js/vendor/spessasynth/" | relURL }}",
-  bank: "{{ "soundfont/FluidR3Mono_GM.sf3" | relURL }}"
+  base: "{{ "js/vendor/spessasynth/" | absURL }}",
+  bank: "{{ "soundfont/FluidR3Mono_GM.sf3" | absURL }}"
 };</script>
 <script src="{{ "js/midi-player.js" | relURL }}" defer></script>
 <script src="{{ "js/midi-soundfont.js" | relURL }}" defer></script>
