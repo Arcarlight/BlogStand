@@ -20,6 +20,8 @@
   }
   /* ---------- 顶栏 ---------- */
   header{
+    /* 「更多」按钮现在挂在顶部这条上，它的下拉菜单要相对这里定位 */
+    position:relative;
     display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(180deg,#4c93dc,#1c5c9f);
     color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2);z-index:10;
   }
@@ -58,7 +60,7 @@
      收进「更多」菜单后，实测主栏还差 31px 才不换行（1008 可用 / 1039 需要），
      所以再把手缝收紧一点。宁可挤一点，也不要让工具栏变成两行把编辑区顶上推。 */
   #toolbar{display:flex;align-items:center;gap:5px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
-  #toolbar button{flex:none;padding:4px 7px}
+  #toolbar button{flex:none;padding:4px 5px}
   /* 工具栏一旦换行，行高会由「行内最高的元素」决定，而 align-items:center 又让
      按钮在自己的行里垂直居中 —— 于是按钮被架空在一个比它高的行盒子里，
      投影就画在那个大盒子上，看着像「阴影被拉长了」。
@@ -71,8 +73,8 @@
         它们是纯文字，没有投影问题，本来就该跟着 align-items:center 居中。 */
   #toolbar > button,
   #toolbar > select{ align-self:flex-start }
-  #curPath{font-family:Consolas,monospace;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #toolbar .spacer{flex:1}
+  #curPath{font-family:Consolas,monospace;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;max-width:96px;min-width:0;white-space:nowrap}
+  #toolbar .spacer{flex:1 1 0;min-width:0}
   #panes{flex:1;display:flex;min-height:0}
 
   /* ---------- 侧栏树 ---------- */
@@ -335,7 +337,7 @@
   /* ---------- 工具栏的格式按钮 ---------- */
   .grp-label{color:var(--dim);font-size:12px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
   #toolbar .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
-  #toolbar button.fmt{padding:3px 9px;line-height:1.4}
+  #toolbar button.fmt{padding:3px 6px;line-height:1.4}
   #toolbar button.fmt.on{background:#dcebfa;border-color:var(--accent);color:var(--accent)}
   #imgWidthSel{font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:4px;background:#fff}
 
@@ -347,7 +349,7 @@
      所以开合不会把其它按钮挤动。 */
   #toolbar{position:relative}
   #moreMenu, #spMenu{
-    position:absolute;top:calc(100% - 3px);right:10px;z-index:60;
+    position:absolute;top:calc(100% - 4px);right:12px;z-index:200;
     min-width:158px;padding:4px;
     display:flex;flex-direction:column;gap:2px;
     background:#fff;border:1px solid var(--line);border-radius:6px;
@@ -1436,6 +1438,28 @@
   <button class="ghost" id="btnBuild" title="本地构建一遍，检查有没有报错"><img class="ico" src="/editor-icons/fugue/tick.png" alt="">构建检查</button>
   <button class="ghost" id="btnSync" title="从线上（GitHub）拉取改动 —— 换一台电脑编辑时先点这个"><img class="ico" src="/editor-icons/fugue/arrow-repeat.png" alt="">拉取线上</button>
   <button class="primary" id="btnPublish" title="git add + commit + push"><img class="ico" src="/editor-icons/fugue/paper-plane.png" alt="">发布</button>
+  <!-- 不常动的显示开关收在这里（见上方「更多」菜单的 CSS 注释） -->
+        <button id="btnMore" class="fmt" title="更多显示选项：语法着色 / 弱化标签 / 图片宽度" aria-haspopup="true" aria-expanded="false"><img class="ico" src="/editor-icons/fugue/ui-buttons.png" alt="">更多 ▾</button>
+        <div id="moreMenu" hidden>
+          <div class="mu-hint">显示效果（不影响正文内容）</div>
+          <button id="btnHlSyntax" class="fmt" title="语法着色（只读视觉层，不改变正文内容）"><img class="ico" src="/editor-icons/fugue/paint-can.png" alt="">着色</button>
+          <button id="btnHlDim" class="fmt" title="弱化标签：HTML 标签变淡，正文更突出"><img class="ico" src="/editor-icons/fugue/blueprint.png" alt="">弱化标签</button>
+          <div class="mu-hint" style="margin-top:5px">图片宽度（设一次就一直用）</div>
+          <div class="mu-row">
+            <img class="ico" src="/editor-icons/fugue/pencil-ruler.png" alt="">
+            <select id="imgWidthSel" title="插图 / 改宽度用">
+              <option value="">原尺寸</option>
+              <option value="650">650</option>
+              <option value="500">500</option>
+              <option value="400">400</option>
+              <option value="300">300</option>
+              <option value="200">200</option>
+              <option value="100%">100%（跟随栏宽）</option>
+              <option value="custom">自定义…</option>
+            </select>
+            <button id="btnApplyWidth" title="把上面选的宽度应用到选中的 &lt;img&gt;"><img class="ico" src="/editor-icons/fugue/application-resize.png" alt="">应用</button>
+          </div>
+        </div>
 </header>
 
 <div id="main">
@@ -1456,7 +1480,7 @@
     <div id="toolbar">
       <span id="curPath">← 从左边选一个文件</span>
       <span class="spacer"></span>
-      <span class="grp-label" title="先选中一段文字，再点按钮（再点一次取消）">选中文字：</span>
+      <span class="grp-label" title="先选中一段文字，再点按钮（再点一次取消）">选中：</span>
       <button id="btnBold" class="fmt" title="加粗（Ctrl+B）"><img class="ico" src="/editor-icons/fugue/edit-bold.png" alt=""></button>
       <button id="btnItalic" class="fmt" title="倾斜（Ctrl+I）"><img class="ico" src="/editor-icons/fugue/edit-italic.png" alt=""></button>
       <button id="btnVoice" class="fmt" title="心声：淡灰色的内心独白"><img class="ico" src="/editor-icons/fugue/balloon-quotation.png" alt="">心声</button>
@@ -1468,7 +1492,7 @@
               用 Hugo 的模板注释语法会原样显示在工具栏上（踩过）。
               另外：HTML 注释正文里**绝不能出现注释的结束标记**，否则注释会
               在那里提前闭合、后半句直接漏到页面上（2026-10-22 实际踩到）。 -->
-      <button id="btnSpecial" class="fmt" title="特殊文本：注音 / 颤抖" aria-haspopup="true" aria-expanded="false"><img class="ico" src="/editor-icons/fugue/script.png" alt="">特殊文本 ▾</button>
+      <button id="btnSpecial" class="fmt" title="特殊文本：注音 / 颤抖" aria-haspopup="true" aria-expanded="false"><img class="ico" src="/editor-icons/fugue/script.png" alt="">特殊 ▾</button>
       <div id="spMenu" hidden>
         <div class="mu-hint">作用于选中的文字</div>
         <button id="btnTremble" title="颤抖：生气、发抖的语气">颤抖</button>
@@ -1484,28 +1508,6 @@
       <button id="btnToggleDraft" hidden><img class="ico" src="/editor-icons/fugue/pin.png" alt=""><span id="btnDraftText">设为草稿</span></button>
       <button id="btnSave" class="primary" disabled title="Ctrl+S"><img class="ico" src="/editor-icons/fugue/disk.png" alt="">保存</button>
       <button id="btnDelete" class="danger" disabled><img class="ico" src="/editor-icons/fugue/cross.png" alt="">删除</button>
-      <!-- 不常动的显示开关收在这里（见上方「更多」菜单的 CSS 注释） -->
-      <button id="btnMore" class="fmt" title="更多显示选项：语法着色 / 弱化标签 / 图片宽度" aria-haspopup="true" aria-expanded="false"><img class="ico" src="/editor-icons/fugue/ui-buttons.png" alt="">更多 ▾</button>
-      <div id="moreMenu" hidden>
-        <div class="mu-hint">显示效果（不影响正文内容）</div>
-        <button id="btnHlSyntax" class="fmt" title="语法着色（只读视觉层，不改变正文内容）"><img class="ico" src="/editor-icons/fugue/paint-can.png" alt="">着色</button>
-        <button id="btnHlDim" class="fmt" title="弱化标签：HTML 标签变淡，正文更突出"><img class="ico" src="/editor-icons/fugue/blueprint.png" alt="">弱化标签</button>
-        <div class="mu-hint" style="margin-top:5px">图片宽度（设一次就一直用）</div>
-        <div class="mu-row">
-          <img class="ico" src="/editor-icons/fugue/pencil-ruler.png" alt="">
-          <select id="imgWidthSel" title="插图 / 改宽度用">
-            <option value="">原尺寸</option>
-            <option value="650">650</option>
-            <option value="500">500</option>
-            <option value="400">400</option>
-            <option value="300">300</option>
-            <option value="200">200</option>
-            <option value="100%">100%（跟随栏宽）</option>
-            <option value="custom">自定义…</option>
-          </select>
-          <button id="btnApplyWidth" title="把上面选的宽度应用到选中的 &lt;img&gt;"><img class="ico" src="/editor-icons/fugue/application-resize.png" alt="">应用</button>
-        </div>
-      </div>
       <input type="file" id="filePicker" accept="image/*" multiple hidden>
     </div>
     <div id="panes">
