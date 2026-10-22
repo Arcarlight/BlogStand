@@ -1,0 +1,116 @@
+{{/* ============================================================
+     音乐页 / 内嵌播放器的样式
+     ------------------------------------------------------------
+     为什么是一个 partial 里内联 <style>，而不是塞进 retro.css：
+       · 只有音乐页和用到 {{< music >}} 的文章需要这些规则，
+         塞进 retro.css 就等于全站每页都多几 KB CSS（这个站一直在瘦身）。
+       · 内联 <style> 不经过 markdown，不会被 Hugo 的空行规则切碎
+         （文集那页踩过：<style> 中间留空行，后半段会变成可见的 <pre>）。
+     选择器一律带 .mus 前缀，和站上其它组件不打架；
+     字体不在这里指定，跟着全站点阵字体走。
+     ============================================================ */}}
+<style>
+.mus{
+  --mus-bd:#b9c9db; --mus-bd-d:#8fa6bd; --mus-bg:#f4f8fc; --mus-bg2:#eaf2fa;
+  --mus-ink:#22303f; --mus-dim:#7c8b9c; --mus-blue:#3f74ad; --mus-hot:#c94800;
+  margin:14px 0 6px;border:2px solid var(--mus-bd);
+  background:linear-gradient(180deg,#fbfdff 0%,var(--mus-bg) 100%);
+  box-shadow:inset 0 1px 0 #fff, 3px 3px 0 rgba(120,140,160,.18);
+  font-size:12px;line-height:1.6;
+}
+/* ---------- 顶部：现在播放 ---------- */
+.mus-top{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--mus-bd);
+  background:linear-gradient(180deg,#ffffff 0%,var(--mus-bg2) 100%)}
+.mus-big{
+  flex:0 0 auto;width:40px;height:40px;border:2px solid var(--mus-bd-d);border-radius:3px;
+  background:linear-gradient(180deg,#ffffff,#dce9f6);color:var(--mus-blue);
+  font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 1px 0 #fff, 2px 2px 0 rgba(120,140,160,.25);
+}
+.mus-big:hover{background:linear-gradient(180deg,#fff,#cfe2f5)}
+.mus-big:active{transform:translate(1px,1px);box-shadow:inset 0 1px 0 #fff}
+.mus-big.is-playing{color:#fff;background:linear-gradient(180deg,#e06a1e,var(--mus-hot));border-color:#8f3400}
+.mus-info{flex:1 1 auto;min-width:0}
+.mus-title{font-weight:bold;color:var(--mus-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mus-sub{color:var(--mus-dim);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mus-time{flex:0 0 auto;color:var(--mus-dim);font-variant-numeric:tabular-nums;letter-spacing:.5px}
+/* ---------- 进度条 ---------- */
+.mus-seek{position:relative;height:12px;margin:0;border-bottom:1px solid var(--mus-bd);background:var(--mus-bg2);cursor:pointer}
+.mus-seek-bar{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(180deg,#7fb3e8,#4b81bd);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.mus-seek:hover .mus-seek-bar{filter:brightness(1.08)}
+/* ---------- 工具行 ---------- */
+.mus-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px;
+  border-bottom:1px solid var(--mus-bd);color:var(--mus-dim);font-size:11px;background:#f8fbfe}
+.mus-badge{border:1px solid var(--mus-bd);border-radius:2px;padding:1px 6px;background:#fff;color:var(--mus-dim)}
+.mus-badge.on{color:#1e6b3a;border-color:#9bc9ad;background:#eefaf2}
+.mus-vol{display:flex;align-items:center;gap:5px;margin-left:auto}
+.mus-vol input{width:78px}
+.mus-note{color:var(--mus-dim);font-size:11px}
+.mus-note.err{color:#b3261e}
+/* ---------- 曲目列表 ---------- */
+.mus-list{list-style:none;margin:0;padding:0}
+.mus-item{display:flex;align-items:center;gap:9px;padding:7px 12px;border-bottom:1px solid #e3ecf5;cursor:pointer}
+.mus-item:last-child{border-bottom:0}
+.mus-item:hover{background:#eaf3fc}
+.mus-item.is-cur{background:#e2eefb}
+.mus-item.is-cur .mus-name{color:var(--mus-blue);font-weight:bold}
+.mus-ic{flex:0 0 auto;width:18px;text-align:center;color:var(--mus-blue)}
+.mus-item.is-cur.is-playing .mus-ic{color:var(--mus-hot)}
+.mus-name{flex:1 1 auto;min-width:0;color:var(--mus-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mus-desc{color:var(--mus-dim);font-size:11px;margin-left:6px}
+.mus-artist{flex:0 0 auto;color:var(--mus-dim);font-size:11px;max-width:38%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mus-fmt{flex:0 0 auto;border:1px solid var(--mus-bd);border-radius:2px;padding:0 4px;font-size:10px;
+  color:var(--mus-dim);background:#fff;text-transform:uppercase;letter-spacing:.5px}
+.mus-fmt.mid{color:#8a5a12;border-color:#dcc39a;background:#fffaf0}
+.mus-fmt.ogg{color:#1e6b3a;border-color:#9bc9ad;background:#f2fbf5}
+.mus-empty{padding:14px 12px;color:var(--mus-dim)}
+/* ---------- 评语（点「评语」展开） ---------- *
+ * 站长想给自己做的曲子写点看法。数据在 data/music.toml 的 note 字段，
+ * 支持 markdown（粗体 / 链接 / 换行）。
+ * 展开面板是 .mus-item 的下一个兄弟 <li>，不是嵌在行里 ——
+ * 这样行高、点击区域都不会被撑乱，动画也好做。 */
+.mus-note-btn{
+  flex:0 0 auto;margin-left:2px;padding:0 6px;height:18px;line-height:16px;
+  border:1px solid var(--mus-bd);border-radius:2px;background:#fff;color:var(--mus-dim);
+  font-size:10px;cursor:pointer;letter-spacing:.3px;
+}
+.mus-note-btn:hover{background:#eaf3fc;color:var(--mus-blue);border-color:var(--mus-bd-d)}
+.mus-note-btn.is-open{background:#e2eefb;color:var(--mus-blue);border-color:var(--mus-bd-d)}
+.mus-review{border-bottom:1px solid #e3ecf5;background:#f7fbff}
+.mus-review[hidden]{display:none}
+.mus-review-body{
+  padding:8px 12px 10px 39px;color:#3a4a5c;font-size:11.5px;line-height:1.75;
+  border-left:3px solid #cfe0f0;margin:0 0 0 12px;
+  white-space:normal;word-break:break-word;
+}
+/* 评语小标题（默认「虹星如是说」，可在 data/music.toml 的 reviewTitle 改）。
+   做成像手写批注的抬头：前面一个小星标，浅色底，和正文区分开但不抢眼。 */
+.mus-review-title{
+  display:flex;align-items:center;gap:5px;
+  margin:0 0 4px;padding:0;color:#2f6f9e;font-weight:bold;font-size:11px;
+  letter-spacing:.5px;
+}
+.mus-review-title::before{
+  content:"★";color:#e0a63c;font-size:10px;
+}
+.mus-review-body p{margin:0 0 6px}
+.mus-review-body p:last-child{margin-bottom:0}
+.mus-review-body a{color:var(--mus-blue)}
+.mus-review-body strong{color:#1b4a78}
+/* ---------- 正文内嵌的小播放器 ---------- */
+.mus-inline{
+  display:flex;align-items:center;gap:9px;margin:12px 0;padding:8px 10px;
+  border:2px solid var(--mus-bd);background:linear-gradient(180deg,#fbfdff,#eef5fc);
+  box-shadow:inset 0 1px 0 #fff,2px 2px 0 rgba(120,140,160,.16);
+}
+.mus-inline .mus-big{width:30px;height:30px;font-size:12px}
+.mus-inline .mus-info{flex:1 1 auto}
+.mus-inline .mus-seek{margin-top:6px;border:1px solid var(--mus-bd);height:10px}
+.mus-inline .mus-body{flex:1 1 auto;min-width:0}
+.mus-inline .mus-time{font-size:11px}
+/* 内嵌播放器只有一首，曲目列表藏起来（但 DOM 里要留着：
+   播放逻辑是围绕 .mus-item 建的索引，删掉就没法播） */
+.mus-inline .mus-list{display:none}
+.mus-inline .mus-item{border:0}
+</style>

@@ -54,8 +54,11 @@
   #credits a{color:var(--accent);text-decoration:none}
   #credits a:hover{text-decoration:underline}
   #work{flex:1;display:flex;flex-direction:column;min-width:0}
-  #toolbar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
-  #toolbar button{flex:none;padding:4px 9px}
+  /* gap / padding 从 6/9 收到 5/7：2026-10-22 把「着色 / 弱化标签 / 图片宽度」
+     收进「更多」菜单后，实测主栏还差 31px 才不换行（1008 可用 / 1039 需要），
+     所以再把手缝收紧一点。宁可挤一点，也不要让工具栏变成两行把编辑区顶上推。 */
+  #toolbar{display:flex;align-items:center;gap:5px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #toolbar button{flex:none;padding:4px 7px}
   /* 工具栏一旦换行，行高会由「行内最高的元素」决定，而 align-items:center 又让
      按钮在自己的行里垂直居中 —— 于是按钮被架空在一个比它高的行盒子里，
      投影就画在那个大盒子上，看着像「阴影被拉长了」。
@@ -222,6 +225,8 @@
   body.panel #btnApplyWidth,
   body.panel #btnInsertImg,
   body.panel #btnInsertDay,
+  body.panel #toolbar #btnSpecial,
+  body.panel #btnMore,
   body.panel #btnToggleDraft{display:none}
 
   /* ---------- 表单 ---------- */
@@ -333,6 +338,43 @@
   #toolbar button.fmt{padding:3px 9px;line-height:1.4}
   #toolbar button.fmt.on{background:#dcebfa;border-color:var(--accent);color:var(--accent)}
   #imgWidthSel{font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:4px;background:#fff}
+
+  /* ---------- 工具栏的二级菜单（「更多」/「特殊文本」共用一套样式） ----------
+     站长 2026-10-22：「上方的栏图标多得都已经两行了」。
+     把不常动的开关（着色 / 弱化标签 / 图片宽度）收进「更多」，
+     把不常写的样式（注音 / 颤抖）收进「特殊文本」。
+     菜单是 #toolbar 的绝对定位子元素：不参与 flex 布局，
+     所以开合不会把其它按钮挤动。 */
+  #toolbar{position:relative}
+  #moreMenu, #spMenu{
+    position:absolute;top:calc(100% - 3px);right:10px;z-index:60;
+    min-width:158px;padding:4px;
+    display:flex;flex-direction:column;gap:2px;
+    background:#fff;border:1px solid var(--line);border-radius:6px;
+    box-shadow:0 8px 22px rgba(20,40,60,.20);
+  }
+  #spMenu{right:auto;left:auto;min-width:186px}
+  #moreMenu[hidden], #spMenu[hidden]{display:none}
+  #toolbar #moreMenu button, #toolbar #spMenu button{
+    width:100%;justify-content:flex-start;align-items:center;gap:6px;text-align:left;
+    padding:6px 9px;border:0;background:transparent;border-radius:4px;
+  }
+  #toolbar #moreMenu button:hover, #toolbar #spMenu button:hover{background:#eaf3fc}
+  #toolbar #moreMenu button.on, #toolbar #spMenu button.on{background:#dcebfa;color:var(--accent)}
+  #moreMenu .mu-hint, #spMenu .mu-hint{
+    padding:3px 9px 5px;color:var(--dim);font-size:11px;
+    border-bottom:1px dashed var(--line);margin-bottom:3px;
+  }
+  /* 菜单里的一行：小图标 + 下拉/输入框 + 按钮 */
+  #moreMenu .mu-row, #spMenu .mu-row{display:flex;align-items:center;gap:6px;padding:2px 9px 6px}
+  #moreMenu .mu-row select, #spMenu .mu-row select{
+    font:inherit;flex:1 1 auto;min-width:0;
+    padding:3px 6px;border:1px solid var(--line);border-radius:4px;background:#fff;
+  }
+  #spMenu .mu-row input{
+    font:inherit;flex:1 1 auto;min-width:0;
+    padding:3px 6px;border:1px solid var(--line);border-radius:4px;background:#fff;
+  }
 
   /* ---------- 图标：Fugue Icons ----------
      Yusuke Kamiyamane 的 Fugue（CC BY 3.0），来源与许可见 .editor/icons/README.md。
@@ -1275,6 +1317,19 @@
   .ed-wrap #editor::placeholder{color:#9aa6b4;opacity:1}
   .ed-wrap #editor::selection{background:rgba(90,160,225,.35);color:#22303f}
   .ed-wrap #editor.dragover{background:rgba(238,247,255,.92) !important;box-shadow:inset 0 0 0 3px #7fb8f0 !important}
+  /* 输入法组字期间（macOS 的拼音/日文输入法、以及 iOS/Android 的中文输入法都会走这里）
+     ------------------------------------------------------------
+     站长 2026-10-22 反馈：打开着色后，在 Mac 上打字「很卡，而且输入的字母不显示」。
+     根因不是重绘频率（schedule() 里已经 `if (composing) return` 跳过组字期重绘），
+     而是上面那条 `color: transparent`：
+       textarea 的文字透明，是为了让下面 #edHl 那层着色文本透出来。
+       可**输入法的预编辑串（preedit）是浏览器直接画在 textarea 里的**，
+       它跟着 #editor 的文字色走 —— 于是整串都是透明的，一个字都看不见。
+       同时那一串透明文字还要参与光标/选区计算，macOS 上就表现为「打了半天不出字、还卡」。
+     处理：组字期间把 textarea 的文字显出来，并把着色层藏掉（免得两层字叠在一起）。
+       组字结束后由 JS 摘掉 is-composing，着色层回归。 */
+  .ed-wrap.is-composing #editor{color:#22303f !important}
+  .ed-wrap.is-composing #edHl{visibility:hidden}
   #edHl{
     position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none;
     padding:14px 30px 14px 16px;border:0;box-sizing:border-box;
@@ -1406,19 +1461,22 @@
       <button id="btnItalic" class="fmt" title="倾斜（Ctrl+I）"><img class="ico" src="/editor-icons/fugue/edit-italic.png" alt=""></button>
       <button id="btnVoice" class="fmt" title="心声：淡灰色的内心独白"><img class="ico" src="/editor-icons/fugue/balloon-quotation.png" alt="">心声</button>
 <button id="btnLink" class="fmt" title="超链接（Ctrl+K）：选中文字后点这里"><img class="ico" src="/editor-icons/fugue/chain.png" alt="">链接</button>
-      <span class="sep"></span>
-      <span class="grp-label" title="插图时会带上这个宽度；选中已有的 &lt;img&gt; 再点「应用」可以改它的宽度"><img class="ico" src="/editor-icons/fugue/pencil-ruler.png" alt="">宽</span>
-      <select id="imgWidthSel" title="插图 / 改宽度用">
-        <option value="">原尺寸</option>
-        <option value="650">650</option>
-        <option value="500">500</option>
-        <option value="400">400</option>
-        <option value="300">300</option>
-        <option value="200">200</option>
-        <option value="100%">100%（跟随栏宽）</option>
-        <option value="custom">自定义…</option>
-      </select>
-      <button id="btnApplyWidth" title="把上面选的宽度应用到选中的 &lt;img&gt;"><img class="ico" src="/editor-icons/fugue/application-resize.png" alt="">应用</button>
+      <button id="btnQuote" class="fmt" title="引用：把选中的段落包成引用块"><img class="ico" src="/editor-icons/fugue/document-text.png" alt="">引用</button>
+      <!-- 不常写的样式收在这里：注音（ruby）/ 颤抖。
+           粗体、斜体、心声、引用太常用，留在外面。
+           ⚠️ 这个文件是**纯 HTML**，不是 Hugo 模板，注释只能用 HTML 注释，
+              用 Hugo 的模板注释语法会原样显示在工具栏上（踩过）。
+              另外：HTML 注释正文里**绝不能出现注释的结束标记**，否则注释会
+              在那里提前闭合、后半句直接漏到页面上（2026-10-22 实际踩到）。 -->
+      <button id="btnSpecial" class="fmt" title="特殊文本：注音 / 颤抖" aria-haspopup="true" aria-expanded="false"><img class="ico" src="/editor-icons/fugue/script.png" alt="">特殊文本 ▾</button>
+      <div id="spMenu" hidden>
+        <div class="mu-hint">作用于选中的文字</div>
+        <button id="btnTremble" title="颤抖：生气、发抖的语气">颤抖</button>
+        <div class="mu-row">
+          <input id="spRubyInput" placeholder="注音（假名 / 拼音）" maxlength="20" aria-label="注音内容">
+          <button id="btnRuby" title="给选中的字加注音：注音写在上面的框里">注音</button>
+        </div>
+      </div>
       <span class="sep"></span>
       <button id="btnInsertImg" title="插入图片（也可以直接把图片拖进编辑区）"><img class="ico" src="/editor-icons/fugue/image.png" alt="">插图</button>
       <button id="btnSnark" title="吐槽：在正文里插一句宝可梦说的话"><img class="ico" src="/editor-icons/fugue/balloon-ellipsis.png" alt="">吐槽</button>
@@ -1426,8 +1484,28 @@
       <button id="btnToggleDraft" hidden><img class="ico" src="/editor-icons/fugue/pin.png" alt=""><span id="btnDraftText">设为草稿</span></button>
       <button id="btnSave" class="primary" disabled title="Ctrl+S"><img class="ico" src="/editor-icons/fugue/disk.png" alt="">保存</button>
       <button id="btnDelete" class="danger" disabled><img class="ico" src="/editor-icons/fugue/cross.png" alt="">删除</button>
-      <button id="btnHlSyntax" class="fmt" title="语法着色（只读视觉层，不改变正文内容）">着色</button>
-      <button id="btnHlDim" class="fmt" title="弱化标签：HTML 标签变淡，正文更突出">弱化标签</button>
+      <!-- 不常动的显示开关收在这里（见上方「更多」菜单的 CSS 注释） -->
+      <button id="btnMore" class="fmt" title="更多显示选项：语法着色 / 弱化标签 / 图片宽度" aria-haspopup="true" aria-expanded="false"><img class="ico" src="/editor-icons/fugue/ui-buttons.png" alt="">更多 ▾</button>
+      <div id="moreMenu" hidden>
+        <div class="mu-hint">显示效果（不影响正文内容）</div>
+        <button id="btnHlSyntax" class="fmt" title="语法着色（只读视觉层，不改变正文内容）"><img class="ico" src="/editor-icons/fugue/paint-can.png" alt="">着色</button>
+        <button id="btnHlDim" class="fmt" title="弱化标签：HTML 标签变淡，正文更突出"><img class="ico" src="/editor-icons/fugue/blueprint.png" alt="">弱化标签</button>
+        <div class="mu-hint" style="margin-top:5px">图片宽度（设一次就一直用）</div>
+        <div class="mu-row">
+          <img class="ico" src="/editor-icons/fugue/pencil-ruler.png" alt="">
+          <select id="imgWidthSel" title="插图 / 改宽度用">
+            <option value="">原尺寸</option>
+            <option value="650">650</option>
+            <option value="500">500</option>
+            <option value="400">400</option>
+            <option value="300">300</option>
+            <option value="200">200</option>
+            <option value="100%">100%（跟随栏宽）</option>
+            <option value="custom">自定义…</option>
+          </select>
+          <button id="btnApplyWidth" title="把上面选的宽度应用到选中的 &lt;img&gt;"><img class="ico" src="/editor-icons/fugue/application-resize.png" alt="">应用</button>
+        </div>
+      </div>
       <input type="file" id="filePicker" accept="image/*" multiple hidden>
     </div>
     <div id="panes">
@@ -4180,13 +4258,20 @@ function replaceRange(s, e, text, ss, se) {
   updateFmtButtons();
 }
 
-/* ---------- 选中文字套格式（加粗 / 倾斜 / 心声） ----------
+/* ---------- 选中文字套格式（加粗 / 倾斜 / 心声 / 颤抖） ----------
    正文里必须写标签：这些页面的正文是整段原生 HTML，Markdown 的
-   **粗体** / *斜体* 在 HTML 块里不会被解析，只会原样显示成星号。 */
+   **粗体** / *斜体* 在 HTML 块里不会被解析，只会原样显示成星号。
+
+   颤抖 / 注音的标签类名对应 retro.css 的「正文里的特殊文本」那一节：
+     <span class="sp-tremble">  <ruby>汉字<rt>注音</rt></ruby>
+   ⚠️ 别和吐槽对话框那套（.pkmn-say 里的 [t] / [r=]）搞混：
+      那边是短代码内联处理的标记，这边是正文里的原生标签，两套并存。 */
 const FMT = {
   bold: { open: '<strong>', close: '</strong>' },
   italic: { open: '<i>', close: '</i>' },
   voice: { open: '<span class="inner-voice">', close: '</span>' },
+  tremble: { open: '<span class="sp-tremble">', close: '</span>' },
+  quote: { open: '<blockquote>', close: '</blockquote>' },
 };
 
 function fmtRange(key) {
@@ -4228,12 +4313,39 @@ function updateFmtButtons() {
   }
 }
 
-for (const [id, key] of [['#btnBold', 'bold'], ['#btnItalic', 'italic'], ['#btnVoice', 'voice']]) {
+for (const [id, key] of [['#btnBold', 'bold'], ['#btnItalic', 'italic'], ['#btnVoice', 'voice'], ['#btnQuote', 'quote']]) {
   $(id).addEventListener('click', () => {
     if (!CUR) { toast('先从左边选一个文件', 'err'); return; }
     fmtRange(key);
   });
 }
+
+/* ---------- 特殊文本：颤抖 / 注音 ----------
+   放在工具栏的「特殊文本」下拉里（不常用，但也得能随手点到）。
+   注音要额外填一个框，所以不能直接走 fmtRange —— 它只认「前后各一个固定标签」。 */
+$('#btnTremble').addEventListener('click', () => {
+  if (!CUR) { toast('先从左边选一个文件', 'err'); return; }
+  fmtRange('tremble');
+});
+
+$('#btnRuby').addEventListener('click', () => {
+  if (!CUR) { toast('先从左边选一个文件', 'err'); return; }
+  const ta = $('#editor');
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  const base = ta.value.slice(s, e);
+  const rtRaw = ($('#spRubyInput').value || '').trim();
+  if (!rtRaw) {
+    toast('先在框里填注音（假名 / 拼音），再点「注音」', 'err');
+    $('#spRubyInput').focus();
+    return;
+  }
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const open = '<ruby>' + base + '<rt>' + esc(rtRaw) + '</rt></ruby>';
+  /* 光标落在被注音的汉字上，方便接着改 */
+  const baseStart = s + '<ruby>'.length;
+  replaceRange(s, e, open, baseStart, baseStart + base.length);
+  $('#spRubyInput').value = '';
+});
 
 /* ---------- 超链接 ----------
    正文是原生 HTML，所以链接要写成 <a href="...">文字</a>。
@@ -5340,8 +5452,25 @@ setTimeout(checkRemote, 1200);
 
   /* ---- 5. 事件 ---- */
   ed.addEventListener('input', () => { lastValue = ed.value; schedule(); });
-  ed.addEventListener('compositionstart', () => { composing = true; });
-  ed.addEventListener('compositionend', () => { composing = false; lastValue = ed.value; render(); });
+  /* 输入法组字：见 CSS 里 .ed-wrap.is-composing 那段注释。
+     组字期间 ① 让 textarea 自己的文字可见（否则预编辑串是透明的）
+              ② 藏起着色层（否则两层文字叠在一起）
+              ③ 不重绘（schedule 里已拦，这里再把 lastValue 同步掉，
+                 免得 180ms 兜底轮询以为内容变了） */
+  ed.addEventListener('compositionstart', () => {
+    composing = true;
+    lastValue = ed.value;
+    if (wrap) wrap.classList.add('is-composing');
+  });
+  ed.addEventListener('compositionend', () => {
+    composing = false;
+    if (wrap) wrap.classList.remove('is-composing');
+    lastValue = ed.value;
+    /* 延到下一帧再重绘：在 compositionend 里同步重建整份 DOM 会拖住输入法提交，
+       macOS 上就是「打完一句卡一下」。多等一帧肉眼看不出来，但输入法不再被阻塞。 */
+    if (window.requestAnimationFrame) requestAnimationFrame(() => { if (!composing) render(); });
+    else setTimeout(() => { if (!composing) render(); }, 0);
+  });
   ed.addEventListener('scroll', () => { syncScroll(); }, { passive: true });
   window.addEventListener('resize', () => { syncScroll(); }, { passive: true });
 
@@ -5416,6 +5545,76 @@ setTimeout(checkRemote, 1200);
     isDim: () => dimOn,
     lastRenderMs: () => lastRenderMs,
   };
+})();
+</script>
+
+<script>
+/* ============================================================
+   工具栏「更多」下拉菜单
+   ------------------------------------------------------------
+   站长 2026-10-22：「上方的栏图标多得都已经两行了」。
+   把不常动的显示开关（着色 / 弱化标签）收进这里。
+   这两个按钮的逻辑还归上面那段脚本管（它用 getElementById 找
+   btnHlSyntax），所以搬进菜单不影响功能 —— 这里只负责开合。
+   独立成一段而不是并进上面那一大段：菜单是纯 UI，和语法着色没关系，
+   拆开以后哪边坏了都不牵连另一边。
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /* 一组「按钮 + 菜单」。两个菜单共用同一套开合逻辑，免得写两遍还容易不一致。 */
+  var PAIRS = [
+    { btn: 'btnMore', menu: 'moreMenu' },
+    { btn: 'btnSpecial', menu: 'spMenu' },
+  ];
+  var all = [];
+
+  PAIRS.forEach(function (p) {
+    var btn = document.getElementById(p.btn);
+    var menu = document.getElementById(p.menu);
+    if (!btn || !menu) return;
+    var api = { btn: btn, menu: menu, close: close, open: open };
+    all.push(api);
+
+    function close() {
+      menu.hidden = true;
+      btn.classList.remove('on');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+    function open() {
+      /* 先关掉别的菜单，同一时刻只开一个 */
+      all.forEach(function (o) { if (o !== api) o.close(); });
+      menu.hidden = false;
+      btn.classList.add('on');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+
+    btn.addEventListener('click', function (e) {
+      /* 不能让这次点击冒泡到 document —— 否则下面「点外面就关」会立刻把它关掉 */
+      e.stopPropagation();
+      if (menu.hidden) open(); else close();
+    });
+    /* 点菜单里的按钮：执行完就收起。
+       ⚠️ 但「注音」要靠旁边的输入框，点输入框不该收起菜单 —— 输入框不是 button，
+          clost 条件只认 button，所以正好。 */
+    menu.addEventListener('click', function (e) {
+      if (e.target.closest('button')) close();
+    });
+  });
+
+  if (!all.length) return;
+
+  document.addEventListener('click', function (e) {
+    all.forEach(function (o) {
+      if (o.menu.hidden) return;
+      if (o.menu.contains(e.target) || o.btn.contains(e.target)) return;
+      o.close();
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    all.forEach(function (o) { if (!o.menu.hidden) o.close(); });
+  });
 })();
 </script>
 </body>

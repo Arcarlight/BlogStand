@@ -483,6 +483,22 @@ img { border: 0; }
    （旧站搬来的那几处还是内联写法，颜色一样是 #808080，不用动）。 */
 .entry-content .inner-voice { color: #808080; }
 
+/* 引用块（编辑器工具栏那个「引用」按钮插的就是 <blockquote>）。
+   站上原来完全没有 blockquote 样式 —— 内容里其实已经用过（日记里），
+   一直是浏览器默认的斜体 + 左缩进，和点阵字体格格不入。
+   这里按站上的纸框感做一条：左边一道浅蓝竖线 + 淡蓝底，不加斜体。 */
+.entry-content blockquote {
+  margin: 10px 0;
+  padding: 8px 12px 8px 14px;
+  border-left: 4px solid #b9c9db;
+  background: #f4f8fc;
+  color: #3a4a5c;
+  font-style: normal;
+}
+.entry-content blockquote p { margin: 0 0 6px; text-indent: 0; }
+.entry-content blockquote p:last-child { margin-bottom: 0; }
+.entry-content blockquote cite { color: #7c8b9c; font-style: normal; }
+
 /* 旧站的「更新日志」折叠区 */
 .entry-content details {
   margin: 9px 0;
@@ -2472,7 +2488,47 @@ html.pxfont .pkmn-say ruby rt { font-size: var(--px-sm, 11px) !important; color:
   font-style: italic;
 }
 .pkmn-say-text { display: block; }
-/* 短代码里的 markdownify 会套一个 <p>，而正文段落有 text-indent: 2em —— 这里不能缩进 */
+
+/* ============================================================
+   正文里的「特殊文本」：注音 / 颤抖 / 心声
+   ------------------------------------------------------------
+   编辑器工具栏的「特殊文本」子菜单在**正文里**插的是这些标签：
+     <ruby>汉字<rt>zhù yīn</rt></ruby>
+     <span class="sp-tremble">…</span>
+   吐槽对话框里那套（.pkmn-say 作用域）管不到正文，所以这里再来一份。
+   两边视觉保持一致：同样的小一号注音、同样的小幅颤抖。
+   ⚠️ 注音字号必须带 !important：全站点阵字体那条
+      `html.pxfont body * { font-size: … !important }` 会把 rt 也一起改掉。
+   ============================================================ */
+.entry-content ruby, .entry-content .sp-ruby { ruby-position: over; }
+.entry-content ruby rt, .entry-content .sp-ruby rt {
+  font-size: 9px;
+  color: #8a7550;
+  letter-spacing: 0;
+}
+html.pxfont .entry-content ruby rt,
+html.pxfont .entry-content .sp-ruby rt {
+  font-size: var(--px-sm, 11px) !important;
+  color: #8a7550 !important;
+  letter-spacing: 0 !important;
+}
+
+.entry-content .sp-tremble {
+  display: inline-block;
+  animation: sp-tremble .085s steps(2) infinite alternate;
+}
+@keyframes sp-tremble {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(1px, -1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 开了「减少动效」就不抖，改成一个表明生气的颜色 */
+  .entry-content .sp-tremble { animation: none; color: #b03010; }
+}
+
+/* 正文里的心声：和吐槽里那套同色同斜 */
+.entry-content .sp-think { color: #6b5f86; font-style: italic; }
+
 .pkmn-say-text p { margin: 0; text-indent: 0; }
 .pkmn-say-text p + p { margin-top: 4px; }
 .pkmn-say-missing { color: #a00; font-size: 12px; }

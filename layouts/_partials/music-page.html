@@ -1,0 +1,91 @@
+{{/* ============================================================
+     音乐页主体（曲目列表 + 播放器外壳）
+     ------------------------------------------------------------
+     曲目来自 data/music.toml —— 和侧栏那个小播放器**同一份数据**。
+     侧栏是迷你版（切页继续放），这里是完整曲库（列表 / 拖动进度 / 下载）。
+     编辑器的「音乐」面板管理的也是这份文件，加曲目不用改代码。
+
+     播放逻辑在 static/js/music-page.js：
+       · mp3 / ogg / wav → 用 <audio>（HTMLAudioElement）
+       · mid             → 浏览器原生不支持，交给 static/js/midi-player.js 现场合成
+
+     ⚠️ 路径必须在模板里算成绝对的：站点 canonifyURLs 只认 src/href 这类属性，
+        脚本里拼出来的相对路径不会被补上 baseURL 的子目录（子目录部署会 404）。
+        （侧栏那套踩过同样的坑，见 sidebar/music.html 的注释。）
+     ============================================================ */}}
+{{ $lib := hugo.Data.music }}
+{{ $dir := "" }}
+{{ with $lib.assetDir }}{{ $dir = strings.Trim . "/" }}{{ end }}
+{{/* 评语小标题：默认「虹星如是说」，在 data/music.toml 里写 reviewTitle 可以改 */}}
+{{ $reviewTitle := "虹星如是说" }}
+{{ with $lib.reviewTitle }}{{ $reviewTitle = . }}{{ end }}
+
+{{ $tracks := slice }}
+{{ with $lib.tracks }}
+  {{ range . }}
+    {{ $f := strings.Trim (.file | default "") " " }}
+    {{ if $f }}
+      {{ $url := $f }}
+      {{ if not (or (hasPrefix $f "http://") (hasPrefix $f "https://") (hasPrefix $f "//")) }}
+        {{ $rel := $f }}
+        {{ if ne $dir "" }}{{ $rel = printf "%s/%s" $dir $f }}{{ end }}
+        {{ $url = $rel | absURL }}
+      {{ end }}
+      {{ $ext := lower (strings.TrimPrefix "." (path.Ext $f)) }}
+      {{ $fmt := $ext }}
+      {{ if eq $ext "midi" }}{{ $fmt = "mid" }}{{ end }}
+      {{ $tracks = $tracks | append (dict
+            "file"   $f
+            "url"    $url
+            "title"  (.title | default $f)
+            "artist" (.artist | default "")
+            "desc"   (.desc | default "")
+            "note"   (.note | default "")
+            "fmt"    $fmt
+            "cat"    (.cat | default "")) }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+
+<div class="mus" id="mus-root" data-fallback="1">
+  <div class="mus-top">
+    <button class="mus-big" id="mus-big" type="button" aria-label="播放 / 暂停"><span id="mus-big-ic">▶</span></button>
+    <div class="mus-info">
+      <div class="mus-title" id="mus-title">还没有选曲目</div>
+      <div class="mus-sub" id="mus-sub">在下面点一首开始播放</div>
+    </div>
+    <div class="mus-time"><span id="mus-cur">0:00</span> / <span id="mus-dur">0:00</span></div>
+  </div>
+  <div class="mus-seek" id="mus-seek" role="slider" aria-label="播放进度" tabindex="0">
+    <div class="mus-seek-bar" id="mus-seek-bar"></div>
+  </div>
+  <div class="mus-tools">
+    <span class="mus-badge on" id="mus-engine">合成音源</span>
+    <span class="mus-note" id="mus-note">中的曲子由浏览器现场合成（不下载音源）</span>
+    <span class="mus-vol">
+      <span>音量</span>
+      <input type="range" id="mus-vol" min="0" max="100" value="80">
+    </span>
+  </div>
+  <ul class="mus-list" id="mus-list">
+    {{ range $i, $t := $tracks }}
+    <li class="mus-item" data-idx="{{ $i }}" data-url="{{ $t.url }}"
+        data-fmt="{{ $t.fmt }}" data-title="{{ $t.title }}" data-artist="{{ $t.artist }}">
+      <span class="mus-ic">▶</span>
+      <span class="mus-name">{{ $t.title }}{{ with $t.desc }}<span class="mus-desc">{{ . }}</span>{{ end }}</span>
+      {{ with $t.artist }}<span class="mus-artist">{{ . }}</span>{{ end }}
+      <span class="mus-fmt {{ $t.fmt }}">{{ $t.fmt }}</span>
+      {{ with $t.note }}<button class="mus-note-btn" type="button" aria-expanded="false">评语 ▾</button>{{ end }}
+    </li>
+    {{ with $t.note }}
+    <li class="mus-review" hidden><div class="mus-review-body">
+      <div class="mus-review-title">{{ $reviewTitle }}</div>
+      {{ . | markdownify }}
+    </div></li>
+    {{ end }}
+    {{ end }}
+  </ul>
+  {{ if not $tracks }}
+  <div class="mus-empty">data/music.toml 里还没有曲目。把音频丢进 static/music/，再在 toml 里加一段 [[tracks]] 就会出现在这里。</div>
+  {{ end }}
+</div>

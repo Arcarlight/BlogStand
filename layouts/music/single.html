@@ -1,0 +1,33 @@
+{{/* ============================================================
+     音乐页（/gallery/music/）
+     ------------------------------------------------------------
+     版式沿用站上单页那一套（box / box-title / box-body / entry-title），
+     曲子列表与播放器由 partial "music-page.html" 生成。
+
+     为什么不用 layouts/single.html：那里面是「日志正文」的版式
+     （meta、上一篇下一篇、评论…），音乐页不需要这些。
+     自己在 layouts/music/single.html 放一份干净的。
+     ============================================================ */}}
+{{ define "main" }}
+{{ partial "music-page-css.html" . }}
+
+<article class="box post-single mus-single">
+  <div class="box-title">音乐</div>
+  <div class="box-body">
+    <h1 class="entry-title">{{ .Title }}</h1>
+
+    {{ with .Content }}
+    <div class="entry-content">
+      {{ . }}
+    </div>
+    {{ end }}
+
+    {{ partial "music-page.html" . }}
+  </div>
+</article>
+
+{{/* MIDI 走自研合成器（浏览器没有原生 MIDI 支持）；
+     defer 保证 midi-player.js 先于 music-page.js 执行。 */}}
+<script src="{{ "js/midi-player.js" | relURL }}" defer></script>
+<script src="{{ "js/music-page.js" | relURL }}" defer></script>
+{{ end }}

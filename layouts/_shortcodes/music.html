@@ -1,0 +1,55 @@
+{{/* ============================================================
+     正文内嵌音乐：{{< music file="Lowlayer_moutain.mid" title="低层山" >}}
+     ------------------------------------------------------------
+     可写相对 static/music/ 的文件名，也可以写完整 https 外链。
+     格式按扩展名自动判断：mid/midi 走现场合成，其它交给 <audio>。
+
+     样式和脚本每页只注入一次（走 .Page.Scratch 记账），
+     所以一篇文章里嵌十首也不会重复加载。
+
+     ⚠️ 路径要在模板里 absURL 成绝对：canonifyURLs 只认 src/href 属性，
+        脚本里拼的相对路径不会被补 baseURL 子目录。
+     ============================================================ */}}
+{{ $f := strings.Trim (.Get "file" | default "") " " }}
+{{ if not $f }}
+  {{ errorf "music 短代码缺少 file 参数：%s" .Position }}
+{{ end }}
+
+{{ $dir := "" }}
+{{ with hugo.Data.music }}{{ with .assetDir }}{{ $dir = strings.Trim . "/" }}{{ end }}{{ end }}
+
+{{ $url := $f }}
+{{ if not (or (hasPrefix $f "http://") (hasPrefix $f "https://") (hasPrefix $f "//")) }}
+  {{ $rel := $f }}
+  {{ if ne $dir "" }}{{ $rel = printf "%s/%s" $dir $f }}{{ end }}
+  {{ $url = $rel | absURL }}
+{{ end }}
+
+{{ $ext := lower (strings.TrimPrefix "." (path.Ext $f)) }}
+{{ $fmt := $ext }}
+{{ if eq $ext "midi" }}{{ $fmt = "mid" }}{{ end }}
+{{ $title := .Get "title" | default $f }}
+{{ $artist := .Get "artist" | default "" }}
+
+{{/* 每页只注入一次样式/脚本 */}}
+{{ if not (.Page.Scratch.Get "musAssets") }}
+  {{ .Page.Scratch.Set "musAssets" true }}
+  {{ partial "music-page-css.html" . }}
+  <script src="{{ "js/midi-player.js" | relURL }}" defer></script>
+  <script src="{{ "js/music-page.js" | relURL }}" defer></script>
+{{ end }}
+
+<div class="mus-inline" data-fallback="1">
+  <button class="mus-big" type="button" aria-label="播放 / 暂停"><span>▶</span></button>
+  <div class="mus-body">
+    <div class="mus-title">{{ $title }}</div>
+    <div class="mus-sub">{{ if $artist }}{{ $artist }}{{ else }}{{ if eq $fmt "mid" }}MIDI · 现场合成{{ else }}{{ upper $fmt }}{{ end }}{{ end }}</div>
+    <div class="mus-seek" role="slider" aria-label="播放进度" tabindex="0"><div class="mus-seek-bar"></div></div>
+  </div>
+  <div class="mus-time"><span class="mus-cur">0:00</span> / <span class="mus-dur">0:00</span></div>
+  {{/* 播放逻辑复用 music-page.js：它按 .mus-item 建索引，单曲就藏一条 */}}
+  <ul class="mus-list">
+    <li class="mus-item" data-idx="0" data-url="{{ $url }}" data-fmt="{{ $fmt }}"
+        data-title="{{ $title }}" data-artist="{{ $artist }}"></li>
+  </ul>
+</div>
