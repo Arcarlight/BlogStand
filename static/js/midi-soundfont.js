@@ -46,6 +46,7 @@
     pref: readPref(),        // 用户是否想要真实音源
     phase: 'idle',           // idle | loading | ready | error
     p: 0, got: 0, total: 0, cached: false,
+    bankBytes: 0,            // 音源解压后的真实大小（GitHub Pages 会 gzip，Content-Length 偏小）
     err: '',
     ctx: null, synth: null, gain: null, mod: null,
     loadPromise: null,
@@ -192,6 +193,7 @@
         })
         .then(function (buf) {
           if (!buf || buf.byteLength < 1024) throw new Error('音源文件是空的');
+          S.bankBytes = buf.byteLength;
           /* 4) 装载。顺序照官方 README：先 addSoundBank 再等 isReady */
           S.synth = new S.mod.WorkletSynthesizer(S.ctx);
           return S.synth.soundBankManager
@@ -348,7 +350,7 @@
     phase: function () { return S.phase; },
     error: function () { return S.err; },
     progress: function () { return S.p; },
-    bytes: function () { return S.total || S.got || 0; },
+    bytes: function () { return S.bankBytes || S.total || S.got || 0; },
     fromCache: function () { return S.cached; },
     onProgress: onProgress,
     createPlayer: createPlayer,
