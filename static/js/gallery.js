@@ -129,7 +129,45 @@
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
 
+  /* 每个分类先显示这么多张。为什么不是「整页 40 张」：
+     画廊是按分类分节渲染的（每节一个小标题 + 一格图墙），整页分页会把分类
+     拆散；按节截断则无论以后收藏涨到多少，**每一节的高度都有上限**，
+     页面总长也就跟着有上限 —— 这正是站长要的「不会越变越长」。
+     12 是实测下来一节大约一两屏的量。 */
+  var PER_PAGE = 12;
+
+  function paginate() {
+    [].slice.call(document.querySelectorAll('.gal-sec')).forEach(function (sec) {
+      var grid = sec.querySelector('.gal-grid');
+      if (!grid) return;
+      var its = [].slice.call(grid.children).filter(function (n) {
+        return n.classList && n.classList.contains('gal-item');
+      });
+      if (its.length <= PER_PAGE) return;
+
+      var shown = PER_PAGE;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'gal-more';
+
+      function paint() {
+        its.forEach(function (it, i) { it.hidden = i >= shown; });
+        var left = its.length - shown;
+        if (left <= 0) { btn.hidden = true; return; }
+        btn.hidden = false;
+        btn.textContent = '显示更多（还有 ' + left + ' 张）';
+      }
+      btn.addEventListener('click', function () {
+        shown = Math.min(its.length, shown + PER_PAGE);
+        paint();
+      });
+      sec.appendChild(btn);
+      paint();
+    });
+  }
+
   function init() {
+    paginate();
     var links = [].slice.call(document.querySelectorAll('.gal-link'));
     if (!links.length) return;
     var list = links.map(function (a) {
