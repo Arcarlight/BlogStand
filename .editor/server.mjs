@@ -578,8 +578,16 @@ function parseItems(text) {
   let cur = null;
   let inSection = false;
   let arr = null;                 // 正在读的字符串数组
+  let str = null;                 // 正在读的多行字符串（note = """ … """）
   for (const line of text.split(/\r?\n/)) {
     const t = line.trim();
+    // 多行字符串：音乐的 note 用 """ 包住、中间可以有整段空行，
+    // 所以必须在「空行结束段落」之前处理，否则正文会被截断。
+    if (str) {
+      if (/^"""\s*$/.test(t)) { str = null; continue; }
+      cur[str] = cur[str] ? cur[str] + '\n' + line : line;
+      continue;
+    }
     // 大多数列表用 [[items]]；音乐那份用语义更清楚的 [[tracks]]，文集的分册用 [[books]]
     if (t === '[[items]]' || t === '[[tracks]]' || t === '[[books]]') { cur = {}; items.push(cur); inSection = true; arr = null; continue; }
     if (!inSection) continue;
@@ -599,6 +607,10 @@ function parseItems(text) {
     if (!t) { cur = null; continue; }
     if (t.startsWith('#')) continue;
     if (!cur) continue;
+
+    // note = """  开头（三引号多行字符串）
+    const mstr = t.match(/^([A-Za-z0-9_]+)\s*=\s*"""\s*$/);
+    if (mstr) { cur[mstr[1]] = ''; str = mstr[1]; continue; }
 
     // text = [ 开头
     const open = t.match(/^([A-Za-z0-9_]+)\s*=\s*\[\s*$/);
@@ -1007,18 +1019,37 @@ function parseSidebarOrder(text) {
 }
 
 /* 音乐播放器那份 data/music.toml 的抬头注释。
-   注意段落名是 [[tracks]]（不是 [[items]]），编辑器按这个认曲目。 */
+   注意段落名是 [[tracks]]（不是 [[items]]），编辑器按这个认曲目。
+   ⚠️ 面板保存是**整份重写**，所以这里认的字段必须覆盖数据里实际用到的那些
+      （desc / note / sidebar / 顶层 reviewTitle）—— 漏一个就会被静默吃掉。 */
 const MUSIC_HEADER = `# ============================================================
-#  音乐播放器 —— 侧栏最上面那条窄条挂件
+#  音乐曲目表 —— 侧栏窄条播放器 + /gallery/music/ 音乐页共用同一份
 #
 #  这份文件由编辑器左侧的「音乐」面板管理（音频也能直接上传进去），
 #  手改也行。曲目段落名必须是 [[tracks]]，编辑器认这个。
 #
 #  字段：
-#    file   = "iforest.mp3"   必填 —— static/music/ 里的文件名（不带目录），
-#                              或者完整的 https:// 外链
-#    title  = "iforest"       选填 —— 显示的名字；不写就用文件名
-#    artist = "来源未知"       选填 —— 作者 / 出处
+#    file    = "iforest.mp3"   必填 —— static/music/ 里的文件名（不带目录），
+#                               或者完整的 https:// 外链
+#                               支持 mp3 / ogg / wav / m4a / flac / mid（mid 现场合成）
+#    title   = "iforest"       选填 —— 显示的名字；不写就用文件名
+#    artist  = "来源未知"       选填 —— 作者 / 出处
+#    desc    = " · 自己写的"     选填 —— 曲名后面跟的一小段说明（音乐页显示）
+#    sidebar = false          选填 —— 不写＝进侧栏那条播放器；
+#                               false＝只在音乐页出现（MIDI 自动不进侧栏）
+#    note    = """..."""       选填 —— 评语。音乐页那一行点开就在下面展开，
+#                               支持 markdown（**粗体**、链接、换行、列表），
+#                               用三引号包住就能写多行。
+#                               ⚠️ 中文标点要写在星号**外面**：
+#                                  ✅ 「**重点**」
+#                                  ❌ **「重点」**  ← CommonMark 认为紧跟「的
+#                                     ** 不算强调起始，会原样显示星号（实测踩过）
+#                              侧栏那个小播放器不看这个字段。
+#
+#  顶层设置（必须写在第一段 [[tracks]] 之前）：
+#    assetDir    = "music/"      音频所在的 static 子目录
+#    title       = "音乐"         侧栏挂件的标题
+#    reviewTitle = "虹星如是说"   音乐页每条评语上方的小标题
 #
 #  一首都没填时，侧栏那条播放器整个不显示。
 # ============================================================`;
@@ -1873,19 +1904,36 @@ async function musicFileStatus(items) {
   return out;
 }
 
-/** 音乐这份 toml 的写盘：assetDir / title 这类顶层设置写最前面，然后是曲目。
-    设置必须排在第一个 [[tracks]] 之前 —— 排在后面的话，解析时会被并进
-    最后一条曲目里（试过，会把那首的 title 覆盖成顶层的 title）。 */
+/** 音乐这份 toml 的写盘：assetDir / title / reviewTitle 这类顶层设置写最前面，
+    然后是曲目。设置必须排在第一个 [[tracks]] 之前 —— 排在后面的话，解析时
+    会被并进最后一条曲目里（试过，会把那首的 title 覆盖成顶层的 title）。
+
+    ⚠️ 这里写哪些字段 = 保存时保留哪些字段。面板整份重写，没写出来的
+       desc / note / sidebar 会被直接抹掉（note 曾经就是这么丢的）。 */
 function writeMusicFile(header, items, settings) {
   const out = [header.trimEnd(), ''];
   out.push(`assetDir = ${JSON.stringify(settings.assetDir || 'music/')}`);
   out.push(`title = ${JSON.stringify(settings.title || '音乐')}`);
+  out.push(`reviewTitle = ${JSON.stringify(settings.reviewTitle || '虹星如是说')}`);
   out.push('');
   for (const it of items) {
     out.push('[[tracks]]');
     for (const k of ['file', 'title', 'artist']) {
       const v = String(it[k] ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       out.push(`  ${k} = "${v}"`);
+    }
+    // 曲名后的小字说明：空着就不写这一行
+    if (String(it.desc ?? '').trim()) out.push(`  desc = "${tomlStr(it.desc)}"`);
+    // 侧栏开关：默认进侧栏，所以只有 false 才需要写出来
+    if (it.sidebar === false) out.push('  sidebar = false');
+    // 评语：多行，用 """ 包住；正文首尾的空行去掉（TOML 里首行换行本来也会被吃掉）
+    // 注意正文按原样写（不加缩进）—— 加了缩进，每存一次就往里多推两格，
+    // 读出来 -> 写回去就不是同一个文件了（实测过）。
+    const note = String(it.note ?? '').replace(/\r\n/g, '\n').trim();
+    if (note) {
+      out.push('  note = """');
+      for (const line of note.split('\n')) out.push(line);
+      out.push('  """');
     }
     out.push('');
   }
@@ -1901,6 +1949,7 @@ async function readMusicFile() {
     text,
     assetDir: (head.match(/^\s*assetDir\s*=\s*"([^"]*)"/m) || [])[1] ?? 'music/',
     title: (head.match(/^\s*title\s*=\s*"([^"]*)"/m) || [])[1] ?? '音乐',
+    reviewTitle: (head.match(/^\s*reviewTitle\s*=\s*"([^"]*)"/m) || [])[1] ?? '虹星如是说',
   };
 }
 
@@ -2996,12 +3045,16 @@ async function handle(req, res, url) {
     }
 
     if (which === 'music') {
-      // 空行（点了「加一条」还没填文件名的）丢掉；顺手把结果里的「文件不在」报回去
+      // 空行（点了「加一条」还没填文件名的）丢掉；顺手把结果里的「文件不在」报回去。
+      // desc / note / sidebar 也要原样带上 —— 面板不编辑它们，但保存不能把它们吃掉。
       const clean = items
         .map((it) => ({
           file: String(it.file || '').trim(),
           title: String(it.title || '').trim(),
           artist: String(it.artist || '').trim(),
+          desc: String(it.desc ?? '').trim(),
+          note: String(it.note ?? '').replace(/\r\n/g, '\n').trim(),
+          sidebar: it.sidebar === false ? false : true,
         }))
         .filter((it) => it.file);
       const bad = clean.filter((it) => !isExternalFile(it.file)

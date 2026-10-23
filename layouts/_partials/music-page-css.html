@@ -65,6 +65,10 @@
 .mus-item:hover{background:#eaf3fc}
 .mus-item.is-cur{background:#e2eefb}
 .mus-item.is-cur .mus-name{color:var(--mus-blue);font-weight:bold}
+/* 整行点一下就会展开评语（见 music-page.js），所以展开状态要落在行上：
+   左侧一道蓝边 + 浅蓝底，不用去盯右边那个小按钮。 */
+.mus-item.is-review-open{background:#e6f0fb;box-shadow:inset 3px 0 0 #7fb3e8}
+.mus-item.is-review-open .mus-note-btn{background:#dbe9f8;color:var(--mus-blue);border-color:var(--mus-bd-d)}
 .mus-ic{flex:0 0 auto;width:18px;text-align:center;color:var(--mus-blue)}
 .mus-item.is-cur.is-playing .mus-ic{color:var(--mus-hot)}
 .mus-name{flex:1 1 auto;min-width:0;color:var(--mus-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

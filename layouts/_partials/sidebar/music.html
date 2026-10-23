@@ -5,6 +5,10 @@
      播放逻辑在 static/js/music.js，样式在 assets/css/retro.css 的
      「音乐播放器」那一节。
 
+     不是每首曲子都该出现在侧栏（比如自己做的 MIDI，只想放 /gallery/music/）：
+     在那条 [[tracks]] 里写 sidebar = false 就不进侧栏，音乐页照常有。
+     MIDI 无论写不写都会被跳过 —— 侧栏这条是 <audio>，浏览器放不了 mid。
+
      两条这个站特有的坑，这里都绕开了：
        1) canonifyURLs 只认识 src/href 这类属性，脚本里的路径不会被补上
           baseURL 的子目录 —— 所以曲目地址在这里就用 absURL 算成绝对的，
@@ -23,20 +27,36 @@
   {{ range . }}
     {{ $f := strings.Trim (.file | default "") " " }}
     {{ if $f }}
-      {{ $url := $f }}
-      {{ if not (or (hasPrefix $f "http://") (hasPrefix $f "https://") (hasPrefix $f "//")) }}
-        {{/* 路径要在模板里就补成绝对的：站点的 canonifyURLs 只认得 src/href 这类
-             属性，脚本里的相对路径不会被补 baseURL 的子目录（子目录部署时会
-             变成 /music/...，丢了 /BlogStand/）。 */}}
-        {{ $rel := $f }}
-        {{ if ne $dir "" }}{{ $rel = printf "%s/%s" $dir $f }}{{ end }}
-        {{ $url = $rel | absURL }}
+      {{/* 哪些曲子进侧栏：
+           · sidebar = false 的不要（比如自己做的 MIDI，只想放音乐页）
+           · MIDI 一律不要 —— 侧栏这条播放器是 <audio>，浏览器放不了 mid，
+             加进来只会显示「放不了」。
+         两个条件分开写，免得以后有人以为 sidebar = true 能让 mid 进侧栏。 */}}
+      {{ $want := true }}
+      {{ if isset . "sidebar" }}{{ $want = .sidebar }}{{ end }}
+      {{ $ext := lower (strings.TrimPrefix "." (path.Ext $f)) }}
+      {{ $isMidi := or (eq $ext "mid") (eq $ext "midi") }}
+
+      {{ if $isMidi }}
+        {{ if $want }}
+          {{ warnf "data/music.toml：%s 是 MIDI，侧栏那条播放器放不了（只支持 mp3/ogg/wav），已跳过。要让它只在音乐页出现，写 sidebar = false。" $f }}
+        {{ end }}
+      {{ else if $want }}
+        {{ $url := $f }}
+        {{ if not (or (hasPrefix $f "http://") (hasPrefix $f "https://") (hasPrefix $f "//")) }}
+          {{/* 路径要在模板里就补成绝对的：站点的 canonifyURLs 只认得 src/href 这类
+               属性，脚本里的相对路径不会被补 baseURL 的子目录（子目录部署时会
+               变成 /music/...，丢了 /BlogStand/）。 */}}
+          {{ $rel := $f }}
+          {{ if ne $dir "" }}{{ $rel = printf "%s/%s" $dir $f }}{{ end }}
+          {{ $url = $rel | absURL }}
+        {{ end }}
+        {{ $entries = $entries | append (dict
+              "file"   $f
+              "url"    $url
+              "title"  (.title | default $f)
+              "artist" (.artist | default "")) }}
       {{ end }}
-      {{ $entries = $entries | append (dict
-            "file"   $f
-            "url"    $url
-            "title"  (.title | default $f)
-            "artist" (.artist | default "")) }}
     {{ end }}
   {{ end }}
 {{ end }}

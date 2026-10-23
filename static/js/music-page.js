@@ -312,25 +312,52 @@
       else if (engine === 'midi' && midi) { midi.seek(sec); setBar(sec, duration()); }
     }
 
+    /* ---- 评语面板 ----------------------------------------------------
+       面板是行（.mus-item）的**下一个兄弟** <li class="mus-review">，不是嵌在行里 ——
+       这样行高、点击区域都不会被撑乱。
+
+       展开方式：**点整行**就展开，不用非得瞄准右边那个小按钮（按钮太小，
+       实测很难点）。同时把别条的评语收起来，一次只看一条。
+       按钮仍然可点，作用是「单独收起/展开这一条」。 */
+    function setReview(row, open) {
+      if (!row) return false;
+      var panel = row.nextElementSibling;
+      if (!panel || !panel.classList.contains('mus-review')) return false;
+      if (open) panel.removeAttribute('hidden');
+      else panel.setAttribute('hidden', '');
+      var btn = row.querySelector('.mus-note-btn');
+      if (btn) {
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.classList.toggle('is-open', open);
+        btn.textContent = open ? '评语 ▴' : '评语 ▾';
+      }
+      row.classList.toggle('is-review-open', open);
+      return true;
+    }
+    function closeOtherReviews(keep) {
+      root.querySelectorAll('.mus-item.is-review-open').forEach(function (it) {
+        if (it !== keep) setReview(it, false);
+      });
+    }
+
     /* ---- 事件绑定 ---- */
     items.forEach(function (it) {
-      it.addEventListener('click', function () { pick(+it.dataset.idx, true); });
+      it.addEventListener('click', function () {
+        pick(+it.dataset.idx, true);
+        /* 有评语就顺手展开；没有的话 setReview 直接返回 false，行为不变 */
+        closeOtherReviews(it);
+        setReview(it, true);
+      });
     });
 
-    /* 评语展开：按钮在 .mus-item 里，面板是它的**下一个兄弟** <li>。
-       必须 stopPropagation —— 否则点「评语」会冒泡到 .mus-item，把曲子也点了。 */
+    /* 「评语」按钮：只负责这一条的开合（stopPropagation，别把整行的点击也触发） */
     root.querySelectorAll('.mus-note-btn').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
         var row = btn.closest('.mus-item');
         var panel = row && row.nextElementSibling;
         if (!panel || !panel.classList.contains('mus-review')) return;
-        var willOpen = panel.hasAttribute('hidden');
-        if (willOpen) panel.removeAttribute('hidden');
-        else panel.setAttribute('hidden', '');
-        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-        btn.classList.toggle('is-open', willOpen);
-        btn.textContent = willOpen ? '评语 ▴' : '评语 ▾';
+        setReview(row, panel.hasAttribute('hidden'));
       });
     });
 

@@ -3518,12 +3518,15 @@ async function renderMusic() {
          '「上传音频」会把文件直接存进 <code>static/music/</code> 并自动加一条曲目 —— ' +
          '这是最省事的做法；已经手动拷进去的，把<b>文件名</b>（不带目录）填进第一列也行。<br>' +
          '也可以用外链：第一列直接写完整的 <code>https://</code> 地址。<br>' +
+         '<b>「侧栏」勾掉</b>＝这首只在 /gallery/music/ 音乐页出现，不进侧栏那条播放器（自己做的 MIDI 一般就不勾）。' +
+         'MIDI 就算勾上也不会进侧栏 —— 侧栏是 &lt;audio&gt;，放不了 mid。<br>' +
          '一首都没有时，侧栏那条播放器整个不显示。</div>';
     h += '<table class="grid"><thead><tr>' +
          '<th style="width:28px"></th>' +
-         '<th style="width:30%">音频文件</th>' +
-         '<th style="width:26%">曲名（可空）</th>' +
-         '<th style="width:22%">作者 / 出处（可空）</th>' +
+         '<th style="width:28%">音频文件</th>' +
+         '<th style="width:24%">曲名（可空）</th>' +
+         '<th style="width:20%">作者 / 出处（可空）</th>' +
+         '<th style="width:46px;text-align:center" title="勾上＝侧栏也放">侧栏</th>' +
          '<th style="width:30px"></th></tr></thead><tbody id="tbMusic"></tbody></table>';
     h += '<div id="musicRows"></div>';
     h += '<p id="musicEmpty" class="hint">' + (items.length ? '' : '还没有曲目。点下面的「上传音频」或「＋ 手动加一条」开始。') + '</p>';
@@ -3551,13 +3554,16 @@ async function renderMusic() {
         `<td><input data-f="file" data-i="${i}" value="${esc(it.file || '')}" placeholder="iforest.mp3"></td>` +
         `<td><input data-f="title" data-i="${i}" value="${esc(it.title || '')}" placeholder="不填就显示文件名"></td>` +
         `<td><input data-f="artist" data-i="${i}" value="${esc(it.artist || '')}" placeholder="来源未知"></td>` +
+        `<td style="text-align:center"><input type="checkbox" data-f="sidebar" data-i="${i}"${it.sidebar === false ? '' : ' checked'} title="勾上＝侧栏那条播放器也放这首；勾掉＝只在音乐页出现"></td>` +
         `<td style="text-align:center;white-space:nowrap">${badge}<br><button class="danger" data-del="${i}" title="删掉这条"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td>`;
       tb.appendChild(tr);
     });
 
     const collect = () => {
       document.querySelectorAll('#tbMusic input[data-f]').forEach((el) => {
-        if (items[+el.dataset.i]) items[+el.dataset.i][el.dataset.f] = el.value;
+        if (!items[+el.dataset.i]) return;
+        /* 「侧栏」是复选框，取值要用 checked；其余是文本框 */
+        items[+el.dataset.i][el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value;
       });
     };
     document.querySelectorAll('#tbMusic [data-del]').forEach((b) => {
@@ -3641,6 +3647,11 @@ async function renderMusic() {
           file: String(x.file || '').trim(),
           title: String(x.title || '').trim(),
           artist: String(x.artist || '').trim(),
+          /* 面板不编辑这三样，但要原样带回去 —— 后端是整份重写，
+             少传就等于把它们删了（评语和 desc 曾经就是这么丢的）。 */
+          desc: String(x.desc ?? '').trim(),
+          note: String(x.note ?? ''),
+          sidebar: x.sidebar !== false,
         })).filter((x) => x.file),
       });
       // 报「文件不在」的那些，现在就反映到状态角标上
