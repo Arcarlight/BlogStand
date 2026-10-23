@@ -5,6 +5,7 @@ draft: false
 aliases: ["/sokuzai-collected/"]
 tags: ["#collection", "#sokuzai"]
 description: "这个页面用于保存我找到的可以用于游戏制作的各类素材！ 存放在这里方便我以后取用！ 音声素材 Panicpumpkin Cattest 主要使用的音乐、音效素材。因为都是8-Bit风"
+lastmod: 2026-10-23
 ---
 
 <p>这个页面用于保存我找到的可以用于游戏制作的各类素材！</p>
@@ -25,8 +26,13 @@ TBTAK中有用到其中的音乐。</p>
 <p>似乎是比较近代（2015年）的免费音乐素材网站，是岚少实况《八号男友》里的供曲方，因为初听觉得很欢乐很有趣所以也在这里分享啦。</p>
 <p><strong><a href='https://cyber-rainforce.net/' target='_blank'>3104式</a></strong></p>
 <p>汉化tbck的时候发现的曲风非常特别的网站。虽然也有提供mp3等格式的素材，但是最重要的果然还是有在免费提供midi文件了吧！！
-<br>用midi播放3104式的曲子会有非常特别的感觉，可能是因为作者使用乐器的方式非常特别吧！（比如Against the future里的突然撤去小号的方式还有小号的滑音，只有用midi才能听出来那种魔幻的感觉）
-<br>在tbtak的制作中也有采用！</p>
+<p>用midi播放3104式的曲子会有非常特别的感觉，可能是因为作者使用乐器的方式非常特别吧！（比如Against the future里的突然撤去小号的方式还有小号的滑音，只有用midi才能听出来那种魔幻的感觉）
+<p>在tbtak的制作中也有采用！</p>
+
+<p><strong><a href='https://cnoc.web.fc2.com/index.html' target='_blank'>moi moi MIDI</a></strong></p>
+<p>大海原与大海原中有用到的音声素材。之前从来没听说过的网站。
+<p>感觉是非常对我胃口的，正统rpg风格的感觉？</p>
+
 <h2 id=-1>图像素材</h2><p>Cattest内的素材好像基本都是我自己画的啊～所以图像素材这一块我也没有什么特别好的收藏...不过我决定等Cattest做完之后把所有的音频图像素材全部公布免费使用，到时候再把公布链接贴在这里吧～(=´ω`=)</p>
 <p>啊，对了对了。Cattest的图像绘制是用了网络公开的<strong>免费调色盘</strong>的。其中主要的上色我是用了<strong>Frozen Fire</strong>和<strong>neon-moon-tarot</strong>，最重要的是<strong>steam-lords-32x</strong>，承包了我几乎所有贴图的色号。</p>
 <p>↓可以在这个调色盘网站上搜到我用的调色盘！</p>
