@@ -3081,6 +3081,11 @@ async function renderGallery() {
   const items = (d.items || []).map((x) => Object.assign({}, x));
   let sections = (d.sections || []).map((x) => Object.assign({}, x));
   const missing = new Set(d.missing || []);
+  /* 一次只铺这么多行，其余点「显示更多」再加。
+     49 张全铺出来要滚好久，而且每行的缩略图都会去找文件。
+     注意：只是把多余的 <tr> 藏起来，DOM 里仍然齐全 —— 拖动排序和保存
+     都按 DOM 顺序读，所以藏着的那部分不会被打乱。 */
+  let shown = 12;
 
   let html = '';
   html += '<h2 class="sec">画廊</h2>';
@@ -3090,6 +3095,7 @@ async function renderGallery() {
           '<b>上传新图</b>：选文件即可，自动存进 <code>static/images/gallery/</code> 并压一张缩略图（首屏只背几十 KB，点开才加载原图）。<br>' +
           '<b>引用已有的图</b>：站上 <code>static/images/</code> 里已经有的图不用再传一份，点「选已有图」挑就行。<br>' +
           '<b>按住左侧的把手拖动</b>就是站内展示顺序（同一分类内：封面最前，其余按创作日期从新到旧）。<br>' +
+          '<b>列表一次只显示 12 条</b>，下面点「显示更多」再展开一批（拖到一半也能拖，顺序不受影响）。<br>' +
           '标题和创作日期是页面上显示的那两行；日期留空也行。</div>';
 
   html += '<table class="grid" id="galTable"><thead><tr>' +
@@ -3250,8 +3256,27 @@ async function renderGallery() {
         tr.style.background = '#fff5f5';
         tr.title = '找不到这个图片文件：static/images/' + it.file;
       }
+      /* 超出的先藏起来（用行内 display 而不是 hidden 属性：
+         <tr hidden> 在部分浏览器里仍会按 table-row 显示） */
+      if (i >= shown) tr.style.display = 'none';
       tb.appendChild(tr);
     });
+
+    /* 「显示更多」：一行到底，跨 8 列 */
+    if (items.length > shown) {
+      const more = document.createElement('tr');
+      more.id = 'galMoreRow';
+      const td = document.createElement('td');
+      td.colSpan = 8;
+      td.style.cssText = 'text-align:center;padding:8px;background:#f7fbff';
+      const b = document.createElement('button');
+      b.id = 'btnGalMore';
+      b.textContent = '显示更多（还有 ' + (items.length - shown) + ' 张）';
+      b.addEventListener('click', () => { collect(); shown += 12; draw(); });
+      td.appendChild(b);
+      more.appendChild(td);
+      tb.appendChild(more);
+    }
 
     $('#galEmpty').innerHTML = items.length ? '' :
       '还没有画。点上面的「上传新图」或「选已有图」开始。';
