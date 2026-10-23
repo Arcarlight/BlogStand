@@ -2125,7 +2125,7 @@ async function syncPull(auto) {
     checkEditorVersion();
     return true;
   }
-  toast('拉取失败：\n' + gitBad(r), 'err');
+  toast((r.netError ? '拉取失败（连不上 GitHub）：\n' : '拉取失败：\n') + gitBad(r), 'err');
   return false;
 }
 
@@ -2160,6 +2160,11 @@ $('#btnPublish').addEventListener('click', async () => {
       ? '线上有新提交，已自动合并后推送成功（GitHub 大约 1 分钟后更新线上）'
       : '推送成功，GitHub 大约 1 分钟后更新线上', 'ok');
     await bootstrap();
+  } else if (r.netError) {
+    /* 代理挂了 / 断网 —— 和「本地和线上改了同一处」完全不是一回事，别把人指去解冲突。
+       后端已经试过「直连」兜底了，还失败就是真连不上。 */
+    toast('连不上 GitHub（网络 / 代理问题）：\n' + gitBad(r) +
+      '\n\n改动已经提交在本地了。等网络恢复后**再点一次发布**就会重推，不用重新改。', 'err');
   } else if (r.conflict) {
     toast('本地和线上改了同一处，要手工解决冲突：\n' + gitBad(r) +
       '\n\n（改动都已经提交在本地了，解决完再点一次发布）', 'err');

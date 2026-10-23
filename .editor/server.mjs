@@ -128,6 +128,29 @@ function run(cmd, args, opts = {}) {
 
 const git = (args) => run('git', args);
 
+/* ---------- 「连不上 GitHub」要单独认出来 ----------
+   这台机器的 Clash 时开时关，而仓库的 .git/config 里配了 http.proxy=127.0.0.1:7897。
+   代理一关，任何 git 远程操作都会立刻报：
+     fatal: unable to access 'https://github.com/...': Failed to connect to
+     github.com:443 over proxy 127.0.0.1 after 0 ms
+   以前的发布流程把「推送失败」一律当成 non-fast-forward，接着去 pull --rebase，
+   pull 也失败，于是报成「本地和线上改了同一处，要手工解决冲突」——
+   明明只是代理没开。这里做两件事：
+     1) 认出网络类失败（NET_FAIL），不要跟冲突混为一谈；
+     2) gitNet() 遇到网络失败时，把代理临时清空再直连试一次（实测直连是通的）。 */
+const NET_FAIL = /unable to access|Failed to connect|Could not resolve host|Connection (was )?refused|Connection (was )?reset|schannel|Operation timed out|RPC failed|Could not read from remote/i;
+const isNetFail = (r) => !!r && r.code !== 0 && NET_FAIL.test((r.stdout || '') + (r.stderr || ''));
+
+async function gitNet(args, opts) {
+  const first = await run('git', args, opts);
+  if (!isNetFail(first)) return first;
+  const direct = await run('git', ['-c', 'http.proxy=', '-c', 'https.proxy=', ...args], opts);
+  if (direct.code === 0 && (direct.stderr || '').trim()) {
+    direct.stderr += '\n（代理连不上，这一趟改成直连了）';
+  }
+  return direct;
+}
+
 /* ---------- git 状态：本地改了什么、比线上多几个 / 少几个提交 ----------
    两台电脑轮流用编辑器时，最常见的情况是「另一台推过了、这一台还没拉」：
    这种时候推送会被 GitHub 拒掉（non-fast-forward），而工作区可能又是干净的 ——
@@ -136,7 +159,7 @@ const git = (args) => run('git', args);
 let fetchAt = 0, fetchOk = null;
 async function gitFetch(force = false) {
   if (!force && Date.now() - fetchAt < 20000) return fetchOk;
-  const r = await run('git', ['fetch', '--quiet', 'origin', 'main'], { timeout: 20000 });
+  const r = await gitNet(['fetch', '--quiet', 'origin', 'main'], { timeout: 30000 });
   fetchAt = Date.now();
   fetchOk = r.code === 0;
   return fetchOk;
@@ -3525,7 +3548,7 @@ async function handle(req, res, url) {
     const { action, message } = await readBody(req);
     const steps = [];
     const note = (text) => steps.push({ code: 0, stdout: text, stderr: '', note: text });
-    let retried = false, conflict = false;
+    let retried = false, conflict = false, netError = false;
 
     if (action === 'commit' || action === 'commitpush') {
       steps.push(await git(['add', '-A']));
@@ -3542,27 +3565,44 @@ async function handle(req, res, url) {
     }
 
     if (action === 'pull') {
-      const pull = await run('git', ['pull', '--rebase', '--autostash', 'origin', 'main'],
-        { timeout: 60000 });
+      const pull = await gitNet(['pull', '--rebase', '--autostash', 'origin', 'main'],
+        { timeout: 90000 });
       steps.push(pull);
-      if (pull.code !== 0) conflict = true;
+      if (pull.code !== 0) {
+        if (isNetFail(pull)) {
+          netError = true;
+          note('连不上 GitHub（网络 / 代理问题），这次不算冲突 —— 网络好了再拉一次就行。');
+        } else {
+          conflict = true;
+        }
+      }
     }
 
     if (action === 'push' || action === 'commitpush') {
-      const push = await run('git', ['push', 'origin', 'main'], { timeout: 60000 });
+      const push = await gitNet(['push', 'origin', 'main'], { timeout: 90000 });
       steps.push(push);
       if (push.code !== 0) {
-        // 多半是另一台电脑推过了（non-fast-forward）：先把自己的提交 rebase 到线上，再推一次
-        retried = true;
-        note('推送被拒，先拉取线上改动再试一次');
-        const pull = await run('git', ['pull', '--rebase', '--autostash', 'origin', 'main'],
-          { timeout: 60000 });
-        steps.push(pull);
-        if (pull.code === 0) {
-          steps.push(await run('git', ['push', 'origin', 'main'], { timeout: 60000 }));
+        if (isNetFail(push)) {
+          /* 连不上远端：跟「线上有新提交」是两回事，别去 rebase（也拉不下来），
+             直接说清楚。改动已经提交在本地，网络恢复后再点一次发布即可。 */
+          netError = true;
+          note('连不上 GitHub（网络 / 代理问题）。改动已经提交在本地了，等网络好了再点一次「发布」即可。');
         } else {
-          conflict = true;      // rebase 撞车了：留给人工解决，别把历史搞乱
-          note('拉取时冲突了：本地和线上改了同一处，按提示手工解决之后再发布一次。');
+          // 多半是另一台电脑推过了（non-fast-forward）：先把自己的提交 rebase 到线上，再推一次
+          retried = true;
+          note('推送被拒，先拉取线上改动再试一次');
+          const pull = await gitNet(['pull', '--rebase', '--autostash', 'origin', 'main'],
+            { timeout: 90000 });
+          steps.push(pull);
+          if (pull.code === 0) {
+            steps.push(await gitNet(['push', 'origin', 'main'], { timeout: 90000 }));
+          } else if (isNetFail(pull)) {
+            netError = true;
+            note('连不上 GitHub（网络 / 代理问题），这次不是冲突。');
+          } else {
+            conflict = true;      // rebase 撞车了：留给人工解决，别把历史搞乱
+            note('拉取时冲突了：本地和线上改了同一处，按提示手工解决之后再发布一次。');
+          }
         }
       }
     }
@@ -3573,7 +3613,7 @@ async function handle(req, res, url) {
     // 第一次被拒、自动重试之后推上去的也算（不然页面上会红着脸说失败，其实已经发出去了）。
     return json(res, 200, {
       ok: state.ahead === 0,
-      retried, conflict,
+      retried, conflict, netError,
       state,
       steps: steps.map((s) => ({ code: s.code, out: (s.stdout + s.stderr).trim() })),
     });
