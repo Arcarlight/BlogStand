@@ -254,6 +254,12 @@
      尺寸和 .field 里的复选框对齐（16px），这样 :checked::after 那个勾的
      定位（left:4px/top:1px/4×8）也是现成对的。 */
   table.grid input[type=checkbox]{width:16px;height:16px;padding:0;vertical-align:middle}
+  /* 音乐面板里那一列的「评语」开关：✎ ＝还没写，● ＝已经写了 */
+  .mus-note-edit{width:24px;height:20px;line-height:1;padding:0;font-size:12px;cursor:pointer}
+  .mus-note-edit.has{color:#1e6b3a;font-weight:bold}
+  table.grid textarea{width:100%;font:inherit;font-size:12px;border:1px solid var(--line);
+    background:#fff;padding:5px 6px;border-radius:3px;resize:vertical}
+  table.grid textarea:focus{border-color:var(--accent);outline:0}
   .swatch{width:34px;height:24px;border:1px solid var(--line);border-radius:3px;padding:0;vertical-align:middle}
 
   /* ---------- 脚本卡 ---------- */
@@ -3076,6 +3082,15 @@ async function renderDiancie() {
    填标题/创作日期、选分类、指定封面。 */
 let GAL_CACHE = null;      // { items, sections }，给「选已有图」复用
 
+/* 今天（本地时区）的 YYYY-MM-DD。
+   上传/引用一张图时自动填成创作日期，这样它一进画廊就排在最前面
+   （页面规则是：封面最前，其余按日期从新到旧）。 */
+function todayISO() {
+  const d = new Date();
+  const p = (n) => (n < 10 ? '0' + n : String(n));
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
 async function renderGallery() {
   const d = await apiGet('/api/list/gallery');
   const items = (d.items || []).map((x) => Object.assign({}, x));
@@ -3092,10 +3107,12 @@ async function renderGallery() {
   html += '<p class="hint">画廊页（<code>/gallery/</code>）里的画。页面正文只有一行 <code>{{&lt; gallery &gt;}}</code>，' +
           '分类小节和缩略图都由 <code>data/gallery.toml</code> 生成，这里加一张页面就多一张。</p>';
   html += '<div class="note">' +
-          '<b>上传新图</b>：选文件即可，自动存进 <code>static/images/gallery/</code> 并压一张缩略图（首屏只背几十 KB，点开才加载原图）。<br>' +
+          '<b>上传新图</b>：选文件即可，自动存进 <code>static/images/gallery/</code> 并压一张缩略图（首屏只背几十 KB，点开才加载原图）。' +
+          '新图会自动写上当天的日期，所以会出现在下面的最前面。<br>' +
           '<b>引用已有的图</b>：站上 <code>static/images/</code> 里已经有的图不用再传一份，点「选已有图」挑就行。<br>' +
-          '<b>按住左侧的把手拖动</b>就是站内展示顺序（同一分类内：封面最前，其余按创作日期从新到旧）。<br>' +
-          '<b>列表一次只显示 12 条</b>，下面点「显示更多」再展开一批（拖到一半也能拖，顺序不受影响）。<br>' +
+          '<b>这个列表就是页面上显示的顺序</b>：封面最前，然后按创作日期从新到旧，没填日期的按标题排 —— ' +
+          '和 <code>/gallery/</code> 页完全一致，所以不用手动拖，改日期就能挪位置。<br>' +
+          '<b>列表一次只显示 12 条</b>，下面点「显示更多」再展开一批。<br>' +
           '标题和创作日期是页面上显示的那两行；日期留空也行。</div>';
 
   html += '<table class="grid" id="galTable"><thead><tr>' +
@@ -3168,14 +3185,33 @@ async function renderGallery() {
     tb.innerHTML = '';
     const nameOf = (id) => (sections.find((s) => s.id === id) || {}).name || '（未选）';
 
-    items.forEach((it, i) => {
+    /* 列表顺序 = 页面上的顺序（layouts/_partials/gallery.html 里那套规则）：
+         封面最前 → 有日期的按日期从新到旧 → 没日期的按标题。
+       这里只改「怎么显示」，data-i 仍然是它在 data/gallery.toml 里的下标，
+       所以编辑/删除都还落在对的那条上。 */
+    const ordered = items
+      .map((it, i) => ({ it, i }))
+      .sort((a, b) => {
+        const ca = a.it.cover ? 1 : 0;
+        const cb = b.it.cover ? 1 : 0;
+        if (ca !== cb) return cb - ca;
+        const da = String(a.it.date || '').trim();
+        const db = String(b.it.date || '').trim();
+        if (da && db) return da < db ? 1 : da > db ? -1 : 0;
+        if (da) return -1;          // 有日期的排在没日期的前面
+        if (db) return 1;
+        return String(a.it.title || '').localeCompare(String(b.it.title || ''), 'zh');
+      });
+
+    ordered.forEach((entry, pos) => {
+      const it = entry.it;
+      const i = entry.i;
       const tr = document.createElement('tr');
-      tr.draggable = true;
       tr.dataset.i = String(i);
 
       const td0 = document.createElement('td');
-      td0.style.textAlign = 'center';
-      td0.innerHTML = '<span class="handle" style="cursor:grab"><img class="ico" src="/editor-icons/fugue/arrow-move.png" alt="" draggable="false"></span>';
+      td0.style.cssText = 'text-align:center;color:var(--dim)';
+      td0.textContent = String(pos + 1);
 
       const td1 = document.createElement('td');
       const img = document.createElement('img');
@@ -3257,13 +3293,14 @@ async function renderGallery() {
         tr.title = '找不到这个图片文件：static/images/' + it.file;
       }
       /* 超出的先藏起来（用行内 display 而不是 hidden 属性：
-         <tr hidden> 在部分浏览器里仍会按 table-row 显示） */
-      if (i >= shown) tr.style.display = 'none';
+         <tr hidden> 在部分浏览器里仍会按 table-row 显示）。
+         注意这里按**显示位置** pos 截断，不是按下标 i。 */
+      if (pos >= shown) tr.style.display = 'none';
       tb.appendChild(tr);
     });
 
     /* 「显示更多」：一行到底，跨 8 列 */
-    if (items.length > shown) {
+    if (ordered.length > shown) {
       const more = document.createElement('tr');
       more.id = 'galMoreRow';
       const td = document.createElement('td');
@@ -3271,7 +3308,7 @@ async function renderGallery() {
       td.style.cssText = 'text-align:center;padding:8px;background:#f7fbff';
       const b = document.createElement('button');
       b.id = 'btnGalMore';
-      b.textContent = '显示更多（还有 ' + (items.length - shown) + ' 张）';
+      b.textContent = '显示更多（还有 ' + (ordered.length - shown) + ' 张）';
       b.addEventListener('click', () => { collect(); shown += 12; draw(); });
       td.appendChild(b);
       more.appendChild(td);
@@ -3352,7 +3389,8 @@ async function renderGallery() {
           title: f.name.replace(/\.[^.]+$/, ''),
           file: 'gallery/' + (r.rel || '').split('/').pop(),
           cat: sections.length ? sections[0].id : '',
-          date: '',
+          /* 自动写上今天：新上传的图要排在画廊最前面（页面按日期从新到旧排） */
+          date: todayISO(),
           cover: false,
         });
         if (r.thumb && r.thumb.ok === false) toast('缩略图没生成：' + r.thumb.error, 'err');
@@ -3384,7 +3422,7 @@ async function renderGallery() {
             title: f.replace(/^.*\//, '').replace(/\.[^.]+$/, ''),
             file: f,
             cat: sections.length ? sections[0].id : '',
-            date: '',
+            date: todayISO(),
             cover: false,
           });
         });
@@ -3396,33 +3434,10 @@ async function renderGallery() {
   });
 
   // 拖拽排序
+  /* 画廊列表按页面顺序排，不手动拖 —— 想挪位置就改创作日期（见上面 draw 的说明）。
+     原来的拖动排序已经去掉：显示顺序是排出来的，拖动存下的顺序对页面没有影响，
+     只会让人以为自己控制住了顺序。 */
   const tb = $('#tbGal');
-  let drag = null;
-  tb.addEventListener('dragstart', (e) => {
-    const tr = e.target.closest('tr[data-i]');
-    if (!tr) { e.preventDefault(); return; }
-    drag = tr; tr.style.opacity = '.45';
-    e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', tr.dataset.i); } catch (err) {}
-  });
-  tb.addEventListener('dragover', (e) => {
-    if (!drag) return;
-    const tr = e.target.closest('tr[data-i]');
-    if (!tr || tr === drag) return;
-    e.preventDefault();
-    const r = tr.getBoundingClientRect();
-    tb.insertBefore(drag, e.clientY > r.top + r.height / 2 ? tr.nextSibling : tr);
-  });
-  tb.addEventListener('drop', (e) => { if (drag) e.preventDefault(); });
-  tb.addEventListener('dragend', async () => {
-    if (!drag) return;
-    drag.style.opacity = ''; drag = null;
-    const order = [...tb.querySelectorAll('tr[data-i]')].map((tr) => +tr.dataset.i);
-    if (!order.some((v, k) => v !== k)) return;
-    const next = order.map((i) => items[i]);
-    items.length = 0; items.push(...next);
-    if (await save()) openPanel('gallery');
-  });
 }
 
 /* ---------- 选一张站上已有的图 ----------
@@ -3534,6 +3549,8 @@ async function renderMusic() {
   const status = {};                       // 文件名 -> 在不在
   (d.status || []).forEach((s) => { status[s.file] = s; });
   const isExt = (f) => /^(https?:)?\/\//i.test(String(f || '').trim());
+  /* 哪几条的「简介 / 评语」编辑区是展开的（只影响显示，不影响保存） */
+  const openNotes = new Set();
 
   const draw = () => {
     let h = '<h2 class="sec">音乐</h2>';
@@ -3543,14 +3560,16 @@ async function renderMusic() {
          '「上传音频」会把文件直接存进 <code>static/music/</code> 并自动加一条曲目 —— ' +
          '这是最省事的做法；已经手动拷进去的，把<b>文件名</b>（不带目录）填进第一列也行。<br>' +
          '也可以用外链：第一列直接写完整的 <code>https://</code> 地址。<br>' +
+         '<b>点「评语」那一格</b>可以展开写这一首的简介和评语 —— 评语会显示在音乐页上，点开那一行就能看到（支持 markdown、可多行）。<br>' +
          '<b>「侧栏」勾掉</b>＝这首只在 /gallery/music/ 音乐页出现，不进侧栏那条播放器（自己做的 MIDI 一般就不勾）。' +
          'MIDI 就算勾上也不会进侧栏 —— 侧栏是 &lt;audio&gt;，放不了 mid。<br>' +
          '一首都没有时，侧栏那条播放器整个不显示。</div>';
     h += '<table class="grid"><thead><tr>' +
          '<th style="width:28px"></th>' +
-         '<th style="width:28%">音频文件</th>' +
-         '<th style="width:24%">曲名（可空）</th>' +
-         '<th style="width:20%">作者 / 出处（可空）</th>' +
+         '<th style="width:26%">音频文件</th>' +
+         '<th style="width:22%">曲名（可空）</th>' +
+         '<th style="width:18%">作者 / 出处（可空）</th>' +
+         '<th style="width:44px;text-align:center" title="写简介和评语">评语</th>' +
          '<th style="width:46px;text-align:center" title="勾上＝侧栏也放">侧栏</th>' +
          '<th style="width:30px"></th></tr></thead><tbody id="tbMusic"></tbody></table>';
     h += '<div id="musicRows"></div>';
@@ -3579,15 +3598,48 @@ async function renderMusic() {
         `<td><input data-f="file" data-i="${i}" value="${esc(it.file || '')}" placeholder="iforest.mp3"></td>` +
         `<td><input data-f="title" data-i="${i}" value="${esc(it.title || '')}" placeholder="不填就显示文件名"></td>` +
         `<td><input data-f="artist" data-i="${i}" value="${esc(it.artist || '')}" placeholder="来源未知"></td>` +
+        `<td style="text-align:center"><button class="mus-note-edit${String(it.note || '').trim() ? ' has' : ''}" data-note="${i}" title="${String(it.note || '').trim() ? '这一首已经写了评语，点开修改' : '给这一首写简介和评语'}">${String(it.note || '').trim() ? '●' : '✎'}</button></td>` +
         `<td style="text-align:center"><input type="checkbox" data-f="sidebar" data-i="${i}"${it.sidebar === false ? '' : ' checked'} title="勾上＝侧栏那条播放器也放这首；勾掉＝只在音乐页出现"></td>` +
         `<td style="text-align:center;white-space:nowrap">${badge}<br><button class="danger" data-del="${i}" title="删掉这条"><img class="ico" src="/editor-icons/fugue/cross.png" alt="" draggable="false"></button></td>`;
       tb.appendChild(tr);
+
+      /* 展开中的那条：简介（曲名后的小字）+ 评语（音乐页点开显示，markdown、可多行） */
+      if (openNotes.has(i)) {
+        const r2 = document.createElement('tr');
+        r2.className = 'mus-note-row';
+        const td = document.createElement('td');
+        td.colSpan = 7;
+        td.style.cssText = 'background:#f7fbff;padding:8px 10px;border-left:3px solid #7fb3e8';
+        td.innerHTML =
+          '<div style="display:flex;gap:10px;align-items:flex-start">' +
+            '<div style="flex:0 0 250px">' +
+              '<div class="hint" style="margin:0 0 3px">简介（曲名后跟的小字，可空）</div>' +
+              `<input data-f="desc" data-i="${i}" value="${esc(it.desc || '')}" placeholder="· 自己写的" style="width:100%">` +
+            '</div>' +
+            '<div style="flex:1 1 auto">' +
+              '<div class="hint" style="margin:0 0 3px">评语（音乐页点开这一行时显示在下面；支持 markdown，空行分段）</div>' +
+              `<textarea data-f="note" data-i="${i}" rows="6" style="width:100%;font:inherit;line-height:1.6" placeholder="想说的话…">${esc(it.note || '')}</textarea>` +
+            '</div>' +
+          '</div>';
+        r2.appendChild(td);
+        tb.appendChild(r2);
+      }
+    });
+
+    /* 「评语」格子的点击：展开/收起这一条的编辑区（改完记得点下面的保存） */
+    tb.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-note]');
+      if (!b) return;
+      collect();
+      const i = +b.dataset.note;
+      if (openNotes.has(i)) openNotes.delete(i); else openNotes.add(i);
+      draw();
     });
 
     const collect = () => {
-      document.querySelectorAll('#tbMusic input[data-f]').forEach((el) => {
+      document.querySelectorAll('#tbMusic input[data-f], #tbMusic textarea[data-f]').forEach((el) => {
         if (!items[+el.dataset.i]) return;
-        /* 「侧栏」是复选框，取值要用 checked；其余是文本框 */
+        /* 「侧栏」是复选框，取值要用 checked；其余（含 textarea）取 value */
         items[+el.dataset.i][el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value;
       });
     };
