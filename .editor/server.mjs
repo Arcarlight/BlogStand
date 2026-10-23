@@ -357,21 +357,31 @@ async function buildTree() {
   const tree = [];
 
   /* 「首页与单页」这些：先按固定顺序排（_index 在最前，符合直觉），
-     再自动补上 content/ 顶层里其它还没列到的 .md。
+     再自动补上 content/ 里其它还没列到的 .md。
      以前这里是写死的名单 —— 我新加了 content/updates.md 却忘了登记，
      结果站长在编辑器里看不到那个页面、改不了文案。自动发现就不会再漏。
-     注意：只认**顶层**文件（不递归），博客/日记在各自的组里。 */
+     现在连**子目录里的单页**也扫一层（content/gallery/music.md 就是这种：
+     音乐页的标题、说明、正文都在里面，之前编辑器里根本没入口）。
+     博客/文集/日记有自己的分组，跳过。 */
   const staticsOrder = [
     'content/_index.md', 'content/self_intros.md', 'content/navigator.md',
-    'content/gallery.md', 'content/updates.md', 'content/tobitaiaaken.md', 'content/ihsobijin2006.md',
+    'content/gallery.md', 'content/gallery/music.md',
+    'content/updates.md', 'content/tobitaiaaken.md', 'content/ihsobijin2006.md',
   ];
+  const OWN_GROUPS = new Set(['blog', 'collection', 'niki']);
   let topFiles = [];
+  let subFiles = [];
   try {
     for (const e of await fsp.readdir(safePath('content'), { withFileTypes: true })) {
-      if (e.isFile() && isMd(e.name)) topFiles.push('content/' + e.name);
+      if (e.isFile() && isMd(e.name)) { topFiles.push('content/' + e.name); continue; }
+      if (!e.isDirectory() || OWN_GROUPS.has(e.name)) continue;
+      const inner = await fsp.readdir(safePath('content/' + e.name), { withFileTypes: true }).catch(() => []);
+      for (const f of inner) {
+        if (f.isFile() && isMd(f.name)) subFiles.push(`content/${e.name}/${f.name}`);
+      }
     }
   } catch { /* content/ 读不到就算了，下面还会用固定名单兜底 */ }
-  const statics = [...new Set([...staticsOrder, ...topFiles])].sort((a, b) => {
+  const statics = [...new Set([...staticsOrder, ...topFiles, ...subFiles])].sort((a, b) => {
     const ia = staticsOrder.indexOf(a), ib = staticsOrder.indexOf(b);
     if (ia >= 0 && ib >= 0) return ia - ib;      // 名单内的按名单顺序
     if (ia >= 0) return -1;                      // 名单内的排前面

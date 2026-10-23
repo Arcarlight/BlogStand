@@ -120,3 +120,8 @@
 [[items]]
   date = "2026-10-21"
   title = "网站的字体更新了。"
+
+[[items]]
+  date = "2026-10-23"
+  title = "为鱼拓站添加了音乐页面。"
+  url = "/gallery/music/"

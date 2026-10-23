@@ -1674,7 +1674,16 @@ function setDirty(v) {
 window.addEventListener('beforeunload', (e) => { if (DIRTY) { e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- 侧栏 ---------- */
+/* 树上的显示名：默认取文件名（去掉 .md）。
+   少数几个页面给个人话的名字 —— 「music」「gallery」这种英文名在树里不好认，
+   站长找不着「音乐页在哪改文案」，给个中文名一目了然（完整路径在 title 里）。 */
+const FILE_LABEL = {
+  'content/gallery.md': '画廊页',
+  'content/gallery/music.md': '音乐页',
+};
+
 function shortName(p) {
+  if (FILE_LABEL[p]) return FILE_LABEL[p];
   const b = p.split('/').pop().replace(/\.md$/, '');
   return b;
 }
