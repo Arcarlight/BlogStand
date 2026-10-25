@@ -2560,3 +2560,37 @@ html.pxfont .entry-content .sp-ruby rt {
   .pkmn-say { gap: 8px; padding: 7px 8px; }
   .pkmn-say-face { zoom: 1; }
 }
+
+/* ============================================================
+   脚注（Goldmark 的 footnotes）
+   写法：正文里写 [^1]，文末写 [^1]: 出处。
+   Goldmark 输出的是 <sup class="footnote-ref"><a> 和文末一个 .footnotes 块，
+   默认样式（蓝色链接 + 一条 1px 实线）和站上不搭，这里按纸框感收一收。
+   ============================================================ */
+.entry-content sup { line-height: 0; }
+.entry-content a.footnote-ref {
+  text-decoration: none;
+  color: #a8500f;
+  padding: 0 1px;
+}
+.entry-content a.footnote-ref:hover { text-decoration: underline; }
+
+.entry-content .footnotes {
+  margin: 18px 0 4px;
+  padding: 9px 12px 10px;
+  background: #f7fafc;
+  border-left: 4px solid #b9c9db;
+  color: #3a4a5c;
+}
+/* Goldmark 会在脚注区前面塞一条 <hr>，这里不需要（左线已经分隔了） */
+.entry-content .footnotes hr { display: none; }
+.entry-content .footnotes ol { margin: 0 0 0 1.4em; padding: 0; }
+.entry-content .footnotes li { margin: 0 0 4px; }
+.entry-content .footnotes li:last-child { margin-bottom: 0; }
+.entry-content .footnotes p { margin: 0; text-indent: 0; }
+.entry-content a.footnote-backref {
+  text-decoration: none;
+  color: #8a9bab;
+  margin-left: 3px;
+}
+.entry-content a.footnote-backref:hover { color: #a8500f; }
