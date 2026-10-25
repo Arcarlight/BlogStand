@@ -159,6 +159,7 @@ timeZone = "Asia/Shanghai"
   # 汉字和标点继续走上面那份宋体。不需要给 HTML 加 lang 标记。
   # 关掉即全部使用中文那份字体（宋体本身也含假名点阵，只是字形是中文风格）。
   pixelFontJa = true
+  pixelFontKr = true   # 韩文谚文走 Galmuri11（static/fonts/galmuri11-pixel.woff2）
 
   # ---- emoji 用点阵字体（Mona12Emoji，55 KB）----
   # 不开的话 Windows 会用 Segoe UI Emoji 渲染 emoji：彩色、带抗锯齿、

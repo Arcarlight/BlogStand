@@ -1925,6 +1925,29 @@ html.gal-lb-open, html.gal-lb-open body { overflow: hidden; }
 }
 {{ end }}
 
+{{ if site.Params.pixelFontKr }}
+/* 韩文谚文单独走 Galmuri11（quiple/galmuri，SIL OFL 1.1）。
+   同样用 unicode-range 做「按字符路由」：只有谚文会落到这份字体上，
+   其它字继续走宋体 —— 页面里没有韩文就**根本不会下载**这个文件。
+
+   格子对得上的原因：Galmuri11 虽然名字叫 11，字形其实画在 12px 的 em 网格上
+   （upem 1200，1px = 100 单位，字形坐标全是 100 的倍数）。
+   站上 --px 恒为 12k/dpr，设备像素正好是 12k，所以 100 单位 × 12k/1200 = k
+   个设备像素，整数，不糊。不需要 size-adjust。
+
+   度量覆盖成和宋体一样（hhea 83.3333% / 16.6667%），否则行高会比中文高一头。 */
+@font-face {
+  font-family: 'GalmuriPixel';
+  src: url(../fonts/galmuri11-pixel.woff2) format('woff2');
+  /* 这份字体真正有的：11,172 个谚文音节 + 94 个兼容字母 */
+  unicode-range: U+AC00-D7A3, U+3130-318F;
+  ascent-override: 83.3333%;
+  descent-override: 16.6667%;
+  line-gap-override: 0%;
+  font-display: swap;
+}
+{{ end }}
+
 {{ if site.Params.pixelFontJa }}
 /* 日文假名单独走 MS Gothic 的点阵（从 msgothic.ttc 的 12ppem 点阵提取）。
    用 unicode-range 做「按字符路由」：只有平假名 / 片假名 / 半角片假名
@@ -1976,7 +1999,7 @@ html.pxfont body * {
      「现有字体已覆盖的码位」全排除了（见 tools/build-gap-font.py），
      与前面几份不重叠；这个顺序是再加一道保险 ——
      将来宋体补了某个符号，它会先命中，缺口字体不会抢。 */
-  font-family: {{ if site.Params.pixelFontJa }}'MSGothic12JPPixel', {{ end }}'{{ $pxName }}', {{ if site.Params.emojiFont }}'Mona12Emoji', {{ end }}{{ if site.Params.pixelGapFont }}{{ with index hugo.Data "pixel-gap-font" }}'{{ .family }}', {{ end }}{{ end }}SimSun, "宋体", monospace !important;
+  font-family: {{ if site.Params.pixelFontJa }}'MSGothic12JPPixel', {{ end }}{{ if site.Params.pixelFontKr }}'GalmuriPixel', {{ end }}'{{ $pxName }}', {{ if site.Params.emojiFont }}'Mona12Emoji', {{ end }}{{ if site.Params.pixelGapFont }}{{ with index hugo.Data "pixel-gap-font" }}'{{ .family }}', {{ end }}{{ end }}SimSun, "宋体", monospace !important;
   font-weight: normal !important;
   font-size: var(--px, 16px) !important;
   text-shadow: none !important;
