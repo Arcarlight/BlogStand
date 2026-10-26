@@ -3332,8 +3332,9 @@ async function renderGallery() {
       td.style.cssText = 'text-align:center;padding:8px;background:#f7fbff';
       const b = document.createElement('button');
       b.id = 'btnGalMore';
-      b.textContent = '显示更多（还有 ' + (ordered.length - shown) + ' 张）';
-      b.addEventListener('click', () => { collect(); shown += 12; draw(); });
+      b.textContent = '显示全部（还有 ' + (ordered.length - shown) + ' 张）';
+      /* 一次点完：原来 shown += 12，画多的分类要点好几下。 */
+      b.addEventListener('click', () => { collect(); shown = ordered.length; draw(); });
       td.appendChild(b);
       more.appendChild(td);
       tb.appendChild(more);

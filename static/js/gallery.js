@@ -155,10 +155,14 @@
         var left = its.length - shown;
         if (left <= 0) { btn.hidden = true; return; }
         btn.hidden = false;
-        btn.textContent = '显示更多（还有 ' + left + ' 张）';
+        btn.textContent = '显示全部（还有 ' + left + ' 张）';
       }
+      /* 点一下就把这个分类剩下的全放出来。
+         原来写的是 shown += PER_PAGE：25 张的分类第一下只能到 24，
+         按钮还写着「还有 1 张」，要点两下才看完 —— 站长吐槽的就是这个。
+         初始仍然只铺 12 张（页面长度有上限），但「显示更多」是到底。 */
       btn.addEventListener('click', function () {
-        shown = Math.min(its.length, shown + PER_PAGE);
+        shown = its.length;
         paint();
       });
       sec.appendChild(btn);

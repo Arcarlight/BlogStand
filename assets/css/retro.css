@@ -1083,6 +1083,9 @@ html.pxfont .gif-play-hint { font-size: var(--px-sm, 11px) !important; }
 .gal-more {
   display: block;
   width: 100%;
+  /* 站点全局是 box-sizing: content-box，width:100% 再加 padding/border
+     会横向戳出去 22px（站长看到的「超出横栏」）。这里必须 border-box。 */
+  box-sizing: border-box;
   margin: 8px 0 2px;
   padding: 7px 10px;
   border: 1px solid #b9c9db;
