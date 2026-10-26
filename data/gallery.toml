@@ -375,3 +375,17 @@
   cat = "pkmnflya"
   date = "2026-10-21"
   desc = "欢欢喜喜的沙漠蜻蜓一家。"
+
+[[items]]
+  title = "女仆担当烈咬陆鲨"
+  file = "GarchompDeWaiter.jpg"
+  cat = "pkmn"
+  date = "2026-10-26"
+  desc = "画的时候因为不知道该画男生还是女生，所以姿势设计成了看不到完整背鳍的样子...不过果然还是女生吧？"
+
+[[items]]
+  title = "玛古玛古"
+  file = "Magumagu.PNG"
+  cat = "pkmn"
+  date = "2026-10-26"
+  desc = "火岩鼠的第一张全身图。上次画火岩鼠是在火岩鼠之日（9/4），虽然那一张好像主角是沙漠蜻蜓而不是火岩鼠..."
