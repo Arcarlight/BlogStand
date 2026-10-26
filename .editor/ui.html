@@ -3171,7 +3171,15 @@ async function renderGallery() {
       };
       row.appendChild(mk('id', 'id（锚点）', 'width:130px'));
       row.appendChild(mk('name', '显示名', 'width:170px'));
-      row.appendChild(mk('desc', '说明（可空）', 'flex:1'));
+      const descArea = document.createElement('textarea');
+      descArea.rows = 1;
+      descArea.value = s.desc || '';
+      descArea.placeholder = '说明（可空，可以多行）';
+      descArea.dataset.sec = String(i);
+      descArea.dataset.field = 'desc';
+      descArea.style.cssText = 'font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);' +
+        'border-radius:3px;flex:1;min-height:26px;resize:vertical';
+      row.appendChild(descArea);
       const del = document.createElement('button');
       del.className = 'danger';
       del.textContent = '×';
@@ -3250,12 +3258,14 @@ async function renderGallery() {
       tIn.dataset.f = 'title';
       tIn.dataset.i = String(i);
       // 简介（悬浮卡上显示的那行）：没写就退回该分类的说明，所以可以空着
-      const dscIn = document.createElement('input');
+      const dscIn = document.createElement('textarea');
+      dscIn.rows = 1;
       dscIn.value = it.desc || '';
       dscIn.placeholder = '简介（可空，会退回分类说明）';
       dscIn.dataset.f = 'desc';
       dscIn.dataset.i = String(i);
-      dscIn.style.cssText = 'margin-top:2px;color:#5a7089';
+      dscIn.style.cssText = 'margin-top:2px;color:#5a7089;width:100%;min-height:26px;resize:vertical;' +
+        'font:inherit;font-size:12px;padding:2px 5px;border:1px solid var(--line);border-radius:3px;box-sizing:border-box';
       tdTitle.append(tIn, dscIn);
 
       const tdDate = document.createElement('td');
@@ -4229,7 +4239,7 @@ async function openSnark() {
     '<div class="field"><label>表情</label><div id="snPick"></div></div>' +
     '<div class="field"><label>名字</label><input id="snName" type="text" maxlength="20">' +
       '<span class="cmt">留空就用名单里的名字</span></div>' +
-    '<div class="field"><label>说什么</label><textarea id="snText" rows="3" placeholder="写一句吐槽…"></textarea>' +
+    '<div class="field"><label>说什么</label><textarea id="snText" rows="5" style="min-height:110px" placeholder="写一句吐槽…"></textarea></div>' +
       '<div class="sn-styles"><span class="sn-lab">样式（先选中字再点）</span>' +
         '<button type="button" data-sn="b" title="粗体">粗体</button>' +
         '<button type="button" data-sn="i" title="斜体">斜体</button>' +
@@ -4237,7 +4247,7 @@ async function openSnark() {
         '<input id="snRuby" type="text" maxlength="12" placeholder="注音">' +
         '<button type="button" data-sn="t" title="抖起来（生气）">颤抖</button>' +
         '<button type="button" data-sn="m" title="心里想的，不是说出来的">心声</button>' +
-      '</div></div>';
+      '</div>';
 
   const m = $('#modal');
   $('#mTitle').textContent = '吐槽';
@@ -4555,8 +4565,8 @@ async function uploadImages(files) {
   if (one) {
     fields.push({ key: 'title', label: '标题', value: stemOf(imgs[0].name), ph: '留空就用文件名',
                   hint: '画廊里显示的名字；同时当作正文里的 alt' });
-    fields.push({ key: 'desc', label: '简介', value: '', ph: '可选',
-                  hint: '画廊点开大图时显示的那行说明' });
+    fields.push({ key: 'desc', label: '简介', type: 'textarea', rows: 3, value: '', ph: '可选，可以多行',
+                  hint: '画廊点开大图时显示的那几行说明' });
   }
   fields.push({ key: 'sync', label: '同步到画廊', type: 'checkbox', value: false,
                 hint: one ? '在 /gallery/ 里也登记一张（不复制文件）'
@@ -4850,6 +4860,11 @@ function modal({ title, fields, okText = '确定', bind }) {
       if (f.type === 'checkbox') {
         return `<div class="field"><label>${esc(f.label)}</label>
           <input type="checkbox" id="${id}" ${f.value ? 'checked' : ''}>
+          <span class="cmt">${esc(f.hint || '')}</span></div>`;
+      }
+      if (f.type === 'textarea') {
+        return `<div class="field"><label>${esc(f.label)}</label>
+          <textarea id="${id}" rows="${f.rows || 3}" placeholder="${esc(f.ph || '')}">${esc(f.value ?? '')}</textarea>
           <span class="cmt">${esc(f.hint || '')}</span></div>`;
       }
       if (f.type === 'select') {
