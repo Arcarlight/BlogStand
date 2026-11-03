@@ -1,14 +1,22 @@
-{{/* ============ 访客计数器（不蒜子） ============ */}}
-{{ if site.Params.busuanzi }}
+{{/* ============ 访客计数器（自建，Cloudflare Pages Functions + D1） ============
+     接口：GET {boardApi}/api/hits?p=/当前路径/&v=<本机访客 id>
+     数字存在自己的 D1 里，不再依赖不蒜子（2026-11 它的接口频繁 502）。
+
+     · 本机预览（127.0.0.1 / localhost）只读数字、不计数；
+     · 读不到后端时 visitor.js 退到上次缓存并注明，**不隐藏整块**。 */}}
+{{ $api := site.Params.boardApi }}
+{{/* 站点挂在 https://.../BlogStand/ 这种子路径下时，location.pathname 会带上前缀。
+     计数按「去掉前缀的站点内路径」记（/blog/xxx/），以后换域名也不会对不上。 */}}
+{{ $basePath := (urls.Parse site.BaseURL).Path | strings.TrimSuffix "/" }}
+{{ if and site.Params.selfCounter $api }}
 <div class="widget" id="visitor-stats">
   <div class="widget-title">访客统计</div>
-  <div class="widget-body counter-body">
-    <p class="counter-row"><span class="counter-label">您是第</span><span id="busuanzi_value_site_uv" class="counter-num">------</span><span class="counter-label">位访客</span></p>
-    <p class="counter-row"><span class="counter-label">总访问</span><span id="busuanzi_value_site_pv" class="counter-num">------</span><span class="counter-label">次</span></p>
-    <p class="counter-row"><span class="counter-label">本页阅读</span><span id="busuanzi_value_page_pv" class="counter-num">------</span><span class="counter-label">次</span></p>
-    {{/* 不蒜子接口 502 时的说明（retro.js 填内容），整块不隐藏 */}}
+  <div class="widget-body counter-body" data-hits-api="{{ $api }}/api/hits" data-hits-base="{{ $basePath }}">
+    <p class="counter-row"><span class="counter-label">您是第</span><span id="hc_site_uv" class="counter-num">------</span><span class="counter-label">位访客</span></p>
+    <p class="counter-row"><span class="counter-label">总访问</span><span id="hc_site_pv" class="counter-num">------</span><span class="counter-label">次</span></p>
+    <p class="counter-row"><span class="counter-label">本页阅读</span><span id="hc_page_pv" class="counter-num">------</span><span class="counter-label">次</span></p>
     <p class="counter-note" hidden></p>
   </div>
 </div>
-<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<script src="{{ "js/visitor.js" | relURL }}" defer></script>
 {{ end }}

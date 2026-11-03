@@ -84,7 +84,11 @@ timeZone = "Asia/Shanghai"
   startDate  = "2026-02-05"
 
   # ---- 侧边栏挂件开关 ----
-  busuanzi      = true
+  # 访客计数：自己做的（board-api 的 /api/hits + D1），不再用不蒜子 ——
+  # 它的接口 2026-11 频繁 502。历史数字已经迁移过去（见 board-api/schema.sql 的 baseline）。
+  selfCounter   = true
+  # 旧的不蒜子开关，留着只为兼容旧配置；现在没人读它。
+  busuanzi      = false
   showClock     = true
   showHitokoto  = true
   cursorSparkle = true
