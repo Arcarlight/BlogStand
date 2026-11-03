@@ -60,26 +60,83 @@
   }
 
   /* ---------- 5. 访客计数器兜底 ----------
-     不蒜子（busuanzi.ibruce.info）靠 Referer 识别站点，脚本自己没有任何重试；
-     网络慢、代理绕路、或被拦截插件挡掉时，三个数字就会一直是「------」。
-     原来的兜底是 6 秒后把数字改成「离线」——但实测经代理最慢见过 3.6 秒，
-     6 秒太紧，于是电脑上经常莫名其妙显示「离线」，看起来像站点坏了。
+     不蒜子（busuanzi.ibruce.info）靠 Referer 识别站点，脚本自己能加载，
+     但它后面那个统计接口经常 502 抽风（2026-11-03 实测：90 秒里 4 次 502）。
+     接口一挂三个数字就一直是「------」；原来的兜底是 12 秒后把整块隐藏 ——
+     结果站长和访客都以为「访客统计没了 / 坏了」（站长报的就是这个）。
 
-     这里改成：
-       1. 等到 12 秒还没数据（正常情况 1~2 秒就回来了）；
-       2. 就整块把「访客统计」收起来，而不是写「离线」。
-     注意：**不能失败重试**——不蒜子每请求一次就 +1 访问量，重试会虚增计数。 */
-  setTimeout(function () {
-    var ids = ['busuanzi_value_site_uv', 'busuanzi_value_site_pv', 'busuanzi_value_page_pv'];
-    var got = false;
-    for (var i = 0; i < ids.length; i++) {
-      var el = document.getElementById(ids[i]);
-      if (el && /\d/.test(el.textContent)) { got = true; break; }
-    }
-    if (got) { return; }
+     现在改成：
+       1. 拿到数字就存一份到 localStorage；正常情况 1~2 秒就有；
+       2. 20 秒还没数字 → 用上次缓存的数字顶上并注明「上次统计」；
+          连缓存都没有就写「暂时连不上」，**不隐藏整块**；
+       3. 之后每 5 秒再看一眼 DOM，接口恢复就自动换成新数字。
+     注意：**绝不重试请求**——不蒜子每请求一次就 +1 访问量，
+     第 3 步只是读 DOM，不重新请求，所以不会虚增计数。 */
+  (function () {
     var widget = document.getElementById('visitor-stats');
-    if (widget) { widget.style.display = 'none'; }
-  }, 12000);
+    if (!widget || !document.getElementById('busuanzi_value_site_uv')) return;
+    var ids = ['busuanzi_value_site_uv', 'busuanzi_value_site_pv', 'busuanzi_value_page_pv'];
+    var note = widget.querySelector('.counter-note');
+    var LS = 'visit.cache';
+    var read = function () {
+      var out = [];
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        var t = el ? (el.textContent || '').trim() : '';
+        if (!/\d/.test(t)) return null;
+        out.push(t);
+      }
+      return out;
+    };
+    var fill = function (v) {
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el) el.textContent = v[i];
+      }
+    };
+    var cached = function () {
+      try {
+        var o = JSON.parse(localStorage.getItem(LS) || 'null');
+        return (o && o.v && o.v.length === 3) ? o : null;
+      } catch (e) { return null; }
+    };
+    /* 拿到真数字：清掉「上次统计」的痕迹，并存一份给下次用 */
+    var settle = function (v) {
+      widget.classList.remove('stale');
+      if (note) note.hidden = true;
+      try { localStorage.setItem(LS, JSON.stringify({ v: v, at: Date.now() })); } catch (e) {}
+      return true;
+    };
+    var tick = function () { var v = read(); return v ? settle(v) : false; };
+    var stale = function () {
+      var c = cached();
+      if (c) {
+        fill(c.v);
+        if (note) {
+          var d = new Date(c.at);
+          /* 侧栏窄，说明只留一行；详细原因放 title 里 */
+          note.textContent = '上次统计 ' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' +
+            ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+          note.hidden = false;
+        }
+        widget.title = '不蒜子暂时连不上（接口 502），上面显示的是上次成功统计的数字';
+      } else if (note) {
+        note.textContent = '不蒜子 502，稍后再试';
+        note.hidden = false;
+        widget.title = '统计服务暂时连不上（不蒜子接口 502）';
+      }
+      widget.classList.add('stale');
+    };
+    var started = Date.now();
+    var fast = setInterval(function () {
+      if (tick()) { clearInterval(fast); return; }
+      if (Date.now() - started < 20000) return;
+      clearInterval(fast);
+      stale();
+      /* 接口恢复后自动换回真数字（只读 DOM，不重发请求） */
+      var slow = setInterval(function () { if (tick()) clearInterval(slow); }, 5000);
+    }, 700);
+  })();
 
   /* ---------- 6. 正文里的外部链接自动在新窗口打开 ---------- */
   var links = document.querySelectorAll('.entry-content a[href^="http"]');
