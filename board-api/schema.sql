@@ -65,3 +65,13 @@ CREATE TABLE IF NOT EXISTS baseline (
   key   TEXT    NOT NULL PRIMARY KEY,   -- 'site_uv' | 'site_pv'
   value INTEGER NOT NULL DEFAULT 0
 );
+
+-- 常客统计：每个访客每天来几次。
+-- 「常客」= 来过 ≥2 个不同日子的人（回头客）。visitors 表只记第一次出现，
+-- 算不出这个，所以按 (vid, day) 再记一张。vid 同样是哈希，不是原始 id。
+CREATE TABLE IF NOT EXISTS visitor_days (
+  vid TEXT    NOT NULL,             -- sha256(访客随机 id + salt) 前 16 位
+  day TEXT    NOT NULL,             -- 北京时间 YYYY-MM-DD
+  n   INTEGER NOT NULL DEFAULT 0,   -- 这一天来了几次
+  PRIMARY KEY (vid, day)
+);

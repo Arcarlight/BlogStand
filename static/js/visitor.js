@@ -22,8 +22,8 @@
   /* 站点可能挂在子路径下（/BlogStand/），计数按去掉前缀的路径记 */
   var BASE = (body.getAttribute('data-hits-base') || '').replace(/\/+$/, '');
 
-  var KEYS = ['site_uv', 'site_pv', 'page_pv'];
-  var IDS = ['hc_site_uv', 'hc_site_pv', 'hc_page_pv'];
+  var KEYS = ['site_uv', 'site_pv', 'page_pv', 'site_regular', 'self_visits'];
+  var IDS = ['hc_site_uv', 'hc_site_pv', 'hc_page_pv', 'hc_site_regular', 'hc_self_visits'];
   var LS_ID = 'visitor.id';
   var LS_CACHE = 'visitor.cache';
   var note = widget.querySelector('.counter-note');

@@ -57,6 +57,7 @@ export async function onRequestGet({ request, env }) {
   const now = nowCN();
 
   try {
+    let vh = '';
     if (counted) {
       await env.DB.prepare(
         'INSERT INTO hits (path, pv, updated_at) VALUES (?, 1, ?) ' +
@@ -65,17 +66,38 @@ export async function onRequestGet({ request, env }) {
 
       /* 访客去重：同一个浏览器 id 永远只算一次 UV。
          INSERT OR IGNORE + 不读插入结果 = 一次写就好，不用再查。 */
-      const vh = (await sha256Hex(vid + '|' + saltOf(env))).slice(0, 16);
+      vh = (await sha256Hex(vid + '|' + saltOf(env))).slice(0, 16);
       await env.DB.prepare('INSERT OR IGNORE INTO visitors (vid, at) VALUES (?, ?)')
         .bind(vh, now).run();
+
+      /* 常客：按 (访客, 北京时间日期) 记一天来几次，回头客靠它算 */
+      await env.DB.prepare(
+        'INSERT INTO visitor_days (vid, day, n) VALUES (?, ?, 1) ' +
+        'ON CONFLICT(vid, day) DO UPDATE SET n = n + 1'
+      ).bind(vh, now.slice(0, 10)).run();
     }
 
-    const [sitePv, pagePv, siteUv, base] = await Promise.all([
+    const [sitePv, pagePv, siteUv, regular, base] = await Promise.all([
       env.DB.prepare('SELECT COALESCE(SUM(pv), 0) AS n FROM hits').first(),
       env.DB.prepare('SELECT COALESCE(pv, 0) AS n FROM hits WHERE path = ?').bind(path).first(),
       env.DB.prepare('SELECT COUNT(*) AS n FROM visitors').first(),
+      /* 「常客」= 来过 ≥2 个不同日子的人 */
+      env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM (' +
+        '  SELECT vid FROM visitor_days GROUP BY vid HAVING COUNT(*) >= 2' +
+        ')'
+      ).first(),
       env.DB.prepare('SELECT key, value FROM baseline').all(),
     ]);
+
+    /* 这一位访客自己来过几次（没有计数就不查） */
+    let selfVisits = 0;
+    if (vh) {
+      const sv = await env.DB
+        .prepare('SELECT COALESCE(SUM(n), 0) AS n FROM visitor_days WHERE vid = ?')
+        .bind(vh).first();
+      selfVisits = Number((sv && sv.n) || 0);
+    }
 
     /* baseline：从 不蒜子 迁过来的历史值（见 schema.sql）。
        页面上的数 = 历史基准 + 本系统之后记到的数。 */
@@ -87,6 +109,8 @@ export async function onRequestGet({ request, env }) {
       site_uv: (b.site_uv || 0) + Number((siteUv && siteUv.n) || 0),
       site_pv: (b.site_pv || 0) + Number((sitePv && sitePv.n) || 0),
       page_pv: Number((pagePv && pagePv.n) || 0),
+      site_regular: Number((regular && regular.n) || 0),
+      self_visits: selfVisits,
       counted,
     });
   } catch (e) {
