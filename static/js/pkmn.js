@@ -75,8 +75,11 @@
   //             电灯怪、伊裴尔塔尔、谜拟丘、狙射树枭）
   // 在同一个页面停留超过这么久也会开始打瞌睡（分钟）
   var DOZE_MINUTES = 10;
-  // 被戳醒之后能撑多久（秒）——之后如果还是它的睡觉时段就再睡回去
-  var AWAKE_AFTER_WAKE = [120, 360];
+  // 犯困只看「多久没被戳过」：
+  //   不在它的睡觉时段 → 要 DOZE_MINUTES 分钟没人理才犯困；
+  //   在它的睡觉时段   → 只要 1.5 分钟没互动就会困（夜里本来就该困）。
+  // 戳它 / 摸它都算互动，会重新计时 —— 所以戳醒之后不会立刻又睡过去。
+  var SLEEPY_IDLE_IN_WINDOW = 90 * 1000;
 
   // 天气 / 时间的名字表在 js/pkmn-weather.js 里（和始祖小鸟页面共用一份）
 
@@ -294,12 +297,15 @@
   // ---------------- 睡觉 ----------------
   // 什么时候会睡：
   //   1) 到了它的睡觉时段（meta.z 决定是夜里睡还是白天睡）—— 打开页面时就有 78% 概率
-  //      已经在睡，没睡的那次过一会儿也会困；
-  //   2) 在同一个页面赖着不走超过 DOZE_MINUTES 分钟，也会打起瞌睡。
-  // 戳一下就醒，醒来能撑 2~6 分钟；要是还在它的睡觉时段，过一会儿又睡回去。
+  //      已经在睡；没在睡的，过一会儿也会困。
+  //   2) 没人理它太久（不在睡觉时段 = DOZE_MINUTES 分钟，在睡觉时段 = 1.5 分钟）。
+  //
+  // ⚠️ 这里**只看「多久没互动」，不再用「打开页面多久」**：
+  //    以前是按 pageSince 算的，戳醒之后那个计时器还是「早就超时」的状态，
+  //    于是刚戳醒（或者刚戳了一下还在犯困的阶段）就立刻又睡回去 —— 站长报的就是这个。
+  //    现在戳一下 = lastActive 归零 = 重新给满一整段，没人再戳才会继续犯困。
   var asleep = false;
-  var awakeUntil = 0;            // 被戳醒后醒到什么时候
-  var pageSince = Date.now();    // 这一页是什么时候打开的
+  var lastActive = Date.now();   // 最后一次戳它 / 摸它 / 打开页面的时间
   var sleepySaid = false;        // 已经说过「困了」了吗
   var sleepyAt = 0;              // 说完「困了」多久之后真睡
   // 刚打开页面先别急着困 —— 让人先看见它醒着、听一句招呼，25 秒后才开始打瞌睡
@@ -326,9 +332,9 @@
     if (!asleep) return;
     asleep = false;
     setZzz(false);
-    awakeUntil = Date.now() + (AWAKE_AFTER_WAKE[0] + Math.random() * (AWAKE_AFTER_WAKE[1] - AWAKE_AFTER_WAKE[0])) * 1000;
-    pageSince = Date.now();          // 醒了就重新计时
+    lastActive = Date.now();          // 醒了就重新计时：刚戳完不该马上又犯困
     sleepySaid = false;
+    sleepyAt = 0;
     // 醒来先蹦两下、一脸惊醒，然后说一句
     st.task = { kind: 'jump', dur: 0.9, n: 2 };
     st.lastKind = 'jump';
@@ -342,8 +348,10 @@
   function tickSleep() {
     if (asleep) return;
     var now = Date.now();
-    if (now < awakeUntil || now < sleepGraceUntil) return;
-    var wantSleep = sleepWindowNow() || (now - pageSince) > DOZE_MINUTES * 60000;
+    if (now < sleepGraceUntil) return;
+    /* 犯困只取决于「多久没互动」；在睡觉时段里会来得更快一点 */
+    var limit = sleepWindowNow() ? SLEEPY_IDLE_IN_WINDOW : DOZE_MINUTES * 60000;
+    var wantSleep = (now - lastActive) > limit;
     if (!wantSleep) { sleepySaid = false; return; }
     if (!sleepySaid) {
       sleepySaid = true;
@@ -582,6 +590,10 @@
   }
 
   function pet() {
+    /* 任何一次戳它 / 摸它都算互动：重新计时，并把「已经说了困了」的状态撤掉。
+       这样在犯困阶段戳一下，就不会 4.5 秒后照样睡过去。 */
+    lastActive = Date.now();
+    sleepySaid = false;
     if (asleep) { wakeUp(); return; }     // 睡着的时候戳一下 = 叫醒它
     var now = Date.now();
     if (now - petT < 3000) petN += 1; else petN = 1;
