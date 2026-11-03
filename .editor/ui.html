@@ -1256,6 +1256,30 @@
     50%{ box-shadow:0 0 7px rgba(46,158,87,.80), inset 0 1px 0 rgba(255,255,255,.7); }
   }
 
+  /* ---------- 10b. 状态栏「发布进行中」：琥珀点 + 快呼吸 ----------
+     发布时有两段很长的等待（先 fetch 线上状态，再提交+推送），
+     光靠一个 toast 根本看不出来卡在哪，所以让右下角这颗灯说话。 */
+  #statusbar .sb-conn.busy .sb-dot{
+    background:radial-gradient(circle at 35% 30%,#ffe08a,#d99a14 70%);
+    border-color:#8a5c0e;
+    box-shadow:0 0 5px rgba(217,154,20,.75), inset 0 1px 0 rgba(255,255,255,.75);
+    animation:sbDotBusy .9s ease-in-out infinite;
+  }
+  @keyframes sbDotBusy{
+    0%,100%{ opacity:1; }
+    50%{ opacity:.45; }
+  }
+  #statusbar .sb-conn.busy #sbConnText{ color:#6f5310; }
+  #statusbar .sb-conn.done .sb-dot{
+    background:radial-gradient(circle at 35% 30%,#a9ffc6,#2e9e57 70%);
+    border-color:#1c6b3c;
+  }
+  #statusbar .sb-conn.err .sb-dot{
+    background:radial-gradient(circle at 35% 30%,#ffb3a4,#c0392b 70%);
+    border-color:#8a261e;
+    box-shadow:0 0 5px rgba(192,57,43,.7), inset 0 1px 0 rgba(255,255,255,.6);
+  }
+
   /* ============================================================
      动效总开关：系统「减少动态效果」时全部关掉
      ============================================================ */
@@ -2095,6 +2119,31 @@ function gitBad(r) {
   return bad ? (bad.out || '（没有输出）') : '';
 }
 
+/* ---------- 右下角状态栏跟着发布步骤走 ----------
+   点「发布」后有两段可能很长、却完全没有提示的等待：
+     ① 先 GET /api/git（要 fetch 一次线上，慢网络下十几秒）才弹出「写说明」的窗口；
+     ② 确认后 POST /api/git（提交 + 推送 + 复核）几十秒才出结果。
+   这两段现在都交给状态栏那颗灯显示；POST 期间再轮询 /api/git/progress，
+   拿后端真实步骤（整理改动 → 推送 → 核对），比前端猜准。 */
+let SB_POLL = 0;
+function sbBusy(text) {
+  if (window.sb) window.sb.busy(text);
+  if (SB_POLL) return;
+  SB_POLL = setInterval(async () => {
+    try {
+      const r = await apiGet('/api/git/progress');
+      if (r && r.phase && r.label && window.sb) window.sb.busy(r.label);
+    } catch (e) { /* 旧后端没有这个接口：保持前端自己的文案 */ }
+  }, 600);
+}
+function sbEnd(ok, text) {
+  if (SB_POLL) { clearInterval(SB_POLL); SB_POLL = 0; }
+  if (!window.sb) return;
+  if (ok === true) window.sb.done(text || '已完成');
+  else if (ok === false) window.sb.err(text || '失败');
+  else window.sb.idle();
+}
+
 async function syncPull(auto) {
   let g;
   try { g = await apiGet('/api/git'); } catch (e) { return false; }
@@ -2114,9 +2163,11 @@ async function syncPull(auto) {
     if (!auto) toast(`本地有 ${g.ahead} 个提交还没推上去，先点「发布」再拉取`, 'err');
     return false;
   }
+  sbBusy('正在从线上拉取…');
   toast(`正在从线上拉取 ${g.behind} 个提交…`);
   const r = await apiPost('/api/git', { action: 'pull' });
   if (r.ok) {
+    sbEnd(true, '已同步');
     toast(`已从线上同步 ${g.behind} 个提交`, 'ok');
     await bootstrap();
     if (CUR) loadFile(CUR).catch(() => {});
@@ -2125,6 +2176,7 @@ async function syncPull(auto) {
     checkEditorVersion();
     return true;
   }
+  sbEnd(false, '拉取失败');
   toast((r.netError ? '拉取失败（连不上 GitHub）：\n' : '拉取失败：\n') + gitBad(r), 'err');
   return false;
 }
@@ -2133,10 +2185,16 @@ $('#btnSync').addEventListener('click', () => syncPull(false));
 
 $('#btnPublish').addEventListener('click', async () => {
   if (DIRTY) { toast('先保存当前文件再发布', 'err'); return; }
-  const g = await apiGet('/api/git');
+  /* 第一段长等待：GET /api/git 要 fetch 一次线上才知道 ahead/behind。
+     以前这里十几秒毫无反应，用户以为按钮没点上。 */
+  sbBusy('正在核对线上…');
+  let g;
+  try { g = await apiGet('/api/git'); }
+  catch (e) { sbEnd(false, '核对失败'); toast('连不上本地编辑器服务', 'err'); return; }
   const changed = g.status.length > 0;
   const ahead = g.ahead || 0;
   if (!changed && !ahead) {
+    sbEnd(null);
     toast(g.behind
       ? `本地没有改动，但线上有 ${g.behind} 个提交（点「拉取线上」同步）`
       : '没有需要发布的改动');
@@ -2145,16 +2203,22 @@ $('#btnPublish').addEventListener('click', async () => {
   let msg = '更新';
   if (changed) {
     const listing = g.status.map((s) => '  ' + s).join('\n');
+    sbBusy('等待确认…');
     const m = prompt(`将要提交以下改动：\n\n${listing}\n\n写一句这次的更新说明：`, '更新');
-    if (m === null) return;
+    if (m === null) { sbEnd(null); return; }
     msg = m || '更新';
   } else {
     // 上次推送失败的常见情况：改动早就提交了，只是没推上去
-    if (!confirm(`本地有 ${ahead} 个提交还没推上去（上次推送应该失败了），现在重推一次？`)) return;
+    sbBusy('等待确认…');
+    if (!confirm(`本地有 ${ahead} 个提交还没推上去（上次推送应该失败了），现在重推一次？`)) { sbEnd(null); return; }
     msg = '重试推送';
   }
+  /* 第二段长等待：提交 + 推送 + 复核，慢网络下能到一两分钟。
+     这里先把灯打到「提交中」，之后由 /api/git/progress 换成后端的真实步骤。 */
+  sbBusy(changed ? '正在提交…' : '正在推送…');
   toast(changed ? '正在提交并推送…' : '正在推送…');
   const r = await apiPost('/api/git', { action: 'commitpush', message: msg });
+  sbEnd(r.ok, r.ok ? (r.retried ? '已合并并推送' : '已推送') : (r.netError ? '连不上 GitHub' : '推送失败'));
   if (r.ok) {
     toast(r.retried
       ? '线上有新提交，已自动合并后推送成功（GitHub 大约 1 分钟后更新线上）'
@@ -5242,8 +5306,27 @@ setTimeout(checkRemote, 1200);
     const connText = document.getElementById('sbConnText');
     const paint = () => {
       const on = navigator.onLine !== false;
-      if (conn) conn.classList.toggle('off', !on);
+      if (conn) {
+        conn.classList.remove('busy', 'done', 'err');
+        conn.classList.toggle('off', !on);
+        conn.title = '本地编辑器服务';
+      }
       if (connText) connText.textContent = on ? '已连接' : '离线';
+    };
+    /* 发布 / 拉取时这颗灯临时变成「步骤提示」，结束后自动回到「已连接」。
+       主脚本通过 window.sb 调用（它在文件更前面，所以挂在 window 上）。 */
+    const phase = (cls, text, title) => {
+      if (!conn) return;
+      conn.classList.remove('busy', 'done', 'err', 'off');
+      conn.classList.add(cls);
+      conn.title = title || text;
+      if (connText) connText.textContent = text;
+    };
+    window.sb = {
+      busy: (text) => phase('busy', text || '处理中…'),
+      done: (text) => { phase('done', text || '已完成'); setTimeout(paint, 2600); },
+      err:  (text) => { phase('err',  text || '失败');   setTimeout(paint, 5200); },
+      idle: paint,
     };
     window.addEventListener('online', paint);
     window.addEventListener('offline', paint);

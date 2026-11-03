@@ -184,6 +184,15 @@ async function gitState(fetchFirst = true) {
   };
 }
 
+/* ---------- 发布进度（状态栏的「现在卡在哪一步」）----------
+   慢网络下推送这一步能卡几十秒，前端只有一个 toast 闪一下就没下文了。
+   这里把当前步骤记在内存里，前端轮询 /api/git/progress，显示到右下角状态栏。
+   phase 为 null 表示「没有在发布」。 */
+let GIT_PROGRESS = null;
+function setGitProgress(phase, label) {
+  GIT_PROGRESS = phase ? { phase, label, at: Date.now() } : null;
+}
+
 /* ---------- 访问日志（排查问题用）---------- */
 const ACCESS_LOG = path.join(__dirname, 'access.log');
 function logAccess(line) {
@@ -3540,6 +3549,10 @@ async function handle(req, res, url) {
     return json(res, 200, await getScripts());
   }
 
+  if (p === '/api/git/progress' && req.method === 'GET') {
+    return json(res, 200, GIT_PROGRESS || { phase: null, label: '', at: 0 });
+  }
+
   if (p === '/api/git' && req.method === 'GET') {
     return json(res, 200, await gitState(true));
   }
@@ -3550,7 +3563,10 @@ async function handle(req, res, url) {
     const note = (text) => steps.push({ code: 0, stdout: text, stderr: '', note: text });
     let retried = false, conflict = false, netError = false;
 
+    try {
+
     if (action === 'commit' || action === 'commitpush') {
+      setGitProgress('staging', '正在整理本地改动…');
       steps.push(await git(['add', '-A']));
       const st = await git(['status', '--porcelain']);
       if (st.stdout.trim()) {
@@ -3565,6 +3581,7 @@ async function handle(req, res, url) {
     }
 
     if (action === 'pull') {
+      setGitProgress('pull', '正在从线上拉取…');
       const pull = await gitNet(['pull', '--rebase', '--autostash', 'origin', 'main'],
         { timeout: 90000 });
       steps.push(pull);
@@ -3579,6 +3596,7 @@ async function handle(req, res, url) {
     }
 
     if (action === 'push' || action === 'commitpush') {
+      setGitProgress('push', '正在推送到 GitHub…');
       const push = await gitNet(['push', 'origin', 'main'], { timeout: 90000 });
       steps.push(push);
       if (push.code !== 0) {
@@ -3591,10 +3609,12 @@ async function handle(req, res, url) {
           // 多半是另一台电脑推过了（non-fast-forward）：先把自己的提交 rebase 到线上，再推一次
           retried = true;
           note('推送被拒，先拉取线上改动再试一次');
+          setGitProgress('pull', '线上有新提交，正在合并…');
           const pull = await gitNet(['pull', '--rebase', '--autostash', 'origin', 'main'],
             { timeout: 90000 });
           steps.push(pull);
           if (pull.code === 0) {
+            setGitProgress('push', '正在重新推送…');
             steps.push(await gitNet(['push', 'origin', 'main'], { timeout: 90000 }));
           } else if (isNetFail(pull)) {
             netError = true;
@@ -3608,6 +3628,7 @@ async function handle(req, res, url) {
     }
 
     fetchAt = 0;                                  // 状态变了，下次重新 fetch
+    setGitProgress('check', '正在核对推送结果…');
     const state = await gitState(true);
     // 「成功」看的是**结果**：本地提交都推上去了就算成功 ——
     // 第一次被拒、自动重试之后推上去的也算（不然页面上会红着脸说失败，其实已经发出去了）。
@@ -3617,6 +3638,10 @@ async function handle(req, res, url) {
       state,
       steps: steps.map((s) => ({ code: s.code, out: (s.stdout + s.stderr).trim() })),
     });
+    } finally {
+      // 成功失败都要收掉进度，不然状态栏会一直停在「推送到 GitHub…」
+      setGitProgress(null);
+    }
   }
 
   if (p === '/api/hugo' && req.method === 'POST') {
