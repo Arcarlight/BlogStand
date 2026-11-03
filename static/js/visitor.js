@@ -57,7 +57,12 @@
   function paint(d) {
     for (var i = 0; i < KEYS.length; i++) {
       var e = el(i);
-      if (e && d[KEYS[i]] != null) e.textContent = String(d[KEYS[i]]);
+      if (!e || d[KEYS[i]] == null) continue;
+      var v = d[KEYS[i]];
+      /* 「您已来过」为 0 只可能是这次没被计数（爬虫 / 预览 / 存不了 id），
+         显示 0 会被当成坏了，改成破折号。 */
+      if (KEYS[i] === 'self_visits' && !v && d.counted === false) v = '——';
+      e.textContent = String(v);
     }
   }
 
