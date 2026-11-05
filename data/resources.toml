@@ -89,7 +89,7 @@ sec   = "pokemon"
 dex   = 178
 title = "天然鸟"
 art   = "tbtak/portrait/battler-xatu.png"
-note  = "立绘原图 Xatu_source.PNG（空白边已切）"
+note  = "立绘原图 Xatu_source.PNG"
 
 [[items]]
 sec   = "pokemon"
@@ -206,21 +206,21 @@ sec   = "pokemon"
 dex   = 408
 title = "头盖龙"
 art   = "tbtak/portrait/battler-cranidos.png"
-note  = "立绘原图 Cranidos_source.PNG（空白边已切）"
+note  = "立绘原图 Cranidos_source.PNG"
 
 [[items]]
 sec   = "pokemon"
 dex   = 441
 title = "聒噪鸟"
 art   = "tbtak/portrait/battler-chatot.png"
-note  = "立绘原图 Chatot_source.PNG（空白边已切）"
+note  = "立绘原图 Chatot_source.PNG"
 
 [[items]]
 sec   = "pokemon"
 dex   = 477
 title = "黑夜魔灵"
 art   = "tbtak/portrait/battler-dusknoir.png"
-note  = "立绘原图 Dusknoir_source.PNG（空白边已切）"
+note  = "立绘原图 Dusknoir_source.PNG"
 
 [[items]]
 sec   = "pokemon"
@@ -270,7 +270,7 @@ sec   = "pokemon"
 dex   = 541
 title = "宝包茧"
 art   = "tbtak/portrait/battler-kurumayu.png"
-note  = "立绘原图 Enemy_Kurumayu.png（空白边已切）"
+note  = "立绘原图 Enemy_Kurumayu.png"
 
 [[items]]
 sec   = "pokemon"
@@ -279,7 +279,7 @@ title = "电飞鼠"
 file  = "tbtak/sprite/walk-emolga.png"
 face  = "tbtak/face/momoka-faces.png"
 art   = "tbtak/portrait/battler-emolga.png,tbtak/portrait/battler-momoka.png"
-note  = "电飞鼠，脸图 3 个表情。原图 $WalkEmolga.png；立绘原图 Enemy_Emolga.png、Enemy_Momoka.png（空白边已切）"
+note  = "电飞鼠，脸图 3 个表情。原图 $WalkEmolga.png；立绘原图 Enemy_Emolga.png、Enemy_Momoka.png"
 
 [[items]]
 sec   = "pokemon"
@@ -293,7 +293,7 @@ sec   = "pokemon"
 dex   = 621
 title = "赤面龙"
 art   = "tbtak/portrait/battler-druddigon.png"
-note  = "立绘原图 Druddigon_source.PNG（空白边已切）"
+note  = "立绘原图 Druddigon_source.PNG"
 
 [[items]]
 sec   = "pokemon"
