@@ -3549,6 +3549,68 @@ async function handle(req, res, url) {
     return json(res, 200, await getScripts());
   }
 
+  /* ---------- 素材分发 ---------- */
+  if (p === '/api/resources' && req.method === 'GET') {
+    const data = parseResources(await readText(RESOURCES_FILE));
+    return json(res, 200, { data, repo: await giveoutStatus() });
+  }
+
+  if (p === '/api/resources' && req.method === 'POST') {
+    const body = await readBody(req);
+    const old = await readText(RESOURCES_FILE);
+    /* 原来的抬头注释原样保留 —— 写短了等于把文件里的说明降级掉 */
+    const hm = /^([\s\S]*?)(?=^\[meta\])/m.exec(old);
+    const header = hm ? hm[1] : '';
+    const data = {
+      meta: body.meta || {},
+      intro: body.intro || {},
+      sections: body.sections || [],
+      items: body.items || [],
+    };
+    await writeText(RESOURCES_FILE, buildResourcesText(data, header));
+    return json(res, 200, { ok: true, data: parseResources(await readText(RESOURCES_FILE)) });
+  }
+
+  if (p === '/api/resources/upload' && req.method === 'POST') {
+    const { sec, name, data } = await readBody(req);
+    return json(res, 200, await giveoutUpload(sec, name, data));
+  }
+
+  if (p === '/api/resources/repo' && req.method === 'POST') {
+    const body = await readBody(req);
+    if (body.action === 'save-dir') {
+      const dir = path.resolve(String(body.dir || '').trim());
+      await fsp.writeFile(GIVEOUT_CFG_FILE, JSON.stringify({ dir }, null, 2) + '\n');
+      return json(res, 200, { ok: true, repo: await giveoutStatus() });
+    }
+    if (body.action === 'clone') {
+      const dir = giveoutDir();
+      const exists = await fsp.stat(dir).catch(() => null);
+      if (exists) {
+        return json(res, 200, { ok: false, error: '目录已经存在了：' + dir, repo: await giveoutStatus() });
+      }
+      const proxy = blogGitProxy();
+      const args = proxy ? ['-c', 'http.proxy=' + proxy] : [];
+      const r = await run('git', [...args, 'clone', GIVEOUT_URL, dir],
+        { cwd: path.dirname(dir), timeout: 180000 });
+      return json(res, 200, {
+        ok: r.code === 0,
+        error: r.code === 0 ? '' : (r.stdout + r.stderr).trim().slice(0, 400),
+        repo: await giveoutStatus(),
+      });
+    }
+    if (body.action === 'pull' || body.action === 'push') {
+      const args = body.action === 'pull' ? ['pull', '--ff-only'] : ['push'];
+      const r = await runGitIn(giveoutDir(), args, { timeout: 120000 });
+      return json(res, 200, {
+        ok: r.code === 0,
+        error: r.code === 0 ? '' : (r.stdout + r.stderr).trim().slice(0, 400),
+        repo: await giveoutStatus(),
+      });
+    }
+    return json(res, 400, { ok: false, error: 'unknown action' });
+  }
+
   if (p === '/api/git/progress' && req.method === 'GET') {
     return json(res, 200, GIT_PROGRESS || { phase: null, label: '', at: 0 });
   }
@@ -3659,6 +3721,220 @@ async function handle(req, res, url) {
   }
 
   json(res, 404, { error: '未知接口 ' + p });
+}
+
+/* ============================================================
+   素材分发：data/resources.toml + 独立素材仓库
+   ------------------------------------------------------------
+   页面 /resources/ 的内容由 data/resources.toml 驱动：
+     [meta]       CDN 前缀、仓库地址、许可
+     [intro]      页面开头那几段文案
+     [[sections]] 分类（点阵图 / 立绘 / UI / MIDI…）
+     [[items]]    素材条目
+
+   素材文件**不在这个仓库**，在 Arcarlight/Nijiboshi-Giveout-Storage。
+   编辑器上传时直接写进那个仓库的本地副本，然后 git add/commit/push。
+   本地副本位置：
+     1) 环境变量 EDITOR_GIVEOUT_DIR（只给测试用，别写进启动脚本）
+     2) .editor/giveout-repo.json 里的 dir
+     3) 默认：主站仓库的同级目录 Nijiboshi-Giveout-Storage
+   推送要过代理，代理地址直接沿用主站仓库里配给 github.com 的那个
+   （http.https://github.com/.proxy）——两台电脑各自配各自的，不用改代码。
+   ============================================================ */
+const RESOURCES_FILE = 'data/resources.toml';
+const GIVEOUT_CFG_FILE = path.join(__dirname, 'giveout-repo.json');
+const GIVEOUT_URL = 'https://github.com/Arcarlight/Nijiboshi-Giveout-Storage.git';
+const GIVEOUT_DEFAULT_DIR = path.resolve(ROOT, '..', 'Nijiboshi-Giveout-Storage');
+/* 分类 → 素材仓库里的子目录。加分类要同步这里（否则上传会拒绝）。 */
+const GIVEOUT_DIRS = {
+  sprite: 'tbtak/sprite',
+  portrait: 'tbtak/portrait',
+  ui: 'tbtak/ui',
+  midi: 'audio/midi',
+};
+
+function giveoutDir() {
+  if (process.env.EDITOR_GIVEOUT_DIR) return path.resolve(process.env.EDITOR_GIVEOUT_DIR);
+  try {
+    const o = JSON.parse(fs.readFileSync(GIVEOUT_CFG_FILE, 'utf8'));
+    if (o && o.dir) return path.resolve(o.dir);
+  } catch { /* 没有配置就用默认 */ }
+  return GIVEOUT_DEFAULT_DIR;
+}
+
+/* 主站仓库给 github.com 配的代理，素材仓库沿用同一份 */
+function blogGitProxy() {
+  try {
+    const r = execFileSync('git', ['config', '--get', 'http.https://github.com/.proxy'],
+      { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return r || '';
+  } catch { return ''; }
+}
+
+function runGitIn(dir, args, opts = {}) {
+  const proxy = blogGitProxy();
+  const full = proxy ? ['-c', 'http.proxy=' + proxy, ...args] : args;
+  return run('git', full, Object.assign({ cwd: dir, timeout: 120000 }, opts));
+}
+
+async function giveoutStatus() {
+  const dir = giveoutDir();
+  const st = { dir, exists: false, isRepo: false, dirty: 0, ahead: 0, proxy: blogGitProxy(), err: '' };
+  try {
+    if (!(await fsp.stat(dir)).isDirectory()) return st;
+    st.exists = true;
+  } catch { return st; }
+  const r = await runGitIn(dir, ['rev-parse', '--is-inside-work-tree'], { timeout: 15000 });
+  if (r.code !== 0) {
+    st.err = (r.stdout + r.stderr).trim().slice(0, 200);
+    return st;
+  }
+  st.isRepo = true;
+  const s = await runGitIn(dir, ['status', '--porcelain'], { timeout: 15000 });
+  st.dirty = s.stdout.split('\n').filter(Boolean).length;
+  const a = await runGitIn(dir, ['rev-list', '--count', '@{u}..HEAD'], { timeout: 15000 });
+  st.ahead = a.code === 0 ? (Number(a.stdout.trim()) || 0) : 0;
+  return st;
+}
+
+/* ---------- 读 data/resources.toml ----------
+   只认我们自己的写法（单行字符串 / 数字 / 多行数组），够用且不会误伤注释。 */
+function parseResources(text) {
+  const out = { meta: {}, intro: {}, sections: [], items: [] };
+  let mode = null, cur = null, arrKey = null;
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    if (line === '[meta]') { mode = 'meta'; cur = null; continue; }
+    if (line === '[intro]') { mode = 'intro'; cur = null; continue; }
+    if (line === '[[sections]]') { mode = 'sections'; cur = {}; out.sections.push(cur); continue; }
+    if (line === '[[items]]') { mode = 'items'; cur = {}; out.items.push(cur); continue; }
+    if (arrKey) {
+      if (/^\]\s*,?$/.test(line)) { arrKey = null; continue; }
+      const m = line.match(/^"(.*)"\s*,?$/);
+      if (m) { out.meta[arrKey].push(m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\')); continue; }
+      arrKey = null;
+    }
+    const open = line.match(/^([A-Za-z0-9_]+)\s*=\s*\[\s*$/);
+    if (open && mode === 'meta') { out.meta[open[1]] = []; arrKey = open[1]; continue; }
+    const m = line.match(/^([A-Za-z0-9_]+)\s*=\s*(.*)$/);
+    if (!m) continue;
+    const key = m[1];
+    const val = m[2].trim();
+    let v;
+    if (/^"/.test(val)) {
+      try { v = JSON.parse(val); } catch { v = val.replace(/^"|"$/g, ''); }
+    } else if (/^-?\d+$/.test(val)) v = Number(val);
+    else if (val === 'true') v = true;
+    else if (val === 'false') v = false;
+    else v = val;
+    if (mode === 'meta') out.meta[key] = v;
+    else if (mode === 'intro') out.intro[key] = v;
+    else if (cur) cur[key] = v;
+  }
+  return out;
+}
+
+function tomlString(v) { return JSON.stringify(String(v == null ? '' : v)); }
+
+function buildResourcesText(data, header) {
+  const meta = data.meta || {};
+  const intro = data.intro || {};
+  const out = [];
+  if (header) out.push(header.trimEnd(), '');
+  out.push('[meta]');
+  out.push('cdn        = ' + tomlString(meta.cdn || ''));
+  const mirrors = Array.isArray(meta.mirrors) ? meta.mirrors : [];
+  out.push('mirrors    = [');
+  mirrors.forEach((u, i) => out.push('  ' + tomlString(u) + (i < mirrors.length - 1 ? ',' : '')));
+  out.push(']');
+  ['repo', 'releases', 'license', 'licenseUrl', 'author'].forEach((k) => {
+    if (meta[k] !== undefined) out.push(`${k}${' '.repeat(Math.max(1, 11 - k.length))}= ` + tomlString(meta[k]));
+  });
+  out.push('');
+  out.push('[intro]');
+  Object.keys(intro).forEach((k) => {
+    if (intro[k] === undefined || intro[k] === null || intro[k] === '') return;
+    out.push(`${k} = ` + tomlString(intro[k]));
+  });
+  out.push('');
+  for (const s of (data.sections || [])) {
+    out.push('[[sections]]');
+    out.push('id   = ' + tomlString(s.id || ''));
+    out.push('name = ' + tomlString(s.name || ''));
+    if (s.desc) out.push('desc = ' + tomlString(s.desc));
+    if (s.zip) out.push('zip  = ' + tomlString(s.zip));
+    out.push('');
+  }
+  for (const it of (data.items || [])) {
+    out.push('[[items]]');
+    out.push('sec   = ' + tomlString(it.sec || ''));
+    out.push('title = ' + tomlString(it.title || ''));
+    out.push('file  = ' + tomlString(it.file || ''));
+    if (it.w) out.push('w     = ' + Number(it.w));
+    if (it.h) out.push('h     = ' + Number(it.h));
+    if (it.kb) out.push('kb    = ' + Number(it.kb));
+    if (it.kind && it.kind !== 'image') out.push('kind  = ' + tomlString(it.kind));
+    if (it.note) out.push('note  = ' + tomlString(it.note));
+    out.push('');
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
+}
+
+/* ---------- 上传：写进素材仓库 + 提交推送 ---------- */
+function imageSize(buf) {
+  try {
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+      return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+    }
+    if (buf[0] === 0xff && buf[1] === 0xd8) {
+      let i = 2;
+      while (i + 9 < buf.length) {
+        if (buf[i] !== 0xff) { i += 1; continue; }
+        const mk = buf[i + 1];
+        const len = buf.readUInt16BE(i + 2);
+        if (mk >= 0xc0 && mk <= 0xcf && mk !== 0xc4 && mk !== 0xc8 && mk !== 0xcc) {
+          return { w: buf.readUInt16BE(i + 7), h: buf.readUInt16BE(i + 5) };
+        }
+        i += 2 + len;
+      }
+    }
+  } catch { /* 认不出就算了 */ }
+  return { w: 0, h: 0 };
+}
+
+async function giveoutUpload(sec, name, dataUrl) {
+  const sub = GIVEOUT_DIRS[sec];
+  if (!sub) throw new Error(`不认识的分类「${sec}」，先在 GIVEOUT_DIRS 里加一个目录映射`);
+  const st = await giveoutStatus();
+  if (!st.exists) throw new Error(`素材仓库还没拉到本机：${st.dir}（先点「把素材仓库拉下来」）`);
+  if (!st.isRepo) throw new Error('那个目录不是 git 仓库：' + st.dir);
+
+  const buf = Buffer.from(String(dataUrl).replace(/^data:[^;]+;base64,/, ''), 'base64');
+  if (!buf.length) throw new Error('文件是空的');
+
+  let clean = String(name || 'asset').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '-');
+  if (!/\.[a-z0-9]+$/i.test(clean)) throw new Error('文件名没有扩展名');
+
+  const dir = path.join(giveoutDir(), sub);
+  await fsp.mkdir(dir, { recursive: true });
+  const dot = clean.lastIndexOf('.');
+  const stem = clean.slice(0, dot), ext = clean.slice(dot);
+  let final = clean, n = 1;
+  while (await fsp.stat(path.join(dir, final)).catch(() => null)) final = `${stem}-${n++}${ext}`;
+  await fsp.writeFile(path.join(dir, final), buf);
+
+  const rel = `${sub}/${final}`;
+  const size = imageSize(buf);
+  const out = { ok: true, file: rel, bytes: buf.length, w: size.w, h: size.h, pushed: false, pushError: '' };
+
+  await runGitIn(giveoutDir(), ['add', '--', rel], { timeout: 30000 });
+  const commit = await runGitIn(giveoutDir(), ['commit', '-m', `素材：新增 ${rel}`], { timeout: 30000 });
+  out.commit = (commit.stdout + commit.stderr).trim().slice(0, 200);
+  const push = await runGitIn(giveoutDir(), ['push'], { timeout: 90000 });
+  if (push.code === 0) out.pushed = true;
+  else out.pushError = (push.stdout + push.stderr).trim().slice(0, 400);
+  return out;
 }
 
 /* ============================================================

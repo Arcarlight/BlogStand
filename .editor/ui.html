@@ -1819,6 +1819,7 @@ function renderTree() {
   h += '<div class="row tool" data-panel="collection">' + ico('book') + '文集</div>';
   h += '<div class="row tool" data-panel="music">' + ico('music') + '音乐</div>';
   h += '<div class="row tool" data-panel="gallery">' + ico('paint-brush') + '画廊</div>';
+  h += '<div class="row tool" data-panel="resources">' + ico('upload') + '素材分发</div>';
   h += '<div class="row tool" data-panel="settings">' + ico('cog') + '站点设置</div>';
   h += '<div class="row tool" data-panel="navbar">' + ico('bars') + '顶部导航</div>';
   h += '<div class="row tool" data-panel="links">' + ico('link') + '友情链接</div>';
@@ -2252,6 +2253,7 @@ async function openPanel(which) {
     if (which === 'navbar')   return await renderNavbar();
     if (which === 'music')    return await renderMusic();
     if (which === 'gallery')  return await renderGallery();
+    if (which === 'resources') return await renderResources();
     if (which === 'links')    return await renderLinks();
     if (which === 'buttons')  return await renderButtons();
     if (which === 'updates')  return await renderUpdates();
@@ -3167,6 +3169,343 @@ function todayISO() {
   const d = new Date();
   const p = (n) => (n < 10 ? '0' + n : String(n));
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+/* ============================================================
+   素材分发面板 —— data/resources.toml + 独立素材仓库
+   ------------------------------------------------------------
+   · 页面文案（开头几段）、分类、素材条目都在这里改；
+   · 上传素材会写进本机的素材仓库副本，并自动 commit + push，
+     路径 / 尺寸 / 大小自动填，不用手抄；
+   · 素材仓库没拉到本机时，面板里可以直接一键克隆。
+   ============================================================ */
+async function renderResources() {
+  const d = await apiGet('/api/resources');
+  const data = d.data || {};
+  const meta = Object.assign({}, data.meta || {});
+  const CDN = meta.cdn || '';
+  const repoURL = meta.repo || '';
+  let repo = d.repo || {};
+  const intro = Object.assign({}, data.intro || {});
+  const sections = (data.sections || []).map((x) => Object.assign({}, x));
+  const items = (data.items || []).map((x) => Object.assign({}, x));
+
+  const repoBox = () => {
+    const ok = repo.exists && repo.isRepo;
+    const txt = !repo.exists
+      ? '素材仓库还没拉到本机：' + (repo.dir || '')
+      : !repo.isRepo ? '目录不是 git 仓库：' + (repo.dir || '')
+        : '素材仓库：' + repo.dir + (repo.dirty ? `（本机有 ${repo.dirty} 处未提交）` : '') +
+          (repo.ahead ? `（有 ${repo.ahead} 个提交没推）` : '') +
+          (repo.proxy ? `　代理 ${repo.proxy}` : '　没配代理（推送可能失败）');
+    let h = `<div class="note"${ok ? '' : ' style="color:#a0522d"'}><b>${ok ? '✓' : '⚠'}</b> ${txt}<br>`;
+    h += '上传会直接写进这个目录并推送；推送失败不影响本机文件，可以点「推送」重试。<br>';
+    if (!repo.exists) h += '<button id="btnResClone">把素材仓库拉下来</button> ';
+    if (repo.exists && repo.isRepo) h += '<button id="btnResPull">拉取最新</button> ';
+    if (repo.exists && repo.isRepo && repo.ahead) h += '<button id="btnResPush">推送 ' + repo.ahead + ' 个提交</button> ';
+    h += ' <button id="btnResDir">改仓库位置</button>';
+    if (repoURL) h += ' <a href="' + repoURL + '" target="_blank" rel="noopener">在 GitHub 上打开</a>';
+    return h + '</div>';
+  };
+
+  let h = '';
+  h += '<h2 class="sec">素材分发</h2>';
+  h += '<p class="hint">页面 <code>/resources/</code> 的全部内容：文案、分类、素材清单。素材文件存在独立仓库 ' +
+       '<code>Nijiboshi-Giveout-Storage</code>，这里上传会自动提交并推送过去。<br>' +
+       '改完点「保存」写进 <code>data/resources.toml</code>；要看到页面上生效，再去「预览 / 发布」。</p>';
+  h += '<div id="resRepoBox">' + repoBox() + '</div>';
+  h += '<h2 class="sec">页面文案</h2><div id="resIntro"></div>';
+  h += '<h2 class="sec">分类</h2><p class="hint">id 是 URL 锚点（#sprite 这种，别乱改）；name 是页面上的小标题；desc 是标题下面那行灰字。</p><div id="resSecs"></div>' +
+       '<div style="margin-top:6px"><button id="btnResAddSec">+ 加一个分类</button></div>';
+  h += '<h2 class="sec">素材</h2><p class="hint">「上传素材」选了文件就会写进素材仓库并自动填好路径、尺寸、大小。' +
+       '文件路径是<b>相对素材仓库根目录</b>的（如 <code>tbtak/sprite/xxx.png</code>）。</p>';
+  h += '<table class="grid" id="resTable"><thead><tr>' +
+       '<th style="width:44px">预览</th><th style="width:20%">文件</th><th style="width:16%">标题</th>' +
+       '<th style="width:110px">分类</th><th style="width:104px">尺寸</th><th style="width:60px">KB</th>' +
+       '<th>说明</th><th style="width:34px"></th></tr></thead><tbody id="resTb"></tbody></table>';
+  h += '<div id="resEmpty" class="hint"></div>';
+  h += '<div style="margin-top:6px"><button id="btnResUpload">上传素材</button> ' +
+       '<button id="btnResAdd">手动加一条</button> ' +
+       '<button class="primary" id="btnResSave">保存</button></div>';
+  h += '<input type="file" id="resFile" multiple hidden>';
+  showPanel(h);
+
+  const bindRepoButtons = () => {
+    const clone = $('#btnResClone');
+    if (clone) clone.addEventListener('click', async () => {
+      clone.disabled = true;
+      clone.textContent = '正在克隆…（网络慢要等一会）';
+      try {
+        const r = await apiPost('/api/resources/repo', { action: 'clone' });
+        repo = r.repo || repo;
+        toast(r.ok ? '素材仓库已拉到本机' : ('克隆失败：' + (r.error || '未知原因')), r.ok ? 'ok' : 'err');
+      } catch (e) { toast('克隆失败：' + e.message, 'err'); }
+      redrawRepo();
+    });
+    const pull = $('#btnResPull');
+    if (pull) pull.addEventListener('click', async () => {
+      const r = await apiPost('/api/resources/repo', { action: 'pull' });
+      repo = r.repo || repo;
+      toast(r.ok ? '已拉取最新' : ('拉取失败：' + (r.error || '')), r.ok ? 'ok' : 'err');
+      redrawRepo();
+    });
+    const push = $('#btnResPush');
+    if (push) push.addEventListener('click', async () => {
+      const r = await apiPost('/api/resources/repo', { action: 'push' });
+      repo = r.repo || repo;
+      toast(r.ok ? '已推送' : ('推送失败：' + (r.error || '')), r.ok ? 'ok' : 'err');
+      redrawRepo();
+    });
+    const dir = $('#btnResDir');
+    if (dir) dir.addEventListener('click', async () => {
+      const want = prompt('素材仓库在本机的路径（留空 = 主站仓库同级目录）', repo.dir || '');
+      if (want === null) return;
+      const r = await apiPost('/api/resources/repo', { action: 'save-dir', dir: want || '' });
+      repo = r.repo || repo;
+      redrawRepo();
+    });
+  };
+  const redrawRepo = () => {
+    $('#resRepoBox').innerHTML = repoBox();
+    bindRepoButtons();
+  };
+
+  const INTRO_FIELDS = [
+    ['lead', '开头第一段'],
+    ['lead2', '第二段'],
+    ['lead3', '第三段（可空）'],
+    ['creditHint', '署名提示（复制条子上面那句）'],
+    ['licenseLine', '授权说明（{license} 会替换成许可名）'],
+    ['footNote', '页脚补一句（可空）'],
+  ];
+  const box = $('#resIntro');
+  INTRO_FIELDS.forEach(([key, label]) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-bottom:6px';
+    const lab = document.createElement('label');
+    lab.style.cssText = 'display:block;font-size:12px;color:var(--dim);margin-bottom:2px';
+    lab.textContent = label;
+    const ta = document.createElement('textarea');
+    ta.value = intro[key] || '';
+    ta.rows = 2;
+    ta.dataset.intro = key;
+    ta.style.cssText = 'width:100%;font:inherit;font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:3px;resize:vertical';
+    wrap.appendChild(lab);
+    wrap.appendChild(ta);
+    box.appendChild(wrap);
+  });
+  const collectIntro = () => {
+    document.querySelectorAll('#resIntro textarea[data-intro]').forEach((ta) => { intro[ta.dataset.intro] = ta.value; });
+  };
+
+  const drawSecs = () => {
+    const b = $('#resSecs');
+    b.innerHTML = '';
+    sections.forEach((s, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px;align-items:center';
+      const mk = (f, ph, w) => {
+        const el = document.createElement('input');
+        el.value = s[f] || '';
+        el.placeholder = ph;
+        el.dataset.sec = String(i);
+        el.dataset.field = f;
+        el.style.cssText = 'font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:3px;' + (w || '');
+        return el;
+      };
+      row.appendChild(mk('id', 'id（锚点）', 'width:120px'));
+      row.appendChild(mk('name', '显示名', 'width:140px'));
+      row.appendChild(mk('desc', '说明（可空）', 'flex:1'));
+      row.appendChild(mk('zip', '整包下载链接（可空）', 'width:190px'));
+      const del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = '×';
+      del.title = '删掉这个分类';
+      del.addEventListener('click', () => {
+        collectSecs();
+        const used = items.filter((it) => it.sec === sections[i].id).length;
+        if (used) {
+          toast(`「${sections[i].name || sections[i].id}」里还有 ${used} 件素材，先挪走再删`, 'err');
+          return;
+        }
+        sections.splice(i, 1);
+        drawSecs();
+        drawItems();
+      });
+      row.appendChild(del);
+      b.appendChild(row);
+    });
+  };
+  const collectSecs = () => {
+    document.querySelectorAll('#resSecs input[data-sec]').forEach((el) => {
+      sections[+el.dataset.sec][el.dataset.field] = el.value;
+    });
+  };
+
+  const drawItems = () => {
+    collectSecs();
+    const tb = $('#resTb');
+    tb.innerHTML = '';
+    items.forEach((it, i) => {
+      const tr = document.createElement('tr');
+      const td0 = document.createElement('td');
+      td0.style.textAlign = 'center';
+      if (it.kind === 'audio') {
+        td0.innerHTML = '<span style="color:var(--dim)">♪</span>';
+      } else if (it.file) {
+        const img = document.createElement('img');
+        img.src = CDN + it.file;
+        img.alt = '';
+        img.style.cssText = 'max-width:36px;max-height:36px;image-rendering:pixelated';
+        td0.appendChild(img);
+      }
+      tr.appendChild(td0);
+      const mkInput = (f, ph, w, val) => {
+        const el = document.createElement('input');
+        el.value = val == null ? '' : val;
+        el.placeholder = ph || '';
+        el.dataset.i = String(i);
+        el.dataset.f = f;
+        el.style.cssText = 'font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:3px;' + (w || 'width:100%');
+        return el;
+      };
+      const tdFile = document.createElement('td');
+      tdFile.appendChild(mkInput('file', 'tbtak/sprite/xxx.png', 'width:100%', it.file));
+      tr.appendChild(tdFile);
+      const tdTitle = document.createElement('td');
+      tdTitle.appendChild(mkInput('title', '标题', 'width:100%', it.title));
+      tr.appendChild(tdTitle);
+      const tdSec = document.createElement('td');
+      const sel = document.createElement('select');
+      sel.dataset.i = String(i);
+      sel.dataset.f = 'sec';
+      sel.style.cssText = 'font:inherit;font-size:12px;padding:3px 4px;border:1px solid var(--line);border-radius:3px';
+      sections.forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s.id;
+        o.textContent = s.name || s.id;
+        if (s.id === it.sec) o.selected = true;
+        sel.appendChild(o);
+      });
+      tdSec.appendChild(sel);
+      tr.appendChild(tdSec);
+      const tdWH = document.createElement('td');
+      tdWH.appendChild(mkInput('w', '宽', 'width:42px', it.w));
+      tdWH.appendChild(document.createTextNode(' × '));
+      tdWH.appendChild(mkInput('h', '高', 'width:42px', it.h));
+      tr.appendChild(tdWH);
+      const tdKb = document.createElement('td');
+      tdKb.appendChild(mkInput('kb', 'KB', 'width:52px', it.kb));
+      tr.appendChild(tdKb);
+      const tdNote = document.createElement('td');
+      tdNote.appendChild(mkInput('note', '一句话说明（可空）', 'width:100%', it.note));
+      tr.appendChild(tdNote);
+      const tdDel = document.createElement('td');
+      const del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = '×';
+      del.addEventListener('click', () => {
+        collectItems();
+        items.splice(i, 1);
+        drawItems();
+      });
+      tdDel.appendChild(del);
+      tr.appendChild(tdDel);
+      tb.appendChild(tr);
+    });
+    $('#resEmpty').textContent = items.length ? '' : '还没有素材：点「上传素材」选文件，或者「手动加一条」。';
+  };
+  const collectItems = () => {
+    document.querySelectorAll('#resTb [data-i]').forEach((el) => {
+      const i = +el.dataset.i;
+      const f = el.dataset.f;
+      let v = el.value;
+      if (f === 'w' || f === 'h' || f === 'kb') v = v === '' ? '' : Number(v);
+      items[i][f] = v;
+    });
+  };
+
+  drawSecs();
+  drawItems();
+  bindRepoButtons();
+
+  $('#btnResAddSec').addEventListener('click', () => {
+    collectSecs();
+    sections.push({ id: '', name: '', desc: '', zip: '' });
+    drawSecs();
+  });
+  $('#btnResAdd').addEventListener('click', () => {
+    collectItems();
+    const sec = (sections[0] || {}).id || '';
+    items.unshift({ sec, title: '', file: '', w: '', h: '', kb: '', note: '', kind: sec === 'midi' ? 'audio' : 'image' });
+    drawItems();
+  });
+
+  const fileInput = $('#resFile');
+  $('#btnResUpload').addEventListener('click', () => {
+    collectSecs();
+    if (!sections.length) { toast('先在下面加一个分类', 'err'); return; }
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', async () => {
+    const files = Array.from(fileInput.files || []);
+    fileInput.value = '';
+    if (!files.length) return;
+    const sec = (sections[0] || {}).id || 'sprite';
+    let done = 0;
+    let failed = 0;
+    for (const f of files) {
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = () => reject(r.error || new Error('读不了这个文件'));
+          r.readAsDataURL(f);
+        });
+        const r = await apiPost('/api/resources/upload', { sec, name: f.name, data: dataUrl });
+        if (!r.ok) throw new Error(r.error || '上传失败');
+        items.unshift({
+          sec,
+          title: f.name.replace(/\.[^.]+$/, ''),
+          file: r.file,
+          w: r.w || '',
+          h: r.h || '',
+          kb: Math.max(1, Math.round((r.bytes || 0) / 1024)),
+          note: '',
+          kind: sec === 'midi' ? 'audio' : 'image',
+        });
+        done += 1;
+        if (!r.pushed) {
+          toast('文件写好并提交了，但推送失败：' + (r.pushError || '') + '（可以点上面「推送」重试）', 'err');
+        }
+      } catch (e) {
+        failed += 1;
+        toast('上传失败：' + (e.message || e), 'err');
+      }
+    }
+    try {
+      const rr = await apiGet('/api/resources');
+      if (rr && rr.repo) repo = rr.repo;
+    } catch (e) { /* 状态拿不到不影响已经传上去的文件 */ }
+    drawItems();
+    redrawRepo();
+    if (done) toast(`上传了 ${done} 个文件${failed ? `，${failed} 个失败` : ''}（记得点「保存」写进清单）`, 'ok');
+  });
+
+  $('#btnResSave').addEventListener('click', async () => {
+    collectIntro();
+    collectSecs();
+    collectItems();
+    const bad = sections.find((s) => !String(s.id || '').trim());
+    if (bad) { toast('有分类没填 id', 'err'); return; }
+    try {
+      const r = await apiPost('/api/resources', { meta, intro, sections, items });
+      if (!r.ok) throw new Error(r.error || '保存失败');
+      toast('已保存 data/resources.toml', 'ok');
+    } catch (e) {
+      toast('保存失败：' + (e.message || e), 'err');
+    }
+  });
 }
 
 async function renderGallery() {
