@@ -69,11 +69,43 @@ desc = "BGM 骨架，可以直接在 DAW 里换音源。"
 zip  = ""
 
 # ---- 素材 ----
+# 行走图是 tbtak 放养区那六只（始祖小鸟页底部）。精灵表格式见 tools/build-tbtak.py：
+# 每行一套朝向（下 / 左 / 右 / 上），每行最多 4 帧，一格大小由各只自己定。
 [[items]]
 sec   = "sprite"
 title = "符利根 · 行走图"
-file  = "tbtak/sprite/Fliegen-sprite-cut.png"
-note  = "符利根的行走 / 待机帧"
+file  = "tbtak/sprite/fliegen.png"
+note  = "始祖小鸟。RPG Maker 格式精灵表"
+
+[[items]]
+sec   = "sprite"
+title = "庞特斯 · 行走图"
+file  = "tbtak/sprite/pontus.png"
+note  = "波加曼"
+
+[[items]]
+sec   = "sprite"
+title = "德蕊艾德 · 行走图"
+file  = "tbtak/sprite/dryad.png"
+note  = "木木枭"
+
+[[items]]
+sec   = "sprite"
+title = "以格尼斯 · 行走图"
+file  = "tbtak/sprite/ignis.png"
+note  = "火稚鸡"
+
+[[items]]
+sec   = "sprite"
+title = "虹星 · 行走图"
+file  = "tbtak/sprite/hoshi.png"
+note  = "沙漠蜻蜓"
+
+[[items]]
+sec   = "sprite"
+title = "桃桃加 · 行走图"
+file  = "tbtak/sprite/momoka.png"
+note  = "电飞鼠"
 
 [[items]]
 sec   = "portrait"

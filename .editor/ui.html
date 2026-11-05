@@ -3225,9 +3225,26 @@ async function renderResources() {
        '<th>说明</th><th style="width:34px"></th></tr></thead><tbody id="resTb"></tbody></table>';
   h += '<div id="resEmpty" class="hint"></div>';
   h += '<div style="margin-top:6px"><button id="btnResUpload">上传素材</button> ' +
+       '<button id="btnResPick">从本站已有的图里选</button> ' +
        '<button id="btnResAdd">手动加一条</button> ' +
        '<button class="primary" id="btnResSave">保存</button></div>';
   h += '<input type="file" id="resFile" multiple hidden>';
+  h += '<div id="resPick" hidden style="position:fixed;inset:0;z-index:900;background:rgba(12,26,40,.55);' +
+       'display:flex;align-items:center;justify-content:center;padding:24px">' +
+       '<div style="background:#f7fbff;border:1px solid #124070;box-shadow:0 8px 28px rgba(0,0,0,.35);' +
+       'width:min(900px,94vw);max-height:86vh;display:flex;flex-direction:column">' +
+       '<div style="padding:8px 10px;border-bottom:1px solid #b6d0e8;display:flex;gap:8px;align-items:center">' +
+       '<b style="font-size:13px">从本站已有的图里选</b>' +
+       '<input id="resPickQ" placeholder="搜文件名…" style="flex:1;font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--line);border-radius:3px">' +
+       '<select id="resPickSec" style="font:inherit;font-size:12px;padding:3px 4px;border:1px solid var(--line);border-radius:3px"></select>' +
+       '</div>' +
+       '<div id="resPickGrid" style="overflow:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px"></div>' +
+       '<div style="padding:8px 10px;border-top:1px solid #b6d0e8;display:flex;gap:8px;align-items:center">' +
+       '<span id="resPickInfo" style="font-size:12px;color:var(--dim)"></span>' +
+       '<span style="flex:1"></span>' +
+       '<button id="btnResPickCancel">取消</button>' +
+       '<button class="primary" id="btnResPickOk" disabled>导入选中的 0 个</button>' +
+       '</div></div></div>';
   showPanel(h);
 
   const bindRepoButtons = () => {
@@ -3477,6 +3494,104 @@ async function renderResources() {
     drawItems();
     redrawRepo();
     if (done) toast(`上传了 ${done} 个文件${failed ? `，${failed} 个失败` : ''}（记得点「保存」写进清单）`, 'ok');
+  });
+
+  /* ---------- 从本站已有的图里选（搬进素材仓库） ---------- */
+  const pick = $('#resPick');
+  const pickGrid = $('#resPickGrid');
+  const pickQ = $('#resPickQ');
+  const pickSec = $('#resPickSec');
+  const pickInfo = $('#resPickInfo');
+  const pickOk = $('#btnResPickOk');
+  let pickAll = [];
+  let picked = new Set();
+
+  const drawPick = () => {
+    const q = pickQ.value.trim().toLowerCase();
+    const list = pickAll.filter((it) => !q || it.rel.toLowerCase().includes(q));
+    pickGrid.innerHTML = '';
+    list.slice(0, 400).forEach((it) => {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.style.cssText = 'padding:4px;background:#fff;border:1px solid var(--line);border-radius:3px;cursor:pointer;' +
+        (picked.has(it.rel) ? 'outline:2px solid #1b5a9e;background:#eaf4ff;' : '');
+      cell.title = it.rel;
+      const img = document.createElement('img');
+      img.src = it.url;
+      img.loading = 'lazy';
+      img.style.cssText = 'width:100%;height:74px;object-fit:contain;background:repeating-conic-gradient(#eef4fa 0 25%,#e4edf7 0 50%) 0 0/12px 12px;image-rendering:pixelated';
+      const cap = document.createElement('span');
+      cap.textContent = it.rel.split('/').pop();
+      cap.style.cssText = 'display:block;font-size:10px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px';
+      cell.appendChild(img);
+      cell.appendChild(cap);
+      cell.addEventListener('click', () => {
+        if (picked.has(it.rel)) picked.delete(it.rel); else picked.add(it.rel);
+        drawPick();
+      });
+      pickGrid.appendChild(cell);
+    });
+    pickInfo.textContent = list.length > 400 ? `显示前 400 个（共 ${list.length} 个）` : `共 ${list.length} 个`;
+    pickOk.textContent = picked.size ? `导入选中的 ${picked.size} 个` : '导入选中的 0 个';
+    pickOk.disabled = !picked.size;
+  };
+
+  $('#btnResPick').addEventListener('click', async () => {
+    collectSecs();
+    picked = new Set();
+    if (!pickAll.length) {
+      try {
+        const r = await apiGet('/api/resources/site-images');
+        pickAll = (r && r.images) || [];
+      } catch (e) {
+        toast('读不到本站图片列表：' + (e.message || e), 'err');
+        return;
+      }
+    }
+    pickSec.innerHTML = '';
+    sections.forEach((s) => {
+      const o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = '导入到：' + (s.name || s.id);
+      pickSec.appendChild(o);
+    });
+    pick.hidden = false;
+    pickQ.value = '';
+    drawPick();
+    pickQ.focus();
+  });
+  pickQ.addEventListener('input', drawPick);
+  $('#btnResPickCancel').addEventListener('click', () => { pick.hidden = true; });
+  pick.addEventListener('click', (e) => { if (e.target === pick) pick.hidden = true; });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pick && !pick.hidden) pick.hidden = true;
+  });
+  pickOk.addEventListener('click', async () => {
+    const sec = pickSec.value || (sections[0] || {}).id;
+    if (!sec) { toast('先加一个分类', 'err'); return; }
+    pickOk.disabled = true;
+    pickOk.textContent = '导入中…';
+    try {
+      const r = await apiPost('/api/resources/import', { sec, files: Array.from(picked) });
+      if (!r.ok) throw new Error(r.error || '导入失败');
+      (r.imported || []).forEach((f) => {
+        items.unshift({
+          sec,
+          title: f.file.split('/').pop().replace(/\.[^.]+$/, ''),
+          file: f.file,
+          note: '',
+          kind: sec === 'midi' ? 'audio' : 'image',
+        });
+      });
+      drawItems();
+      pick.hidden = true;
+      toast(`导入了 ${(r.imported || []).length} 个文件${r.pushed ? '' : '（提交了但推送失败）'}（记得点「保存」写进清单）`, r.pushed ? 'ok' : 'err');
+    } catch (e) {
+      toast('导入失败：' + (e.message || e), 'err');
+    } finally {
+      pickOk.disabled = false;
+      drawPick();
+    }
   });
 
   $('#btnResSave').addEventListener('click', async () => {

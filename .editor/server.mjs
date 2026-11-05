@@ -3571,6 +3571,68 @@ async function handle(req, res, url) {
     return json(res, 200, { ok: true, data: parseResources(await readText(RESOURCES_FILE)) });
   }
 
+  /* 本站 static/ 下的图片清单：素材面板「从本站已有的图里选」用 */
+  if (p === '/api/resources/site-images' && req.method === 'GET') {
+    const out = [];
+    const IMG = /\.(png|jpe?g|webp|gif|svg)$/i;
+    const walk = async (rel) => {
+      let list = [];
+      try { list = await fsp.readdir(safePath(rel), { withFileTypes: true }); } catch { return; }
+      for (const ent of list) {
+        const sub = rel + '/' + ent.name;
+        if (ent.isDirectory()) { await walk(sub); continue; }
+        if (!IMG.test(ent.name)) continue;
+        /* 缩略图目录和小图标不列（选来当素材没意义，还淹没列表） */
+        if (/\/thumbs\//.test(sub) || /\/icons\//.test(sub)) continue;
+        out.push({ rel: sub, url: '/' + sub.replace(/^static\//, '') });
+      }
+    };
+    await walk('static');
+    out.sort((a, b) => a.rel.localeCompare(b.rel));
+    return json(res, 200, { ok: true, images: out.slice(0, 4000) });
+  }
+
+  /* 把本站已有的图「搬」进素材仓库：复制一份、提交、推送 */
+  if (p === '/api/resources/import' && req.method === 'POST') {
+    const { sec, files } = await readBody(req);
+    const sub = GIVEOUT_DIRS[sec];
+    if (!sub) throw new Error(`不认识的分类「${sec}」`);
+    const st = await giveoutStatus();
+    if (!st.exists || !st.isRepo) throw new Error('素材仓库还没拉到本机（面板上点「把素材仓库拉下来」）');
+    const list = (Array.isArray(files) ? files : []).slice(0, 100);
+    if (!list.length) throw new Error('没有选中文件');
+
+    const dir = path.join(giveoutDir(), sub);
+    await fsp.mkdir(dir, { recursive: true });
+    const imported = [];
+    for (const src of list) {
+      const rel = String(src || '').replace(/^\/+/, '');
+      if (!/^static\//.test(rel) || rel.includes('..')) continue;
+      const abs = safePath(rel);
+      const buf = await fsp.readFile(abs).catch(() => null);
+      if (!buf || !buf.length) continue;
+      const base = path.basename(rel).replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '-');
+      const dot = base.lastIndexOf('.');
+      const stem = dot > 0 ? base.slice(0, dot) : base;
+      const ext = dot > 0 ? base.slice(dot) : '';
+      let final = base, n = 1;
+      while (await fsp.stat(path.join(dir, final)).catch(() => null)) final = `${stem}-${n++}${ext}`;
+      await fsp.writeFile(path.join(dir, final), buf);
+      imported.push({ file: `${sub}/${final}`, bytes: buf.length });
+    }
+    if (!imported.length) throw new Error('选中的文件都不在 static/ 里，或者读不出来');
+
+    await runGitIn(giveoutDir(), ['add', '--', ...imported.map((x) => x.file)], { timeout: 30000 });
+    await runGitIn(giveoutDir(), ['commit', '-m', `素材：导入本站图片 ${imported.length} 个`], { timeout: 30000 });
+    const push = await runGitIn(giveoutDir(), ['push'], { timeout: 90000 });
+    return json(res, 200, {
+      ok: true,
+      imported,
+      pushed: push.code === 0,
+      pushError: push.code === 0 ? '' : (push.stdout + push.stderr).trim().slice(0, 400),
+    });
+  }
+
   if (p === '/api/resources/upload' && req.method === 'POST') {
     const { sec, name, data } = await readBody(req);
     return json(res, 200, await giveoutUpload(sec, name, data));
