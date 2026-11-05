@@ -2658,6 +2658,9 @@ html.pxfont .entry-content .sp-ruby rt {
 .res-credit {
   display: block;
   width: 100%;
+  /* 站点全局是 box-sizing: content-box，width:100% 再加 padding/border
+     会往右戳出去 22px（站长看到的「复制框超格」）。这里必须 border-box。 */
+  box-sizing: border-box;
   margin: 6px 0 8px;
   padding: 8px 10px;
   text-align: left;
