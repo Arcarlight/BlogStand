@@ -330,7 +330,7 @@ sec   = "pokemon"
 dex   = 778
 title = "谜拟丘"
 art   = "tbtak/portrait/battler-mimikyu.png"
-note  = "立绘原图 Enemy_MimikyuRedo.png（旧稿 Enemy_Mimikyu 没发）"
+note  = "立绘原图 Enemy_MimikyuRedo.png"
 
 [[items]]
 sec   = "pokemon"
