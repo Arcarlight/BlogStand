@@ -1819,7 +1819,7 @@ function renderTree() {
   h += '<div class="row tool" data-panel="collection">' + ico('book') + '文集</div>';
   h += '<div class="row tool" data-panel="music">' + ico('music') + '音乐</div>';
   h += '<div class="row tool" data-panel="gallery">' + ico('paint-brush') + '画廊</div>';
-  h += '<div class="row tool" data-panel="resources">' + ico('upload') + '素材分发</div>';
+  h += '<div class="row tool" data-panel="resources">' + ico('box') + '素材分发</div>';
   h += '<div class="row tool" data-panel="settings">' + ico('cog') + '站点设置</div>';
   h += '<div class="row tool" data-panel="navbar">' + ico('bars') + '顶部导航</div>';
   h += '<div class="row tool" data-panel="links">' + ico('link') + '友情链接</div>';
@@ -3226,6 +3226,7 @@ async function renderResources() {
   h += '<div id="resEmpty" class="hint"></div>';
   h += '<div style="margin-top:6px"><button id="btnResUpload">上传素材</button> ' +
        '<button id="btnResAdd">手动加一条</button> ' +
+       '<button id="btnResProbe">重算尺寸 / 大小</button> ' +
        '<button class="primary" id="btnResSave">保存</button></div>';
   h += '<input type="file" id="resFile" multiple hidden>';
   showPanel(h);
@@ -3367,6 +3368,25 @@ async function renderResources() {
         el.dataset.i = String(i);
         el.dataset.f = f;
         el.style.cssText = 'font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:3px;' + (w || 'width:100%');
+        /* 填/改完路径就顺手去素材仓库里量一下尺寸和大小，不用手抄 */
+        if (f === 'file') {
+          el.addEventListener('change', async () => {
+            const v = el.value.trim();
+            if (!v) return;
+            collectItems();
+            try {
+              const r = await apiPost('/api/resources/probe', { file: v });
+              if (r && r.ok) {
+                items[i].w = r.w || '';
+                items[i].h = r.h || '';
+                items[i].kb = Math.max(1, Math.round((r.bytes || 0) / 1024));
+                drawItems();
+              } else if (r && r.error) {
+                toast(r.error, 'err');
+              }
+            } catch (e) { /* 探测失败就保持手填 */ }
+          });
+        }
         return el;
       };
       const tdFile = document.createElement('td');
@@ -3439,6 +3459,25 @@ async function renderResources() {
     const sec = (sections[0] || {}).id || '';
     items.unshift({ sec, title: '', file: '', w: '', h: '', kb: '', note: '', kind: sec === 'midi' ? 'audio' : 'image' });
     drawItems();
+  });
+
+  $('#btnResProbe').addEventListener('click', async () => {
+    collectItems();
+    let n = 0;
+    for (const it of items) {
+      if (!it.file) continue;
+      try {
+        const r = await apiPost('/api/resources/probe', { file: it.file });
+        if (r && r.ok) {
+          it.w = r.w || '';
+          it.h = r.h || '';
+          it.kb = Math.max(1, Math.round((r.bytes || 0) / 1024));
+          n += 1;
+        }
+      } catch (e) { /* 单件失败不影响别的 */ }
+    }
+    drawItems();
+    toast(n ? `重算了 ${n} 件的尺寸和大小` : '一件也没读到：路径对不对？文件推到素材仓库了吗？', n ? 'ok' : 'err');
   });
 
   const fileInput = $('#resFile');
