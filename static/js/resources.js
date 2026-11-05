@@ -87,6 +87,73 @@
     });
   });
 
+  /* ---------- 卡片上的「格式 · 尺寸 · 大小」 ----------
+     这两个数字**不由站长维护**：
+       · 尺寸：图片加载完，浏览器自己知道 naturalWidth / naturalHeight；
+       · 大小：把当前页面所有文件一次性 POST 给 Worker（/cdn/meta），
+         Cloudflare 那边读 GitHub 原始文件的 content-length。
+     拿不到就只显示格式，不影响任何操作。 */
+  var META_URL = CDN.replace(/\/+$/, '') + '/meta';
+
+  function fmtSize(n) {
+    if (!n) return '';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
+    return (n / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  var cards = Array.prototype.slice.call(root.querySelectorAll('.res-card'));
+  var dims = {};    // file -> {w,h}
+  var bytes = {};   // file -> number
+
+  function paintMeta(card) {
+    var el = card.querySelector('.res-meta');
+    if (!el) return;
+    var file = card.getAttribute('data-file') || '';
+    var parts = [];
+    var fmt = el.getAttribute('data-fmt');
+    if (fmt) parts.push(fmt);
+    var d = dims[file];
+    if (d && d.w && d.h) parts.push(d.w + '×' + d.h);
+    var b = fmtSize(bytes[file]);
+    if (b) parts.push(b);
+    el.textContent = parts.join(' · ');
+    /* 灯箱读的是 data-meta，这里同步过去，点开就能看到同样的信息 */
+    card.setAttribute('data-meta', el.textContent);
+  }
+
+  var sizeFiles = [];
+  cards.forEach(function (card) {
+    var img = card.querySelector('[data-res-img]');
+    var file = card.getAttribute('data-file') || '';
+    if (file && sizeFiles.indexOf(file) < 0) sizeFiles.push(file);
+    if (img) {
+      var take = function () {
+        if (!img.naturalWidth) return;
+        dims[file] = { w: img.naturalWidth, h: img.naturalHeight };
+        paintMeta(card);
+      };
+      if (img.complete && img.naturalWidth) take();
+      else img.addEventListener('load', take);
+    }
+    paintMeta(card);
+  });
+
+  if (sizeFiles.length && typeof fetch === 'function') {
+    fetch(META_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: sizeFiles }),
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.bytes) return;
+        bytes = d.bytes;
+        cards.forEach(paintMeta);
+      })
+      .catch(function () { /* 大小拿不到就不显示，不影响别的 */ });
+  }
+
   /* ---------- 分类筛选 ---------- */
   var tabs = Array.prototype.slice.call(root.querySelectorAll('.res-tab'));
   var secs = Array.prototype.slice.call(root.querySelectorAll('.res-sec'));

@@ -73,7 +73,7 @@
         </div>
         <figcaption>
           <span class="res-name">{{ .title }}</span>
-          <span class="res-meta">{{ $meta }}</span>
+          <span class="res-meta" data-fmt="{{ $meta }}" data-file="{{ .file }}">{{ $meta }}</span>
           {{ with .note }}<span class="res-note">{{ . }}</span>{{ end }}
           <span class="res-btns">
             <a class="res-btn" href="{{ $cdn }}{{ .file }}" download>下载</a>
