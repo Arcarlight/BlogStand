@@ -2879,16 +2879,25 @@ body.res-lb-open { overflow: hidden; }
   box-shadow: inset 0 1px 0 #fff;
 }
 .res-nchip {
-  min-width: 42px;
-  padding: 3px 6px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 8px;
   font: inherit;
   font-size: 12px;
-  font-family: Consolas, "Courier New", monospace;
   color: #33506e;
   background: #ffffff;
   border: 1px solid #b6d0e8;
   cursor: pointer;
 }
+/* 编号 + 名字：光看 025 认不出是哪只，所以两个都写 */
+.res-nnum {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  opacity: .72;
+}
+.res-nname { font-size: 12px; }
+.res-nchip.is-all { padding: 3px 9px; }
 .res-nchip:hover { border-color: #4d84b8; background: #f4faff; }
 .res-nchip.is-on {
   color: #ffffff;
@@ -2902,6 +2911,10 @@ body.res-lb-open { overflow: hidden; }
 /* ---- 宝可梦卡片：行走图 + 脸图 在一张卡里 ---- */
 .res-pk-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 .res-card.res-pk { gap: 5px; }
+/* 筛选靠 JS 给卡片设 hidden。⚠️ .res-card 自己写了 display:flex，
+   作者样式压过浏览器给 [hidden] 的 display:none —— 不显式兜这一条，
+   属性设上了、卡片照样全显示（2026-11-05 就是这么翻的车）。 */
+.res-card[hidden] { display: none; }
 .res-pk-head {
   display: flex;
   align-items: baseline;

@@ -152,7 +152,6 @@
     });
     if (updateHash) syncHash();
   }
-
   /* ---------- 图鉴导航 ---------- */
   var gensBox = root.querySelector('[data-res-gens]');
   var numsBox = root.querySelector('[data-res-nums]');
@@ -199,21 +198,31 @@
     if (!numsBox) return;
     numsBox.innerHTML = '';
     var list = pk.filter(function (p) { return deck.gen === 'all' || (p.gen && p.gen[0] === deck.gen); });
-    var all = mkBtn('res-nchip', '全部编号', { 'data-dex': 'all' });
-    numsBox.appendChild(all);
+    numsBox.appendChild(mkBtn('res-nchip is-all', '全部编号', { 'data-dex': 'all' }));
     var seen = {};
     list.forEach(function (p) {
       if (!p.dex) return;
       if (seen[p.dex]) {
         /* 同一编号有好几只（版本差异之类）：一个编号一个按钮就够了，点开都会出来 */
         seen[p.dex].names.push(p.title);
+        seen[p.dex].name.textContent = seen[p.dex].names[0] + ' ×' + seen[p.dex].names.length;
         return;
       }
-      var b = mkBtn('res-nchip', pad3(p.dex), {
-        'data-dex': String(p.dex),
-        title: 'No.' + pad3(p.dex) + ' ' + p.title,
-      });
-      seen[p.dex] = { el: b, names: [p.title] };
+      /* 编号 + 名字：光看 025 不知道是哪只，名字得跟着 */
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'res-nchip';
+      b.setAttribute('data-dex', String(p.dex));
+      b.title = 'No.' + pad3(p.dex) + ' ' + p.title;
+      var num = document.createElement('span');
+      num.className = 'res-nnum';
+      num.textContent = pad3(p.dex);
+      var name = document.createElement('span');
+      name.className = 'res-nname';
+      name.textContent = p.title;
+      b.appendChild(num);
+      b.appendChild(name);
+      seen[p.dex] = { el: b, name: name, names: [p.title] };
       numsBox.appendChild(b);
     });
     syncNav();
@@ -247,7 +256,17 @@
     syncNav();
   }
 
+  /* 图鉴筛选只在「点阵图 · 脸图」这一页里算数：
+     动世代/编号就把那一页切过来，点别的分类就退回「没筛」。 */
+  function resetDeck() {
+    deck.gen = 'all';
+    deck.dex = 'all';
+    renderNums();
+    applyDeck();
+  }
+
   function pickGen(g, updateHash) {
+    applyTab('pokemon', false);
     deck.gen = g;
     deck.dex = 'all';
     renderNums();
@@ -255,6 +274,7 @@
     if (updateHash) syncHash();
   }
   function pickDex(d, updateHash) {
+    applyTab('pokemon', false);
     deck.dex = d;
     if (d !== 'all') {
       /* 点编号时把世代也对上，编号条里那一串才是同一代里的号 */
@@ -284,7 +304,10 @@
 
   tabs.forEach(function (t) {
     t.addEventListener('click', function () {
-      applyTab(t.getAttribute('data-sec'), true);
+      var sec = t.getAttribute('data-sec');
+      /* 换到别的分类 = 离开图鉴，把世代/编号筛选清掉，别让「全部」里留着上一个筛选 */
+      if (sec !== 'pokemon') resetDeck();
+      applyTab(sec, true);
     });
   });
 
@@ -308,6 +331,7 @@
       return;
     }
     if (tabs.some(function (t) { return t.getAttribute('data-sec') === hash; })) {
+      if (hash !== 'pokemon') resetDeck();
       applyTab(hash, false);
     }
   }
