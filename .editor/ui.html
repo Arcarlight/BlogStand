@@ -3229,8 +3229,10 @@ async function renderResources() {
        '<button id="btnResAdd">手动加一条</button> ' +
        '<button class="primary" id="btnResSave">保存</button></div>';
   h += '<input type="file" id="resFile" multiple hidden>';
-  h += '<div id="resPick" hidden style="position:fixed;inset:0;z-index:900;background:rgba(12,26,40,.55);' +
-       'display:flex;align-items:center;justify-content:center;padding:24px">' +
+  /* ⚠️ 这里用 display:none 控制显隐：早先写成 hidden + inline display:flex，
+     inline 样式会把 hidden 的 display:none 压掉 —— 结果一进面板选择器就糊在屏幕上、关不掉。 */
+  h += '<div id="resPick" style="position:fixed;inset:0;z-index:900;background:rgba(12,26,40,.55);' +
+       'display:none;align-items:center;justify-content:center;padding:24px">' +
        '<div style="background:#f7fbff;border:1px solid #124070;box-shadow:0 8px 28px rgba(0,0,0,.35);' +
        'width:min(900px,94vw);max-height:86vh;display:flex;flex-direction:column">' +
        '<div style="padding:8px 10px;border-bottom:1px solid #b6d0e8;display:flex;gap:8px;align-items:center">' +
@@ -3555,16 +3557,17 @@ async function renderResources() {
       o.textContent = '导入到：' + (s.name || s.id);
       pickSec.appendChild(o);
     });
-    pick.hidden = false;
+    pick.style.display = 'flex';
     pickQ.value = '';
     drawPick();
     pickQ.focus();
   });
   pickQ.addEventListener('input', drawPick);
-  $('#btnResPickCancel').addEventListener('click', () => { pick.hidden = true; });
-  pick.addEventListener('click', (e) => { if (e.target === pick) pick.hidden = true; });
+  const closePick = () => { pick.style.display = 'none'; };
+  $('#btnResPickCancel').addEventListener('click', closePick);
+  pick.addEventListener('click', (e) => { if (e.target === pick) closePick(); });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && pick && !pick.hidden) pick.hidden = true;
+    if (e.key === 'Escape' && pick && pick.style.display !== 'none') closePick();
   });
   pickOk.addEventListener('click', async () => {
     const sec = pickSec.value || (sections[0] || {}).id;
@@ -3584,7 +3587,7 @@ async function renderResources() {
         });
       });
       drawItems();
-      pick.hidden = true;
+      pick.style.display = 'none';
       toast(`导入了 ${(r.imported || []).length} 个文件${r.pushed ? '' : '（提交了但推送失败）'}（记得点「保存」写进清单）`, r.pushed ? 'ok' : 'err');
     } catch (e) {
       toast('导入失败：' + (e.message || e), 'err');
