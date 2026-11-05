@@ -3217,16 +3217,15 @@ async function renderResources() {
   h += '<h2 class="sec">页面文案</h2><div id="resIntro"></div>';
   h += '<h2 class="sec">分类</h2><p class="hint">id 是 URL 锚点（#sprite 这种，别乱改）；name 是页面上的小标题；desc 是标题下面那行灰字。</p><div id="resSecs"></div>' +
        '<div style="margin-top:6px"><button id="btnResAddSec">+ 加一个分类</button></div>';
-  h += '<h2 class="sec">素材</h2><p class="hint">「上传素材」选了文件就会写进素材仓库并自动填好路径、尺寸、大小。' +
+  h += '<h2 class="sec">素材</h2><p class="hint">「上传素材」选了文件就会写进素材仓库并自动填好路径。' +
        '文件路径是<b>相对素材仓库根目录</b>的（如 <code>tbtak/sprite/xxx.png</code>）。</p>';
   h += '<table class="grid" id="resTable"><thead><tr>' +
        '<th style="width:44px">预览</th><th style="width:20%">文件</th><th style="width:16%">标题</th>' +
-       '<th style="width:110px">分类</th><th style="width:104px">尺寸</th><th style="width:60px">KB</th>' +
+       '<th style="width:110px">分类</th>' +
        '<th>说明</th><th style="width:34px"></th></tr></thead><tbody id="resTb"></tbody></table>';
   h += '<div id="resEmpty" class="hint"></div>';
   h += '<div style="margin-top:6px"><button id="btnResUpload">上传素材</button> ' +
        '<button id="btnResAdd">手动加一条</button> ' +
-       '<button id="btnResProbe">重算尺寸 / 大小</button> ' +
        '<button class="primary" id="btnResSave">保存</button></div>';
   h += '<input type="file" id="resFile" multiple hidden>';
   showPanel(h);
@@ -3368,25 +3367,6 @@ async function renderResources() {
         el.dataset.i = String(i);
         el.dataset.f = f;
         el.style.cssText = 'font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:3px;' + (w || 'width:100%');
-        /* 填/改完路径就顺手去素材仓库里量一下尺寸和大小，不用手抄 */
-        if (f === 'file') {
-          el.addEventListener('change', async () => {
-            const v = el.value.trim();
-            if (!v) return;
-            collectItems();
-            try {
-              const r = await apiPost('/api/resources/probe', { file: v });
-              if (r && r.ok) {
-                items[i].w = r.w || '';
-                items[i].h = r.h || '';
-                items[i].kb = Math.max(1, Math.round((r.bytes || 0) / 1024));
-                drawItems();
-              } else if (r && r.error) {
-                toast(r.error, 'err');
-              }
-            } catch (e) { /* 探测失败就保持手填 */ }
-          });
-        }
         return el;
       };
       const tdFile = document.createElement('td');
@@ -3409,14 +3389,6 @@ async function renderResources() {
       });
       tdSec.appendChild(sel);
       tr.appendChild(tdSec);
-      const tdWH = document.createElement('td');
-      tdWH.appendChild(mkInput('w', '宽', 'width:42px', it.w));
-      tdWH.appendChild(document.createTextNode(' × '));
-      tdWH.appendChild(mkInput('h', '高', 'width:42px', it.h));
-      tr.appendChild(tdWH);
-      const tdKb = document.createElement('td');
-      tdKb.appendChild(mkInput('kb', 'KB', 'width:52px', it.kb));
-      tr.appendChild(tdKb);
       const tdNote = document.createElement('td');
       tdNote.appendChild(mkInput('note', '一句话说明（可空）', 'width:100%', it.note));
       tr.appendChild(tdNote);
@@ -3439,9 +3411,7 @@ async function renderResources() {
     document.querySelectorAll('#resTb [data-i]').forEach((el) => {
       const i = +el.dataset.i;
       const f = el.dataset.f;
-      let v = el.value;
-      if (f === 'w' || f === 'h' || f === 'kb') v = v === '' ? '' : Number(v);
-      items[i][f] = v;
+      items[i][f] = el.value;
     });
   };
 
@@ -3457,27 +3427,8 @@ async function renderResources() {
   $('#btnResAdd').addEventListener('click', () => {
     collectItems();
     const sec = (sections[0] || {}).id || '';
-    items.unshift({ sec, title: '', file: '', w: '', h: '', kb: '', note: '', kind: sec === 'midi' ? 'audio' : 'image' });
+    items.unshift({ sec, title: '', file: '', note: '', kind: sec === 'midi' ? 'audio' : 'image' });
     drawItems();
-  });
-
-  $('#btnResProbe').addEventListener('click', async () => {
-    collectItems();
-    let n = 0;
-    for (const it of items) {
-      if (!it.file) continue;
-      try {
-        const r = await apiPost('/api/resources/probe', { file: it.file });
-        if (r && r.ok) {
-          it.w = r.w || '';
-          it.h = r.h || '';
-          it.kb = Math.max(1, Math.round((r.bytes || 0) / 1024));
-          n += 1;
-        }
-      } catch (e) { /* 单件失败不影响别的 */ }
-    }
-    drawItems();
-    toast(n ? `重算了 ${n} 件的尺寸和大小` : '一件也没读到：路径对不对？文件推到素材仓库了吗？', n ? 'ok' : 'err');
   });
 
   const fileInput = $('#resFile');
@@ -3507,9 +3458,6 @@ async function renderResources() {
           sec,
           title: f.name.replace(/\.[^.]+$/, ''),
           file: r.file,
-          w: r.w || '',
-          h: r.h || '',
-          kb: Math.max(1, Math.round((r.bytes || 0) / 1024)),
           note: '',
           kind: sec === 'midi' ? 'audio' : 'image',
         });

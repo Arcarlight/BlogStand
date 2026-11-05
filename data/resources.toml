@@ -9,10 +9,8 @@
 #    sec   归属分类（下面 sections 的 id）
 #    title 卡片标题
 #    file  素材仓库里的相对路径
-#    w/h   原图尺寸（音频不填）
-#    kb    文件大小，仅显示用
 #    note  一句话说明（选填）
-#    kind  image（默认）/ audio
+#    kind  image（默认）/ audio（音频没有预览图，卡片上显示 ♪）
 #
 #  ⚠️ 覆盖同名文件 jsDelivr 可能还缓存旧的；新版本最好换文件名，见笔记。
 # ============================================================
@@ -75,33 +73,23 @@ zip  = ""
 sec   = "sprite"
 title = "符利根 · 行走图"
 file  = "tbtak/sprite/Fliegen-sprite-cut.png"
-w     = 363
-h     = 329
-kb    = 17
 note  = "符利根的行走 / 待机帧"
 
 [[items]]
 sec   = "portrait"
 title = "虹星 · 立绘"
 file  = "tbtak/portrait/Nijiboshi-sprite-cut.png"
-w     = 585
-h     = 758
-kb    = 110
 note  = "虹星的站立像"
 
 [[items]]
 sec   = "ui"
 title = "图标集"
 file  = "tbtak/ui/Icon-Set.png"
-w     = 512
-h     = 640
-kb    = 95
 note  = "界面图标一整张"
 
 [[items]]
 sec   = "midi"
 title = "Lowlayer · moutain"
 file  = "audio/midi/Lowlayer_moutain.mid"
-kb    = 10
 kind  = "audio"
 note  = "BGM 骨架"

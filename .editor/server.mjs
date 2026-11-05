@@ -3571,28 +3571,6 @@ async function handle(req, res, url) {
     return json(res, 200, { ok: true, data: parseResources(await readText(RESOURCES_FILE)) });
   }
 
-  /* 探测素材仓库里已有文件的尺寸和大小（手填路径、或者 webp 上传读不出尺寸时用） */
-  if (p === '/api/resources/probe' && req.method === 'POST') {
-    const { file } = await readBody(req);
-    const rel = String(file || '').replace(/^\/+/, '');
-    if (!rel || rel.includes('..') || !/^(tbtak\/(sprite|portrait|ui)|audio\/midi)\//.test(rel)) {
-      return json(res, 400, { ok: false, error: '路径必须落在 tbtak/{sprite,portrait,ui}/ 或 audio/midi/ 里' });
-    }
-    const abs = path.join(giveoutDir(), rel);
-    const st = await fsp.stat(abs).catch(() => null);
-    if (!st) return json(res, 200, { ok: false, error: '素材仓库里没有这个文件：' + rel });
-    /* 只读文件头就够，几十 MB 的图也不用整个读进来 */
-    let head = Buffer.alloc(0);
-    try {
-      const fh = await fsp.open(abs, 'r');
-      head = Buffer.alloc(Math.min(st.size, 64 * 1024));
-      await fh.read(head, 0, head.length, 0);
-      await fh.close();
-    } catch { /* 读不了就当认不出尺寸 */ }
-    const size = head.length ? imageSize(head) : { w: 0, h: 0 };
-    return json(res, 200, { ok: true, bytes: st.size, w: size.w, h: size.h });
-  }
-
   if (p === '/api/resources/upload' && req.method === 'POST') {
     const { sec, name, data } = await readBody(req);
     return json(res, 200, await giveoutUpload(sec, name, data));
@@ -3904,45 +3882,6 @@ function buildResourcesText(data, header) {
 }
 
 /* ---------- 上传：写进素材仓库 + 提交推送 ---------- */
-function imageSize(buf) {
-  try {
-    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
-      return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
-    }
-    /* GIF：头后面紧跟逻辑屏宽高（小端） */
-    if (buf.slice(0, 3).toString('latin1') === 'GIF') {
-      return { w: buf.readUInt16LE(6), h: buf.readUInt16LE(8) };
-    }
-    /* WEBP：三种块各有各的写法，站点素材大多是 webp，必须认 */
-    if (buf.slice(0, 4).toString('latin1') === 'RIFF' && buf.slice(8, 12).toString('latin1') === 'WEBP') {
-      const kind = buf.slice(12, 16).toString('latin1');
-      if (kind === 'VP8X') {
-        return { w: 1 + buf.readUIntLE(24, 3), h: 1 + buf.readUIntLE(27, 3) };
-      }
-      if (kind === 'VP8 ') {
-        return { w: buf.readUInt16LE(26) & 0x3fff, h: buf.readUInt16LE(28) & 0x3fff };
-      }
-      if (kind === 'VP8L') {
-        const b = buf.readUInt32LE(21);
-        return { w: (b & 0x3fff) + 1, h: ((b >> 14) & 0x3fff) + 1 };
-      }
-    }
-    if (buf[0] === 0xff && buf[1] === 0xd8) {
-      let i = 2;
-      while (i + 9 < buf.length) {
-        if (buf[i] !== 0xff) { i += 1; continue; }
-        const mk = buf[i + 1];
-        const len = buf.readUInt16BE(i + 2);
-        if (mk >= 0xc0 && mk <= 0xcf && mk !== 0xc4 && mk !== 0xc8 && mk !== 0xcc) {
-          return { w: buf.readUInt16BE(i + 7), h: buf.readUInt16BE(i + 5) };
-        }
-        i += 2 + len;
-      }
-    }
-  } catch { /* 认不出就算了 */ }
-  return { w: 0, h: 0 };
-}
-
 async function giveoutUpload(sec, name, dataUrl) {
   const sub = GIVEOUT_DIRS[sec];
   if (!sub) throw new Error(`不认识的分类「${sec}」，先在 GIVEOUT_DIRS 里加一个目录映射`);
@@ -3965,8 +3904,7 @@ async function giveoutUpload(sec, name, dataUrl) {
   await fsp.writeFile(path.join(dir, final), buf);
 
   const rel = `${sub}/${final}`;
-  const size = imageSize(buf);
-  const out = { ok: true, file: rel, bytes: buf.length, w: size.w, h: size.h, pushed: false, pushError: '' };
+  const out = { ok: true, file: rel, bytes: buf.length, pushed: false, pushError: '' };
 
   await runGitIn(giveoutDir(), ['add', '--', rel], { timeout: 30000 });
   const commit = await runGitIn(giveoutDir(), ['commit', '-m', `素材：新增 ${rel}`], { timeout: 30000 });

@@ -58,11 +58,9 @@
     <div class="res-grid">
       {{ range $list }}
       {{- $kind := (.kind | default "image") -}}
-      {{- $ext := upper (path.Ext .file) -}}
-      {{- $meta := "" -}}
-      {{- if and .w .h }}{{ $meta = printf "%v×%v · " .w .h }}{{ end -}}
-      {{- $meta = printf "%s%s" $meta (replace $ext "." "") -}}
-      {{- with .kb }}{{ $meta = printf "%s · %v KB" $meta . }}{{ end -}}
+      {{- /* 只显示文件格式，从文件名推出来的，不用手填；.mid 显示成 MIDI */ -}}
+      {{- $meta := replace (upper (path.Ext .file)) "." "" -}}
+      {{- if eq $meta "MID" }}{{ $meta = "MIDI" }}{{ end -}}
       <figure class="res-card" data-sec="{{ .sec }}" data-kind="{{ $kind }}"
               data-title="{{ .title }}" data-file="{{ .file }}" data-meta="{{ $meta }}"
               data-note="{{ .note | default "" }}" data-dl="{{ $cdn }}{{ .file }}">
