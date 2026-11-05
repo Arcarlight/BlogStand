@@ -75,86 +75,146 @@ desc = "BGM 骨架，可以直接在 DAW 里换音源。"
 zip  = ""
 
 # ---- 素材 ----
-# 行走图是 tbtak 放养区那六只（始祖小鸟页底部）。精灵表格式见 tools/build-tbtak.py：
-# 每行一套朝向（下 / 左 / 右 / 上），每行最多 4 帧，一格大小由各只自己定。
-[[items]]
-sec   = "sprite"
-title = "符利根 · 行走图"
-file  = "tbtak/sprite/fliegen-walk.png"
-note  = "始祖小鸟。RPG Maker 格式精灵表"
+# 走图：RPG Maker 格式原图（3 列 × 4 行 = 下 / 左 / 右 / 上，每行 3 帧）。
+# 全是游戏工程里的原文件（$Walk<名字>.png），没有重新编码。
 
 [[items]]
 sec   = "sprite"
 title = "庞特斯 · 行走图"
-file  = "tbtak/sprite/pontus-walk.png"
-note  = "波加曼"
+file  = "tbtak/sprite/walk-pontus.png"
+note  = "波加曼。原图 $WalkPontus.png"
 
 [[items]]
 sec   = "sprite"
 title = "德蕊艾德 · 行走图"
-file  = "tbtak/sprite/dryad-walk.png"
-note  = "木木枭"
+file  = "tbtak/sprite/walk-dryad.png"
+note  = "木木枭。原图 $WalkDryad.png"
 
 [[items]]
 sec   = "sprite"
 title = "以格尼斯 · 行走图"
-file  = "tbtak/sprite/ignis-walk.png"
-note  = "火稚鸡"
-
-[[items]]
-sec   = "sprite"
-title = "虹星 · 行走图"
-file  = "tbtak/sprite/hoshi-walk.png"
-note  = "沙漠蜻蜓"
+file  = "tbtak/sprite/walk-ignis.png"
+note  = "火稚鸡。原图 $WalkIgnis.png"
 
 [[items]]
 sec   = "sprite"
 title = "桃桃加 · 行走图"
-file  = "tbtak/sprite/momoka-walk.png"
-note  = "电飞鼠"
-
+file  = "tbtak/sprite/walk-emolga.png"
+note  = "电飞鼠。原图 $WalkEmolga.png"
 
 [[items]]
-sec   = "face"
-title = "符利根 · 脸图"
-file  = "tbtak/face/fliegen-faces.png"
-note  = "始祖小鸟，4 个表情"
+sec   = "sprite"
+title = "大颚蚁 · 行走图"
+file  = "tbtak/sprite/walk-trapinch.png"
+note  = "原图 $WalkTrapinch.png"
+
+[[items]]
+sec   = "sprite"
+title = "蛇纹熊 · 行走图"
+file  = "tbtak/sprite/walk-zigzagoon.png"
+note  = "原图 $WalkZigzagoon.png"
+
+[[items]]
+sec   = "sprite"
+title = "差不多娃娃 · 行走图"
+file  = "tbtak/sprite/walk-audino.png"
+note  = "原图 $WalkAudino.png"
+
+[[items]]
+sec   = "sprite"
+title = "露力丽 · 行走图"
+file  = "tbtak/sprite/walk-azurill.png"
+note  = "原图 $WalkAzurill.png（32×45 一格）"
+
+[[items]]
+sec   = "sprite"
+title = "小箭雀 · 行走图"
+file  = "tbtak/sprite/walk-fletchling.png"
+note  = "原图 $WalkFletchling.png"
+
+[[items]]
+sec   = "sprite"
+title = "毽子草 · 行走图"
+file  = "tbtak/sprite/walk-hoppip.png"
+note  = "原图 $WalkHoppip.png"
+
+[[items]]
+sec   = "sprite"
+title = "豆豆鸽 · 行走图"
+file  = "tbtak/sprite/walk-pidove.png"
+note  = "原图 $WalkPidove.png"
+
+[[items]]
+sec   = "sprite"
+title = "变隐龙 · 行走图"
+file  = "tbtak/sprite/walk-kecleon.png"
+note  = "原图 $WalkKecleon.png"
+
+[[items]]
+sec   = "sprite"
+title = "皮卡丘 · 行走图"
+file  = "tbtak/sprite/walk-pikachu.png"
+note  = "原图 $WalkPikachu.png"
+
+[[items]]
+sec   = "sprite"
+title = "饭匙蛇（Tender） · 行走图"
+file  = "tbtak/sprite/walk-seviper-tender.png"
+note  = "原图 $WalkSeviper_Tender.png"
+
+[[items]]
+sec   = "sprite"
+title = "向尾喵 · 行走图"
+file  = "tbtak/sprite/walk-skitty.png"
+note  = "原图 $WalkSkitty.png"
+
+[[items]]
+sec   = "sprite"
+title = "姆克儿 · 行走图"
+file  = "tbtak/sprite/walk-starly.png"
+note  = "原图 $WalkStarly.png"
+
+[[items]]
+sec   = "sprite"
+title = "吞食兽 · 行走图"
+file  = "tbtak/sprite/walk-swalot.png"
+note  = "原图 $WalkSwalot.png"
 
 [[items]]
 sec   = "face"
 title = "庞特斯 · 脸图"
 file  = "tbtak/face/pontus-faces.png"
-note  = "波加曼，4 个表情"
+note  = "波加曼，4 个表情（同上，拆出来的）"
 
 [[items]]
 sec   = "face"
 title = "德蕊艾德 · 脸图"
 file  = "tbtak/face/dryad-faces.png"
-note  = "木木枭，4 个表情"
+note  = "木木枭，4 个表情（同上）"
 
 [[items]]
 sec   = "face"
 title = "以格尼斯 · 脸图"
 file  = "tbtak/face/ignis-faces.png"
-note  = "火稚鸡，4 个表情"
-
-[[items]]
-sec   = "face"
-title = "虹星 · 脸图"
-file  = "tbtak/face/hoshi-faces.png"
-note  = "沙漠蜻蜓，4 个表情"
+note  = "火稚鸡，4 个表情（同上）"
 
 [[items]]
 sec   = "face"
 title = "桃桃加 · 脸图"
 file  = "tbtak/face/momoka-faces.png"
-note  = "电飞鼠，3 个表情"
+note  = "电飞鼠，3 个表情（同上）"
 
 [[items]]
-sec   = "portrait"
-title = "虹星 · 立绘"
-file  = "tbtak/portrait/Nijiboshi-sprite-cut.png"
-note  = "虹星的站立像"
+sec   = "ui"
+title = "Cango 箭头（普通）"
+file  = "tbtak/ui/sign-cango.png"
+note  = "原图 $Sign_Cango.png，4 方向 × 3 帧"
+
+[[items]]
+sec   = "ui"
+title = "Cango 箭头（世界地图）"
+file  = "tbtak/ui/sign-cango-worldmap.png"
+note  = "原图 $Sign_Cango_worldmap.png，品红色版本"
 
 [[items]]
 sec   = "ui"
@@ -168,3 +228,4 @@ title = "Lowlayer · moutain"
 file  = "audio/midi/Lowlayer_moutain.mid"
 kind  = "audio"
 note  = "BGM 骨架"
+
