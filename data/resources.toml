@@ -49,13 +49,8 @@ footNote = "如果有什么素材缺失或是想要，可以在下面的留言�
 
 [[sections]]
 id   = "pokemon"
-name = "点阵图 · 脸图"
-desc = "点开查看原图～"
-
-[[sections]]
-id   = "portrait"
-name = "立绘"
-desc = "敌人和角色的小型立绘！"
+name = "宝可梦"
+desc = "一只一张卡：行走图、脸图、立绘都是这只的。点开卡片看它的全部素材，可以整只打包下载。"
 
 [[sections]]
 id   = "ui"
@@ -72,14 +67,51 @@ sec   = "pokemon"
 dex   = 25
 title = "皮卡丘"
 file  = "tbtak/sprite/walk-pikachu.png"
-note  = "原图 $WalkPikachu.png"
+art   = "tbtak/portrait/battler-pikachu.png"
+note  = "原图 $WalkPikachu.png；立绘原图 Enemy_Pikachu.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 43
+title = "走路草"
+art   = "tbtak/portrait/battler-oddish.png"
+note  = "立绘原图 Enemy_Oddish.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 81
+title = "小磁怪"
+art   = "tbtak/portrait/battler-magnemite.png"
+note  = "立绘原图 Enemy_Magnemite.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 178
+title = "天然鸟"
+art   = "tbtak/portrait/battler-xatu.png"
+note  = "立绘原图 Xatu_source.PNG（空白边已切）"
+
+[[items]]
+sec   = "pokemon"
+dex   = 184
+title = "玛力露丽"
+art   = "tbtak/portrait/battler-azumarill.png"
+note  = "立绘原图 Enemy_Azuremarill.png"
 
 [[items]]
 sec   = "pokemon"
 dex   = 187
 title = "毽子草"
 file  = "tbtak/sprite/walk-hoppip.png"
-note  = "原图 $WalkHoppip.png"
+art   = "tbtak/portrait/battler-hoppip.png"
+note  = "原图 $WalkHoppip.png；立绘原图 Enemy_Hoppip.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 206
+title = "土龙弟弟"
+art   = "tbtak/portrait/battler-dunsparce.png"
+note  = "立绘原图 Enemy_Dunsparce.png"
 
 [[items]]
 sec   = "pokemon"
@@ -94,7 +126,22 @@ sec   = "pokemon"
 dex   = 263
 title = "蛇纹熊"
 file  = "tbtak/sprite/walk-zigzagoon.png"
-note  = "原图 $WalkZigzagoon.png"
+art   = "tbtak/portrait/battler-zigzagoon.png"
+note  = "原图 $WalkZigzagoon.png；立绘原图 Enemy_Zigzagoon.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 264
+title = "直冲熊"
+art   = "tbtak/portrait/battler-linoone.png"
+note  = "立绘原图 Enemy_Linoone.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 285
+title = "蘑蘑菇"
+art   = "tbtak/portrait/battler-shroomish.png"
+note  = "立绘原图 Enemy_Shroomish.png"
 
 [[items]]
 sec   = "pokemon"
@@ -151,14 +198,65 @@ sec   = "pokemon"
 dex   = 396
 title = "姆克儿"
 file  = "tbtak/sprite/walk-starly.png"
-note  = "原图 $WalkStarly.png"
+art   = "tbtak/portrait/battler-starly.png"
+note  = "原图 $WalkStarly.png；立绘原图 Enemy_Starly.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 408
+title = "头盖龙"
+art   = "tbtak/portrait/battler-cranidos.png"
+note  = "立绘原图 Cranidos_source.PNG（空白边已切）"
+
+[[items]]
+sec   = "pokemon"
+dex   = 441
+title = "聒噪鸟"
+art   = "tbtak/portrait/battler-chatot.png"
+note  = "立绘原图 Chatot_source.PNG（空白边已切）"
+
+[[items]]
+sec   = "pokemon"
+dex   = 477
+title = "黑夜魔灵"
+art   = "tbtak/portrait/battler-dusknoir.png"
+note  = "立绘原图 Dusknoir_source.PNG（空白边已切）"
+
+[[items]]
+sec   = "pokemon"
+dex   = 511
+title = "花椰猴"
+art   = "tbtak/portrait/battler-pansage.png"
+note  = "立绘原图 Enemy_Pansage.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 513
+title = "爆香猴"
+art   = "tbtak/portrait/battler-pansear.png"
+note  = "立绘原图 Enemy_Pansear.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 515
+title = "冷水猴"
+art   = "tbtak/portrait/battler-panpour.png"
+note  = "立绘原图 Enemy_Panpour.png"
 
 [[items]]
 sec   = "pokemon"
 dex   = 519
 title = "豆豆鸽"
 file  = "tbtak/sprite/walk-pidove.png"
-note  = "原图 $WalkPidove.png"
+art   = "tbtak/portrait/battler-pidove.png"
+note  = "原图 $WalkPidove.png；立绘原图 Enemy_Pidove.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 524
+title = "石丸子"
+art   = "tbtak/portrait/battler-roggenrola.png"
+note  = "立绘原图 Enemy_Roggenrola.png"
 
 [[items]]
 sec   = "pokemon"
@@ -169,18 +267,48 @@ note  = "原图 $WalkAudino.png"
 
 [[items]]
 sec   = "pokemon"
+dex   = 541
+title = "宝包茧"
+art   = "tbtak/portrait/battler-kurumayu.png"
+note  = "立绘原图 Enemy_Kurumayu.png（空白边已切）"
+
+[[items]]
+sec   = "pokemon"
 dex   = 587
 title = "电飞鼠"
 file  = "tbtak/sprite/walk-emolga.png"
 face  = "tbtak/face/momoka-faces.png"
-note  = "电飞鼠，脸图 3 个表情。原图 $WalkEmolga.png"
+art   = "tbtak/portrait/battler-emolga.png,tbtak/portrait/battler-momoka.png"
+note  = "电飞鼠，脸图 3 个表情。原图 $WalkEmolga.png；立绘原图 Enemy_Emolga.png、Enemy_Momoka.png（空白边已切）"
+
+[[items]]
+sec   = "pokemon"
+dex   = 607
+title = "烛光灵"
+art   = "tbtak/portrait/battler-litwick.png"
+note  = "立绘原图 Enemy_Litwick.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 621
+title = "赤面龙"
+art   = "tbtak/portrait/battler-druddigon.png"
+note  = "立绘原图 Druddigon_source.PNG（空白边已切）"
 
 [[items]]
 sec   = "pokemon"
 dex   = 661
 title = "小箭雀"
 file  = "tbtak/sprite/walk-fletchling.png"
-note  = "原图 $WalkFletchling.png"
+art   = "tbtak/portrait/battler-fletchling.png"
+note  = "原图 $WalkFletchling.png；立绘原图 Enemy_Fletchling.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 704
+title = "黏黏宝"
+art   = "tbtak/portrait/battler-goomy.png"
+note  = "立绘原图 Enemy_Goomy.png"
 
 [[items]]
 sec   = "pokemon"
@@ -189,6 +317,26 @@ title = "木木枭"
 file  = "tbtak/sprite/walk-dryad.png"
 face  = "tbtak/face/dryad-faces.png"
 note  = "木木枭，脸图 4 个表情。原图 $WalkDryad.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 742
+title = "萌虻"
+art   = "tbtak/portrait/battler-cutiefly.png"
+note  = "立绘原图 Enemy_Cutiefly.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 778
+title = "谜拟丘"
+art   = "tbtak/portrait/battler-mimikyu.png"
+note  = "立绘原图 Enemy_MimikyuRedo.png（旧稿 Enemy_Mimikyu 没发）"
+
+[[items]]
+sec   = "pokemon"
+title = "环兔儿"
+art   = "tbtak/portrait/battler-warabitto.png"
+note  = "三代废稿宝可梦，没有全国图鉴号。立绘原图 Enemy_Warabitto.png"
 
 [[items]]
 sec   = "ui"

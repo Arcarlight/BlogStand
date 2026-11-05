@@ -3221,11 +3221,13 @@ async function renderResources() {
        '文件路径是<b>相对素材仓库根目录</b>的（如 <code>tbtak/sprite/xxx.png</code>）。</p>';
   h += '<p class="hint">宝可梦表里<b>图鉴号</b>是页面排序和世代筛选的依据；<b>脸图</b>没有就留空，页面上会显示「暂时还没有」。' +
        '每行右边的「↑」可以单独传一张图、自动填进那一行。</p>';
-  /* 表 A：宝可梦（行走图 + 脸图），一只一行，和表 B 共用同一个 items 数组 */
-  h += '<div style="font-weight:700;margin:12px 0 4px">宝可梦（点阵图 · 脸图）</div>';
+  h += '<p class="hint"><b>立绘</b>填在「立绘」列，多个用英文逗号隔开（如 <code>a.png,b.png</code>）；' +
+       '也可以点这一格的「↑」上传，会自动追加到这一行。</p>';
+  /* 表 A：宝可梦（行走图 + 脸图 + 立绘），一只一行，和表 B 共用同一个 items 数组 */
+  h += '<div style="font-weight:700;margin:12px 0 4px">宝可梦（行走图 · 脸图 · 立绘）</div>';
   h += '<table class="grid" id="resPkTable"><thead><tr>' +
-       '<th style="width:44px">预览</th><th style="width:60px">图鉴号</th><th style="width:14%">名字</th>' +
-       '<th style="width:25%">行走图</th><th style="width:25%">脸图</th>' +
+       '<th style="width:44px">预览</th><th style="width:60px">图鉴号</th><th style="width:10%">名字</th>' +
+       '<th style="width:20%">行走图</th><th style="width:20%">脸图</th><th style="width:22%">立绘</th>' +
        '<th>说明</th><th style="width:34px"></th></tr></thead><tbody id="resPkTb"></tbody></table>';
   h += '<div id="resPkEmpty" class="hint"></div>';
   h += '<div style="margin-top:6px"><button id="btnResPkAdd">+ 手动加一只</button> ' +
@@ -3234,7 +3236,7 @@ async function renderResources() {
   h += '<input type="file" id="resPkFile" accept="image/*" multiple hidden>';
   /* 行内「↑」共用的隐藏 input（不给每行各建一个） */
   h += '<input type="file" id="resRowFile" accept="image/*" hidden>';
-  /* 表 B：其它素材（立绘 / UI / MIDI…），列和以前一样 */
+  /* 表 B：其它素材（UI / MIDI…），列和以前一样（立绘不单独成表，归宝可梦表的「立绘」列） */
   h += '<div style="font-weight:700;margin:16px 0 4px">其它素材</div>';
   h += '<table class="grid" id="resTable"><thead><tr>' +
        '<th style="width:44px">预览</th><th style="width:20%">文件</th><th style="width:16%">标题</th>' +
@@ -3456,6 +3458,54 @@ async function renderResources() {
     return td;
   };
 
+  /* 立绘：逗号分隔的路径串 → 数组（空段丢掉，顺序不变） */
+  const artList = (v) => String(v == null ? '' : v).split(',').map((s) => s.trim()).filter(Boolean);
+  /* 立绘不是像素图，缩略图别用 pixelated */
+  const artThumb = (p, max) => {
+    const im = document.createElement('img');
+    im.src = CDN + p;
+    im.alt = '';
+    im.loading = 'lazy';
+    im.style.cssText = 'max-width:' + max + 'px;max-height:' + max + 'px;image-rendering:auto';
+    return im;
+  };
+  const drawArtThumbs = (box, art) => {
+    box.innerHTML = '';
+    artList(art).forEach((p) => box.appendChild(artThumb(p, 48)));
+  };
+  /* 预览列：优先行走图；没有就退回第一张立绘；都没有就是「—」 */
+  const setPkPreview = (td, file, art) => {
+    td.innerHTML = '';
+    if (file) td.appendChild(thumb(CDN + file, 36));
+    else {
+      const first = artList(art)[0];
+      if (first) td.appendChild(artThumb(first, 36));
+      else td.innerHTML = '<span style="color:var(--dim)">—</span>';
+    }
+  };
+  /* 立绘那一格：文本框 + 「↑」（上传到 portrait 目录）+ 已填立绘的小缩略图 */
+  const mkArtCell = (i, previewTd) => {
+    const td = document.createElement('td');
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:4px;align-items:center';
+    const inp = mkInput(i, 'art', 'tbtak/portrait/a.png,b.png', 'flex:1;min-width:0', items[i].art);
+    wrap.appendChild(inp);
+    wrap.appendChild(mkUploadBtn(i, 'art', 'portrait'));
+    const thumbs = document.createElement('div');
+    thumbs.style.cssText = 'display:flex;gap:3px;margin-top:3px;flex-wrap:wrap;align-items:center';
+    drawArtThumbs(thumbs, items[i].art);
+    /* 手改路径时立刻刷新缩略图和预览列，不用等保存 */
+    inp.addEventListener('input', () => {
+      drawArtThumbs(thumbs, inp.value);
+      const row = td.closest('tr');
+      const fileEl = row ? row.querySelector('[data-f="file"]') : null;
+      setPkPreview(previewTd, fileEl ? fileEl.value : items[i].file, inp.value);
+    });
+    td.appendChild(wrap);
+    td.appendChild(thumbs);
+    return td;
+  };
+
   /* 表 A：只有 sec === 'pokemon' 的行；dataset.i 始终是 items 里的真实下标 */
   const drawPokemon = () => {
     const tb = $('#resPkTb');
@@ -3465,11 +3515,10 @@ async function renderResources() {
       if (it.sec !== 'pokemon') return;
       n += 1;
       const tr = document.createElement('tr');
-      /* 预览：CDN + 行走图；没有就一个「—」 */
+      /* 预览：行走图；没有就退回第一张立绘；都没有一个「—」 */
       const td0 = document.createElement('td');
       td0.style.textAlign = 'center';
-      if (it.file) td0.appendChild(thumb(CDN + it.file, 36));
-      else td0.innerHTML = '<span style="color:var(--dim)">—</span>';
+      setPkPreview(td0, it.file, it.art);
       tr.appendChild(td0);
       /* 图鉴号（number） */
       const tdDex = document.createElement('td');
@@ -3483,6 +3532,8 @@ async function renderResources() {
       tr.appendChild(mkFileCell(i, 'file', 'tbtak/sprite/xxx.png', 'pokemon'));
       /* 脸图 + ↑（上传到 face 目录）+ 缩略图 */
       tr.appendChild(mkFileCell(i, 'face', 'tbtak/face/xxx.png', 'face'));
+      /* 立绘 + ↑（上传到 portrait 目录）+ 缩略图 */
+      tr.appendChild(mkArtCell(i, td0));
       /* 说明 */
       const tdNote = document.createElement('td');
       tdNote.appendChild(mkInput(i, 'note', '一句话说明（可空）', 'width:100%', it.note));
@@ -3594,7 +3645,7 @@ async function renderResources() {
   /* 宝可梦表：手动加一只、按图鉴号重排 */
   $('#btnResPkAdd').addEventListener('click', () => {
     collectItems();
-    items.unshift({ sec: 'pokemon', dex: '', title: '', file: '', face: '', note: '' });
+    items.unshift({ sec: 'pokemon', dex: '', title: '', file: '', face: '', art: '', note: '' });
     drawItems();
   });
   $('#btnResPkSort').addEventListener('click', () => {
@@ -3680,7 +3731,7 @@ async function renderResources() {
         });
         const r = await apiPost('/api/resources/upload', { sec: 'pokemon', name: f.name, data: dataUrl });
         if (!r.ok) throw new Error(r.error || '上传失败');
-        items.unshift({ sec: 'pokemon', dex: '', title: '', file: r.file, face: '', note: '' });
+        items.unshift({ sec: 'pokemon', dex: '', title: '', file: r.file, face: '', art: '', note: '' });
         done += 1;
         if (!r.pushed) {
           toast('文件写好并提交了，但推送失败：' + (r.pushError || '') + '（可以点上面「推送」重试）', 'err');
@@ -3700,7 +3751,7 @@ async function renderResources() {
   });
 
   /* 行内「↑」：一个隐藏 input 复用。读文件 → dataURL → 上传 → 把返回的 r.file 填进那一格、刷新预览。
-     行走图传 pokemon（tbtak/sprite），脸图传 face（tbtak/face）。 */
+     行走图传 pokemon（tbtak/sprite），脸图传 face（tbtak/face），立绘传 portrait（tbtak/portrait）。 */
   rowFile.addEventListener('change', async () => {
     const target = rowUploadTarget;
     rowUploadTarget = null;
@@ -3716,7 +3767,14 @@ async function renderResources() {
       });
       const r = await apiPost('/api/resources/upload', { sec: target.sec, name: f.name, data: dataUrl });
       if (!r.ok) throw new Error(r.error || '上传失败');
-      items[target.i][target.f] = r.file;
+      if (target.f === 'art') {
+        /* 立绘是逗号串：追加到末尾，已经在串里就不重复加 */
+        const parts = artList(items[target.i].art);
+        if (!parts.includes(r.file)) parts.push(r.file);
+        items[target.i].art = parts.join(',');
+      } else {
+        items[target.i][target.f] = r.file;
+      }
       if (!r.pushed) {
         toast('文件写好并提交了，但推送失败：' + (r.pushError || '') + '（可以点上面「推送」重试）', 'err');
       }
@@ -3820,7 +3878,7 @@ async function renderResources() {
       (r.imported || []).forEach((f) => {
         if (sec === 'pokemon') {
           /* 导进宝可梦表：file 填好，图鉴号和名字留给人填 */
-          items.unshift({ sec: 'pokemon', dex: '', title: '', file: f.file, face: '', note: '' });
+          items.unshift({ sec: 'pokemon', dex: '', title: '', file: f.file, face: '', art: '', note: '' });
         } else {
           items.unshift({
             sec,

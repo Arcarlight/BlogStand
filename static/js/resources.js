@@ -112,6 +112,11 @@
 
   /* ---------- 宝可梦卡片索引 ---------- */
   var pkCards = Array.prototype.slice.call(root.querySelectorAll('.res-pk'));
+
+  function splitArt(v) {
+    return String(v || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
   var pk = pkCards.map(function (card) {
     var dex = Number(card.getAttribute('data-dex')) || 0;
     return {
@@ -121,9 +126,21 @@
       title: card.getAttribute('data-title') || '',
       file: card.getAttribute('data-file') || '',
       face: card.getAttribute('data-face') || '',
+      arts: splitArt(card.getAttribute('data-art')),
+      main: card.getAttribute('data-main') || '',
     };
   });
-  pk.sort(function (a, b) { return a.dex - b.dex; });
+  /* 图鉴号升序；没有图鉴号的（三代废稿「环兔儿」那种）排最后 */
+  pk.sort(function (a, b) {
+    if (!a.dex !== !b.dex) return a.dex ? -1 : 1;
+    return a.dex - b.dex;
+  });
+  /* DOM 顺序也跟着排好（模板按 dex 排，没号的会被排到最前面） */
+  (function reorderCards() {
+    var grid = root.querySelector('.res-pk-grid');
+    if (!grid) return;
+    pk.forEach(function (p) { grid.appendChild(p.card); });
+  })();
 
   /* ---------- 分类筛选（大分类 tab） ---------- */
   var tabs = Array.prototype.slice.call(root.querySelectorAll('.res-tab'));
@@ -405,45 +422,68 @@
   var dims = {};    // file -> {w,h}
   var bytes = {};   // file -> number
 
-  function paintMeta(card) {
-    var el = card.querySelector('.res-meta');
-    if (!el) return;
-    var file = card.getAttribute('data-file') || '';
+  function fmtOf(file) {
+    var ext = String(file || '').split('.').pop();
+    return (file && ext) ? ext.toUpperCase() : '';
+  }
+
+  /* 一件素材的「格式 · 尺寸 · 大小」；行走图再报一格多大 */
+  function metaParts(file, opt) {
+    opt = opt || {};
     var parts = [];
-    var fmt = el.getAttribute('data-fmt');
+    var fmt = opt.fmt || fmtOf(file);
     if (fmt) parts.push(fmt);
     var d = dims[file];
     if (d && d.w && d.h) {
       parts.push(d.w + '×' + d.h);
-      /* 行走图再报一格多大：做游戏的人要的是这个数 */
-      if (card.classList.contains('res-pk') && d.w % 3 === 0 && d.h % 4 === 0) {
+      if (opt.walk && d.w % 3 === 0 && d.h % 4 === 0) {
         parts.push('一格 ' + (d.w / 3) + '×' + (d.h / 4));
       }
     }
     var b = fmtSize(bytes[file]);
     if (b) parts.push(b);
-    el.textContent = parts.join(' · ');
+    return parts.join(' · ');
+  }
+
+  /* 卡片主预览用的那个文件：有行走图就是行走图，没有就是第一张立绘 */
+  function cardMain(card) {
+    return card.getAttribute('data-main') || card.getAttribute('data-file') || '';
+  }
+
+  function paintMeta(card) {
+    var el = card.querySelector('.res-meta');
+    if (!el) return;
+    var main = cardMain(card);
+    var walk = card.getAttribute('data-file') || '';
+    var text = metaParts(main, { walk: !!walk && main === walk, fmt: el.getAttribute('data-fmt') });
+    el.textContent = text;
     /* 灯箱读的是 data-meta，这里同步过去，点开就能看到同样的信息 */
-    card.setAttribute('data-meta', el.textContent);
+    card.setAttribute('data-meta', text);
   }
 
   var sizeFiles = [];
-  cards.forEach(function (card) {
-    var file = card.getAttribute('data-file') || '';
-    if (file && sizeFiles.indexOf(file) < 0) sizeFiles.push(file);
-    var face = card.getAttribute('data-face') || '';
-    if (face && sizeFiles.indexOf(face) < 0) sizeFiles.push(face);
+  function addSize(f) { if (f && sizeFiles.indexOf(f) < 0) sizeFiles.push(f); }
 
-    var img = card.querySelector('.res-walk-sheet') || card.querySelector('[data-res-img]');
-    if (img && file) {
+  cards.forEach(function (card) {
+    var main = cardMain(card);
+    if (card.classList.contains('res-pk')) {
+      addSize(main);
+      addSize(card.getAttribute('data-face') || '');
+      splitArt(card.getAttribute('data-art')).forEach(addSize);
+    } else {
+      addSize(card.getAttribute('data-file') || '');
+    }
+    /* 卡片里每一张图（行走图 / 脸图 / 立绘缩略图）尺寸都记下来，详情要用 */
+    Array.prototype.forEach.call(card.querySelectorAll('img[data-file]'), function (img) {
+      var f = img.getAttribute('data-file') || '';
       var take = function () {
-        if (!img.naturalWidth) return;
-        dims[file] = { w: img.naturalWidth, h: img.naturalHeight };
+        if (!f || !img.naturalWidth) return;
+        dims[f] = { w: img.naturalWidth, h: img.naturalHeight };
         paintMeta(card);
       };
       if (img.complete && img.naturalWidth) take();
       else img.addEventListener('load', take);
-    }
+    });
     paintMeta(card);
   });
 
@@ -458,6 +498,7 @@
         if (!d || !d.bytes) return;
         bytes = d.bytes;
         cards.forEach(paintMeta);
+        repaintDetail();
       })
       .catch(function () { /* 大小拿不到就不显示，不影响别的 */ });
   }
@@ -570,12 +611,17 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
   }
 
+  /* 一只宝可梦的全部文件：行走图 + 脸图 + 所有立绘 */
+  function pokemonFiles(card) {
+    return [card.getAttribute('data-file') || '', card.getAttribute('data-face') || '']
+      .concat(splitArt(card.getAttribute('data-art')))
+      .filter(Boolean);
+  }
+
   function packPokemon(card, btn) {
-    var file = card.getAttribute('data-file') || '';
-    var face = card.getAttribute('data-face') || '';
     var title = card.getAttribute('data-title') || 'pokemon';
     var dex = Number(card.getAttribute('data-dex')) || 0;
-    var list = [file, face].filter(Boolean);
+    var list = pokemonFiles(card);
     if (!list.length) return;
 
     var old = btn.textContent;
@@ -590,13 +636,13 @@
       });
       if (!entries.length) throw new Error('文件都取不到');
       /* 附一张署名条：CC BY 要求署名，包里带着就不用别人再回来找 */
-      var credit = '素材：' + title + '（No.' + pad3(dex) + '）\n' +
+      var credit = '素材：' + title + (dex ? '（No.' + pad3(dex) + '）' : '') + '\n' +
         '作者：' + AUTHOR + '\n' +
         '来源：' + REPO + '\n' +
         '许可：' + LICENSE + '（https://creativecommons.org/licenses/by/4.0/）\n' +
         '文件：' + entries.map(function (e) { return e.name; }).join('、') + '\n';
       entries.push({ name: '署名.txt', bytes: new TextEncoder().encode(credit) });
-      downloadBlob(makeZip(entries), 'No.' + pad3(dex) + '-' + safeName(title) + '.zip');
+      downloadBlob(makeZip(entries), (dex ? 'No.' + pad3(dex) + '-' : '') + safeName(title) + '.zip');
       btn.textContent = '已下载 ✓';
       setTimeout(function () { btn.textContent = old; btn.disabled = false; }, 1500);
     }).catch(function (e) {
@@ -606,7 +652,7 @@
     });
   }
 
-  /* ---------- 灯箱 ---------- */
+  /* ---------- 灯箱（单张看大图） ---------- */
   var lb = document.getElementById('resLb');
   if (!lb) return;
   var lbImg = lb.querySelector('[data-res-lb-img]');
@@ -621,11 +667,22 @@
 
   /* 像素图放大要按整数倍，不然插值糊掉；96×128 的精灵表按原始大小看又太小。
      能整倍放开就整倍放开，放不下就退回 max-width / max-height 等比缩。 */
-  function zoomLb() {
+  function zoomLb(smooth) {
     var w = lbImg.naturalWidth, h = lbImg.naturalHeight;
     if (!w || !h) return;
     var availW = Math.max(160, Math.min(760, window.innerWidth - 40) - 28);
     var availH = Math.max(160, Math.round(window.innerHeight * 0.52));
+    resetLbZoom();
+    if (smooth) {
+      /* 立绘不是像素画：按比例放到视口里就行（最多放 3 倍，再大就糊了） */
+      var ks = Math.min(availW / w, availH / h);
+      ks = Math.max(1, Math.min(3, ks));
+      lbImg.style.width = Math.round(w * ks) + 'px';
+      lbImg.style.height = Math.round(h * ks) + 'px';
+      lbImg.style.maxWidth = 'none';
+      lbImg.style.maxHeight = 'none';
+      return;
+    }
     if (w <= availW && h <= availH) {
       var k = Math.floor(Math.min(availW / w, availH / h));
       if (k < 1) k = 1;
@@ -634,8 +691,6 @@
       lbImg.style.height = (h * k) + 'px';
       lbImg.style.maxWidth = 'none';
       lbImg.style.maxHeight = 'none';
-    } else {
-      resetLbZoom();
     }
   }
   function resetLbZoom() {
@@ -657,6 +712,7 @@
     lbNote.textContent = note;
     lbNote.hidden = !note;
     lbDl.setAttribute('href', o.dl || (CDN + file));
+    lbImg.style.imageRendering = o.smooth ? 'auto' : 'pixelated';
 
     if (kind === 'audio') {
       lbImg.removeAttribute('src');
@@ -669,7 +725,7 @@
       resetLbZoom();
       lbImg.setAttribute('src', CDN + file);
       var mi = 0;
-      lbImg.onload = zoomLb;
+      lbImg.onload = function () { zoomLb(!!o.smooth); };
       lbImg.onerror = function () {
         if (mi < SOURCES.length - 1) { mi += 1; lbImg.src = srcAt(mi, file); }
       };
@@ -684,7 +740,7 @@
 
   function closeLb() {
     lb.hidden = true;
-    document.body.classList.remove('res-lb-open');
+    if (pkLb && pkLb.hidden) document.body.classList.remove('res-lb-open');
     lbImg.removeAttribute('src');
     resetLbZoom();
     if (lastFocus && lastFocus.focus) lastFocus.focus();
@@ -698,9 +754,173 @@
       meta: card.getAttribute('data-meta') || '',
       note: card.getAttribute('data-note') || '',
       dl: card.getAttribute('data-dl') || '',
+      smooth: card.getAttribute('data-smooth') === '1',
     };
   }
 
+  Array.prototype.forEach.call(lb.querySelectorAll('[data-res-close]'), function (b) {
+    b.addEventListener('click', closeLb);
+  });
+  lb.addEventListener('click', function (e) {
+    if (e.target === lb) closeLb();
+  });
+
+  var copyBtn = lb.querySelector('[data-res-copy]');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      if (!current) return;
+      copyText(creditFor(current.file || '', current.title || ''));
+      var old = copyBtn.textContent;
+      copyBtn.textContent = '已复制 ✓';
+      setTimeout(function () { copyBtn.textContent = old; }, 1600);
+    });
+  }
+
+  /* ---------- 宝可梦详情：一只的全部素材排成卡片 ----------
+     点图鉴卡片打开；里面每张素材卡自己也能点开看大图、单独下载。 */
+  var pkLb = document.getElementById('resPkLb');
+  var pkLbList = pkLb && pkLb.querySelector('[data-pklb-list]');
+  var pkLbCard = null;   // 当前打开的是哪只
+
+  function detailAssets(card) {
+    var list = [];
+    var walk = card.getAttribute('data-file') || '';
+    var face = card.getAttribute('data-face') || '';
+    if (walk) list.push({ file: walk, label: '行走图', kind: 'walk' });
+    if (face) list.push({ file: face, label: '脸图', kind: 'face' });
+    splitArt(card.getAttribute('data-art')).forEach(function (f, i) {
+      list.push({ file: f, label: splitArt(card.getAttribute('data-art')).length > 1 ? '立绘 ' + (i + 1) : '立绘', kind: 'art' });
+    });
+    return list;
+  }
+
+  function assetCard(a) {
+    var fig = document.createElement('figure');
+    fig.className = 'res-card res-asset';
+    fig.setAttribute('data-kind', 'image');
+    fig.setAttribute('data-file', a.file);
+    fig.setAttribute('data-title', a.label);
+    fig.setAttribute('data-dl', CDN + a.file);
+    if (a.kind === 'art') fig.setAttribute('data-smooth', '1');
+
+    var thumb = document.createElement('div');
+    thumb.className = 'res-thumb';
+    var img = document.createElement('img');
+    img.src = CDN + a.file;
+    img.alt = a.label;
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    if (a.kind === 'art') img.style.imageRendering = 'auto';
+    thumb.appendChild(img);
+    fig.appendChild(thumb);
+
+    var cap = document.createElement('figcaption');
+    var name = document.createElement('span');
+    name.className = 'res-name';
+    name.textContent = a.label;
+    var meta = document.createElement('span');
+    meta.className = 'res-meta';
+    cap.appendChild(name);
+    cap.appendChild(meta);
+    var btns = document.createElement('span');
+    btns.className = 'res-btns';
+    var dl = document.createElement('a');
+    dl.className = 'res-btn';
+    dl.href = CDN + a.file;
+    dl.download = '';
+    dl.textContent = '下载';
+    var big = document.createElement('button');
+    big.type = 'button';
+    big.className = 'res-btn res-btn-ghost';
+    big.textContent = '看大图';
+    btns.appendChild(dl);
+    btns.appendChild(big);
+    cap.appendChild(btns);
+    fig.appendChild(cap);
+
+    function paint() {
+      var text = metaParts(a.file, { walk: a.kind === 'walk' });
+      meta.textContent = text;
+      fig.setAttribute('data-meta', text);
+    }
+    if (img.complete && img.naturalWidth) {
+      dims[a.file] = { w: img.naturalWidth, h: img.naturalHeight };
+      paint();
+    } else {
+      img.addEventListener('load', function () {
+        dims[a.file] = { w: img.naturalWidth, h: img.naturalHeight };
+        paint();
+      });
+    }
+    paint();
+
+    big.addEventListener('click', function (e) {
+      e.stopPropagation();
+      openLb(cardToLb(fig));
+    });
+    return fig;
+  }
+
+  function repaintDetail() {
+    if (!pkLbCard || !pkLbList) return;
+    Array.prototype.forEach.call(pkLbList.children, function (fig) {
+      var f = fig.getAttribute('data-file') || '';
+      var meta = fig.querySelector('.res-meta');
+      if (!meta) return;
+      var text = metaParts(f, { walk: fig.getAttribute('data-file') === (pkLbCard.getAttribute('data-file') || '') && !!pkLbCard.getAttribute('data-file') });
+      meta.textContent = text;
+      fig.setAttribute('data-meta', text);
+    });
+  }
+
+  function openPkDetail(card) {
+    if (!pkLb || !pkLbList) return;
+    pkLbCard = card;
+    lastFocus = document.activeElement;
+    var dex = Number(card.getAttribute('data-dex')) || 0;
+    var badge = pkLb.querySelector('[data-pklb-dex]');
+    badge.textContent = dex ? 'No.' + pad3(dex) : '废稿';
+    badge.className = 'res-dex' + (dex ? '' : ' is-draft');
+    pkLb.querySelector('[data-pklb-title]').textContent = card.getAttribute('data-title') || '';
+    var note = card.getAttribute('data-note') || '';
+    pkLb.querySelector('[data-pklb-note]').textContent = note;
+
+    pkLbList.innerHTML = '';
+    detailAssets(card).forEach(function (a) { pkLbList.appendChild(assetCard(a)); });
+
+    pkLb.hidden = false;
+    document.body.classList.add('res-lb-open');
+    pkLb.querySelector('[data-pklb-close]').focus();
+  }
+
+  function closePkDetail() {
+    if (!pkLb || pkLb.hidden) return;
+    pkLb.hidden = true;
+    pkLbCard = null;
+    if (lb.hidden) document.body.classList.remove('res-lb-open');
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  if (pkLb) {
+    pkLb.querySelector('[data-pklb-close]').addEventListener('click', closePkDetail);
+    pkLb.addEventListener('click', function (e) {
+      if (e.target === pkLb) closePkDetail();
+    });
+    pkLb.querySelector('[data-pklb-zip]').addEventListener('click', function (e) {
+      if (pkLbCard) packPokemon(pkLbCard, e.currentTarget);
+    });
+    pkLb.querySelector('[data-pklb-copy]').addEventListener('click', function (e) {
+      var btn = e.currentTarget;
+      if (!pkLbCard) return;
+      copyText(creditFor(pkLbCard.getAttribute('data-file') || splitArt(pkLbCard.getAttribute('data-art'))[0] || '',
+        pkLbCard.getAttribute('data-title') || ''));
+      var old = btn.textContent;
+      btn.textContent = '已复制 ✓';
+      setTimeout(function () { btn.textContent = old; }, 1600);
+    });
+  }
+
+  /* ---------- 点击：下载 / 看单张 / 开详情 ---------- */
   root.addEventListener('click', function (e) {
     var zipBtn = e.target.closest('[data-res-zip]');
     if (zipBtn) {
@@ -708,6 +928,28 @@
       if (zipCard) packPokemon(zipCard, zipBtn);
       return;
     }
+    if (e.target.closest('[data-pklb-zip]')) return;   // 详情里的按钮自己处理
+
+    var detailBtn = e.target.closest('[data-res-detail]');
+    if (detailBtn) {
+      var dCard = detailBtn.closest('.res-pk');
+      if (dCard) openPkDetail(dCard);
+      return;
+    }
+
+    var artBtn = e.target.closest('[data-res-art]');
+    if (artBtn) {
+      var aFile = artBtn.getAttribute('data-file') || '';
+      openLb({
+        file: aFile,
+        title: artBtn.getAttribute('data-title') || '立绘',
+        meta: metaParts(aFile),
+        dl: CDN + aFile,
+        smooth: true,
+      });
+      return;
+    }
+
     var faceBtn = e.target.closest('[data-res-face]');
     if (faceBtn) {
       var fCard = faceBtn.closest('.res-pk');
@@ -724,31 +966,22 @@
       });
       return;
     }
+
     var card = e.target.closest('.res-card');
     if (!card) return;
     /* 卡片里的按钮/下载链接点自己就好，别顺手开灯箱 */
-    if (e.target.closest('a[download], .res-btn, .res-face-btn')) return;
+    if (e.target.closest('a[download], .res-btn')) return;
+    if (card.classList.contains('res-pk')) {
+      /* 图鉴卡片：点开是这只的全部素材 */
+      openPkDetail(card);
+      return;
+    }
     openLb(cardToLb(card));
   });
 
-  Array.prototype.forEach.call(lb.querySelectorAll('[data-res-close]'), function (b) {
-    b.addEventListener('click', closeLb);
-  });
-  lb.addEventListener('click', function (e) {
-    if (e.target === lb) closeLb();
-  });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !lb.hidden) closeLb();
+    if (e.key !== 'Escape') return;
+    if (!lb.hidden) { closeLb(); return; }
+    if (pkLb && !pkLb.hidden) closePkDetail();
   });
-
-  var copyBtn = lb.querySelector('[data-res-copy]');
-  if (copyBtn) {
-    copyBtn.addEventListener('click', function () {
-      if (!current) return;
-      copyText(creditFor(current.file || '', current.title || ''));
-      var old = copyBtn.textContent;
-      copyBtn.textContent = '已复制 ✓';
-      setTimeout(function () { copyBtn.textContent = old; }, 1600);
-    });
-  }
 })();

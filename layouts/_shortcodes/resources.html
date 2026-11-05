@@ -79,15 +79,27 @@
       {{ range $pk }}
       {{- $walk := .file | default "" -}}
       {{- $face := .face | default "" -}}
+      {{- $art := .art | default "" -}}
+      {{- $arts := slice -}}
+      {{- with $art }}{{ $arts = split . "," }}{{ end -}}
+      {{- $art0 := "" -}}
+      {{- if $arts }}{{ $art0 = index $arts 0 }}{{ end -}}
+      {{/* 立绘缩略图：有行走图时全部都摆出来；没有行走图时第一张已经当主预览了，
+           剩下的才摆（只有一张就不用重复）。 */}}
+      {{- $artThumbs := slice -}}
+      {{- if $walk }}{{ $artThumbs = $arts }}{{ else if gt (len $arts) 1 }}{{ $artThumbs = after 1 $arts }}{{ end -}}
       {{- $fmt := "" -}}
-      {{- with $walk }}{{ $fmt = replace (upper (path.Ext .)) "." "" }}{{ end -}}
+      {{- with (or $walk $art0) }}{{ $fmt = replace (upper (path.Ext .)) "." "" }}{{ end -}}
       {{- $dex := .dex | default 0 -}}
+      {{- $main := $walk | default $art0 -}}
+      {{- $pkTitle := .title -}}
       <figure class="res-card res-pk" data-sec="pokemon" data-kind="image"
               data-dex="{{ $dex }}" data-title="{{ .title }}" data-file="{{ $walk }}" data-face="{{ $face }}"
+              data-art="{{ $art }}" data-main="{{ $main }}"
               data-meta="{{ $fmt }}" data-note="{{ .note | default "" }}"
-              data-dl="{{ if $walk }}{{ $cdn }}{{ $walk }}{{ end }}">
+              data-dl="{{ if $main }}{{ $cdn }}{{ $main }}{{ end }}">
         <div class="res-pk-head">
-          <span class="res-dex">No.{{ printf "%03d" $dex }}</span>
+          <span class="res-dex{{ if not $dex }} is-draft{{ end }}">{{ if $dex }}No.{{ printf "%03d" $dex }}{{ else }}废稿{{ end }}</span>
           <span class="res-pk-name">{{ .title }}</span>
         </div>
         <div class="res-pk-body">
@@ -98,6 +110,12 @@
             <img class="res-walk-sheet" src="{{ $cdn }}{{ $walk }}" alt="{{ .title }} 行走图（3 列 × 4 行）"
                  loading="lazy" decoding="async" data-res-img data-file="{{ $walk }}">
           </div>
+          {{ else if $art0 }}
+          <div class="res-walk is-art">
+            <img class="res-art-main" src="{{ $cdn }}{{ $art0 }}" alt="{{ .title }} 立绘"
+                 loading="lazy" decoding="async" data-res-img data-file="{{ $art0 }}">
+          </div>
+          <p class="res-miss-line">行走图暂时还没有 T^T…</p>
           {{ else }}
           <div class="res-walk is-missing"><span>行走图暂时还没有 T^T…</span></div>
           {{ end }}
@@ -109,15 +127,27 @@
                  data-res-img data-file="{{ $face }}">
           </button>
           {{ else }}
-          <div class="res-face is-missing"><span>脸图暂时还没有 T^T…</span></div>
+          <p class="res-miss-line">脸图暂时还没有 T^T…</p>
+          {{ end }}
+
+          {{ with $artThumbs }}
+          <div class="res-pk-arts">
+            {{ range . }}
+            <button type="button" class="res-art-btn" data-res-art
+                    data-file="{{ . }}" data-title="{{ $pkTitle }} 立绘" title="点开看立绘大图">
+              <img src="{{ $cdn }}{{ . }}" alt="立绘" loading="lazy" decoding="async"
+                   data-res-img data-file="{{ . }}">
+            </button>
+            {{ end }}
+          </div>
           {{ end }}
         </div>
         <figcaption>
-          <span class="res-meta" data-fmt="{{ $fmt }}" data-file="{{ $walk }}">{{ $fmt }}</span>
+          <span class="res-meta" data-fmt="{{ $fmt }}" data-file="{{ $main }}">{{ $fmt }}</span>
           {{ with .note }}<span class="res-note">{{ . }}</span>{{ end }}
           <span class="res-btns">
             <button type="button" class="res-btn" data-res-zip>下载这只</button>
-            <button type="button" class="res-btn res-btn-ghost" data-res-open>看全图</button>
+            <button type="button" class="res-btn res-btn-ghost" data-res-detail>全部资源</button>
           </span>
         </figcaption>
       </figure>
@@ -171,6 +201,23 @@
   {{ end }}
 
   <p class="res-foot">素材仓库：<a href="{{ $repo }}" target="_blank" rel="noopener">{{ $repo }}</a>{{ with $footNote }} · {{ . }}{{ end }}</p>
+
+  {{/* 宝可梦详情：点卡片打开，里面把这只的全部素材排成卡片（resources.js 填） */}}
+  <div class="res-pklb" id="resPkLb" hidden>
+    <div class="res-pklb-box" role="dialog" aria-modal="true" aria-label="宝可梦素材">
+      <button type="button" class="res-lb-close" data-pklb-close aria-label="关闭">×</button>
+      <div class="res-pklb-head">
+        <span class="res-dex" data-pklb-dex></span>
+        <span class="res-pk-name" data-pklb-title></span>
+      </div>
+      <p class="res-pklb-note" data-pklb-note></p>
+      <div class="res-grid res-pklb-grid" data-pklb-list></div>
+      <p class="res-pklb-foot">
+        <button type="button" class="res-btn" data-pklb-zip>打包下载全部</button>
+        <button type="button" class="res-btn res-btn-ghost" data-pklb-copy>复制署名</button>
+      </p>
+    </div>
+  </div>
 </div>
 
 {{/* 灯箱：点卡片打开，内容由 resources.js 填 */}}

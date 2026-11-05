@@ -3956,8 +3956,11 @@ function buildResourcesText(data, header) {
       out.push('dex   = ' + Number(it.dex));
     }
     out.push('title = ' + tomlString(it.title || ''));
-    out.push('file  = ' + tomlString(it.file || ''));
+    /* file 空的就别写这一行：只有立绘的宝可梦（file 为空）保存后不要多出一条 file = "" */
+    if (it.file) out.push('file  = ' + tomlString(it.file));
     if (it.face) out.push('face  = ' + tomlString(it.face));
+    /* art 立绘：逗号分隔的相对路径，原样写成一个字符串（不拆成数组） */
+    if (it.art) out.push('art   = ' + tomlString(it.art));
     if (it.w) out.push('w     = ' + Number(it.w));
     if (it.h) out.push('h     = ' + Number(it.h));
     if (it.kb) out.push('kb    = ' + Number(it.kb));
