@@ -15,7 +15,7 @@ const REPO = 'Arcarlight/Nijiboshi-Giveout-Storage';
 const BRANCH = 'main';
 const RAW = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/`;
 
-const ALLOW = /^(tbtak\/(sprite|portrait|ui)|audio\/midi)\//;
+const ALLOW = /^(tbtak\/(sprite|portrait|ui|face)|audio\/midi)\//;
 const MAX_FILES = 300;
 
 function cors() {

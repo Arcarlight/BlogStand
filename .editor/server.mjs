@@ -2489,6 +2489,24 @@ async function handle(req, res, url) {
      （实测 4321 上 /images/… 404、1313 上 200）。
      这里兜住 /images/*，面板就不必依赖「预览服务器开着」这件事。
      只读、只认图片扩展名、限制在 static/ 目录内。 */
+  /* 只读地伺服 static/ 下任意图片 —— 素材面板「从本站已有的图里选」的缩略图用。
+     （/images/ 只覆盖 static/images，tbtak、pkmn 这些目录的图拿不到，以前就是这里裂了。） */
+  if (req.method === 'GET' && p.startsWith('/site/')) {
+    const rel = decodeURIComponent(p.slice('/site/'.length)).replace(/\\/g, '/');
+    const IMG_EXT2 = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.bmp', '.svg', '.ico']);
+    const ext2 = path.extname(rel).toLowerCase();
+    if (rel.includes('..') || !IMG_EXT2.has(ext2)) { json(res, 404, { error: 'not found' }); return; }
+    let buf2 = null;
+    try { buf2 = await fsp.readFile(safePath('static/' + rel)); } catch { buf2 = null; }
+    if (!buf2) { json(res, 404, { error: 'not found' }); return; }
+    const MIME2 = {
+      '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+      '.gif': 'image/gif', '.avif': 'image/avif', '.bmp': 'image/bmp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+    };
+    res.writeHead(200, { 'Content-Type': MIME2[ext2] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+    return res.end(buf2);
+  }
+
   if (req.method === 'GET' && p.startsWith('/images/')) {
     const rel = decodeURIComponent(p.slice('/images/'.length)).replace(/\\/g, '/');
     const IMG_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.bmp', '.svg', '.ico']);
@@ -3812,6 +3830,7 @@ const GIVEOUT_DIRS = {
   sprite: 'tbtak/sprite',
   portrait: 'tbtak/portrait',
   ui: 'tbtak/ui',
+  face: 'tbtak/face',
   midi: 'audio/midi',
 };
 

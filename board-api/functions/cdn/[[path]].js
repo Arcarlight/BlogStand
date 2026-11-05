@@ -21,7 +21,7 @@ const BRANCH = 'main';
 const RAW = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/`;
 
 /* 只放行素材目录，别把它变成万能代理 */
-const ALLOW = /^(tbtak\/(sprite|portrait|ui)|audio\/midi)\//;
+const ALLOW = /^(tbtak\/(sprite|portrait|ui|face)|audio\/midi)\//;
 
 const TYPES = {
   png: 'image/png',

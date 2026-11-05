@@ -3519,7 +3519,9 @@ async function renderResources() {
         (picked.has(it.rel) ? 'outline:2px solid #1b5a9e;background:#eaf4ff;' : '');
       cell.title = it.rel;
       const img = document.createElement('img');
-      img.src = it.url;
+      /* 用编辑器的 /site/ 只读路由取缩略图：/images/ 只覆盖 static/images，
+         tbtak / pkmn 这些目录的图会裂。 */
+      img.src = '/site/' + it.rel.replace(/^static\//, '');
       img.loading = 'lazy';
       img.style.cssText = 'width:100%;height:74px;object-fit:contain;background:repeating-conic-gradient(#eef4fa 0 25%,#e4edf7 0 50%) 0 0/12px 12px;image-rendering:pixelated';
       const cap = document.createElement('span');

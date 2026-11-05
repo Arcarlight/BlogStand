@@ -51,6 +51,12 @@ desc = "角色行走图、战斗图。整张就是精灵表，按固定格切；
 zip  = ""
 
 [[sections]]
+id   = "face"
+name = "脸图"
+desc = "半身像表情表，一格 96×96。从网页精灵表按选用到的表情拆出来的（原表情表里没用到的格子没有）。"
+zip  = ""
+
+[[sections]]
 id   = "portrait"
 name = "立绘"
 desc = "敌人和角色的小型立绘，约 500×500，可以直接缩放使用。"
@@ -74,38 +80,75 @@ zip  = ""
 [[items]]
 sec   = "sprite"
 title = "符利根 · 行走图"
-file  = "tbtak/sprite/fliegen.png"
+file  = "tbtak/sprite/fliegen-walk.png"
 note  = "始祖小鸟。RPG Maker 格式精灵表"
 
 [[items]]
 sec   = "sprite"
 title = "庞特斯 · 行走图"
-file  = "tbtak/sprite/pontus.png"
+file  = "tbtak/sprite/pontus-walk.png"
 note  = "波加曼"
 
 [[items]]
 sec   = "sprite"
 title = "德蕊艾德 · 行走图"
-file  = "tbtak/sprite/dryad.png"
+file  = "tbtak/sprite/dryad-walk.png"
 note  = "木木枭"
 
 [[items]]
 sec   = "sprite"
 title = "以格尼斯 · 行走图"
-file  = "tbtak/sprite/ignis.png"
+file  = "tbtak/sprite/ignis-walk.png"
 note  = "火稚鸡"
 
 [[items]]
 sec   = "sprite"
 title = "虹星 · 行走图"
-file  = "tbtak/sprite/hoshi.png"
+file  = "tbtak/sprite/hoshi-walk.png"
 note  = "沙漠蜻蜓"
 
 [[items]]
 sec   = "sprite"
 title = "桃桃加 · 行走图"
-file  = "tbtak/sprite/momoka.png"
+file  = "tbtak/sprite/momoka-walk.png"
 note  = "电飞鼠"
+
+
+[[items]]
+sec   = "face"
+title = "符利根 · 脸图"
+file  = "tbtak/face/fliegen-faces.png"
+note  = "始祖小鸟，4 个表情"
+
+[[items]]
+sec   = "face"
+title = "庞特斯 · 脸图"
+file  = "tbtak/face/pontus-faces.png"
+note  = "波加曼，4 个表情"
+
+[[items]]
+sec   = "face"
+title = "德蕊艾德 · 脸图"
+file  = "tbtak/face/dryad-faces.png"
+note  = "木木枭，4 个表情"
+
+[[items]]
+sec   = "face"
+title = "以格尼斯 · 脸图"
+file  = "tbtak/face/ignis-faces.png"
+note  = "火稚鸡，4 个表情"
+
+[[items]]
+sec   = "face"
+title = "虹星 · 脸图"
+file  = "tbtak/face/hoshi-faces.png"
+note  = "沙漠蜻蜓，4 个表情"
+
+[[items]]
+sec   = "face"
+title = "桃桃加 · 脸图"
+file  = "tbtak/face/momoka-faces.png"
+note  = "电飞鼠，3 个表情"
 
 [[items]]
 sec   = "portrait"
