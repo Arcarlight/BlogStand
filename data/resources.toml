@@ -18,12 +18,14 @@
 # ============================================================
 
 [meta]
-# 主 CDN 用 fastly 这个入口：cdn.jsdelivr.net 对这些文件会 301 到 raw.githubusercontent
-# （国内可能被墙），fastly.jsdelivr.net 直接给文件。实测四个样本都 200。
-cdn        = "https://fastly.jsdelivr.net/gh/Arcarlight/Nijiboshi-Giveout-Storage@main/"
-# 备用镜像：主 CDN 取不到时页面按顺序换（jsDelivr 官方两个节点 + 一个 GitHub 代理）
+# 主通道：自己的 Cloudflare Worker 反代（board-api/functions/cdn/[[path]].js）
+#  浏览器 → Cloudflare 边缘 → raw.githubusercontent，访客永远能看到。
+#  为什么不用 jsDelivr 当主力：这个仓库的文件它经常 301 回 raw.githubusercontent，
+#  国内打不开；实测一会儿 200 一会儿 301，不可靠。
+cdn        = "https://nijiboshi-board.pages.dev/cdn/"
+# 备用镜像：主通道挂了按顺序换（jsDelivr 两个节点 + 一个 GitHub 代理）
 mirrors    = [
-  "https://cdn.jsdelivr.net/gh/Arcarlight/Nijiboshi-Giveout-Storage@main/",
+  "https://fastly.jsdelivr.net/gh/Arcarlight/Nijiboshi-Giveout-Storage@main/",
   "https://gcore.jsdelivr.net/gh/Arcarlight/Nijiboshi-Giveout-Storage@main/",
   "https://ghproxy.net/https://raw.githubusercontent.com/Arcarlight/Nijiboshi-Giveout-Storage/main/"
 ]
