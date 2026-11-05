@@ -1,0 +1,96 @@
+# ============================================================
+#  素材分发页的数据（content/resources.md 里的 {{< resources >}} 读它）
+# ------------------------------------------------------------
+#  素材文件存在独立仓库：
+#    https://github.com/Arcarlight/Nijiboshi-Giveout-Storage
+#  主站不存素材本体，只在这里列清单，页面把 cdn + file 拼成真实地址。
+#
+#  加一件素材 = 在 [[items]] 里加一条（字段说明见 .notes/素材分发.md）：
+#    sec   归属分类（下面 sections 的 id）
+#    title 卡片标题
+#    file  素材仓库里的相对路径
+#    w/h   原图尺寸（音频不填）
+#    kb    文件大小，仅显示用
+#    note  一句话说明（选填）
+#    kind  image（默认）/ audio
+#
+#  ⚠️ 覆盖同名文件 jsDelivr 可能还缓存旧的；新版本最好换文件名，见笔记。
+# ============================================================
+
+[meta]
+# 主 CDN 用 fastly 这个入口：cdn.jsdelivr.net 对这些文件会 301 到 raw.githubusercontent
+# （国内可能被墙），fastly.jsdelivr.net 直接给文件。实测四个样本都 200。
+cdn        = "https://fastly.jsdelivr.net/gh/Arcarlight/Nijiboshi-Giveout-Storage@main/"
+# 备用镜像：主 CDN 取不到时页面按顺序换（jsDelivr 官方两个节点 + 一个 GitHub 代理）
+mirrors    = [
+  "https://cdn.jsdelivr.net/gh/Arcarlight/Nijiboshi-Giveout-Storage@main/",
+  "https://gcore.jsdelivr.net/gh/Arcarlight/Nijiboshi-Giveout-Storage@main/",
+  "https://ghproxy.net/https://raw.githubusercontent.com/Arcarlight/Nijiboshi-Giveout-Storage/main/"
+]
+repo       = "https://github.com/Arcarlight/Nijiboshi-Giveout-Storage"
+releases   = "https://github.com/Arcarlight/Nijiboshi-Giveout-Storage/releases"
+license    = "CC BY 4.0"
+licenseUrl = "https://creativecommons.org/licenses/by/4.0/"
+author     = "虹星（Nijiboshi）"
+
+# ---- 分类 ----
+# zip：填了就在分类末尾出一个「整包下载」按钮（指向素材仓库的 Release）
+[[sections]]
+id   = "sprite"
+name = "点阵图"
+desc = "角色行走图、战斗图。整张就是精灵表，按固定格切；页面里放大会保持像素锐利。"
+zip  = ""
+
+[[sections]]
+id   = "portrait"
+name = "立绘"
+desc = "敌人和角色的小型立绘，约 500×500，可以直接缩放使用。"
+zip  = ""
+
+[[sections]]
+id   = "ui"
+name = "UI 素材"
+desc = "图标集、窗框、按钮底图之类的碎件。"
+zip  = ""
+
+[[sections]]
+id   = "midi"
+name = "MIDI"
+desc = "BGM 骨架，可以直接在 DAW 里换音源。"
+zip  = ""
+
+# ---- 素材 ----
+[[items]]
+sec   = "sprite"
+title = "符利根 · 行走图"
+file  = "tbtak/sprite/Fliegen-sprite-cut.png"
+w     = 363
+h     = 329
+kb    = 17
+note  = "符利根的行走 / 待机帧"
+
+[[items]]
+sec   = "portrait"
+title = "虹星 · 立绘"
+file  = "tbtak/portrait/Nijiboshi-sprite-cut.png"
+w     = 585
+h     = 758
+kb    = 110
+note  = "虹星的站立像"
+
+[[items]]
+sec   = "ui"
+title = "图标集"
+file  = "tbtak/ui/Icon-Set.png"
+w     = 512
+h     = 640
+kb    = 95
+note  = "界面图标一整张"
+
+[[items]]
+sec   = "midi"
+title = "Lowlayer · moutain"
+file  = "audio/midi/Lowlayer_moutain.mid"
+kb    = 10
+kind  = "audio"
+note  = "BGM 骨架"

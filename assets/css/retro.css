@@ -2632,3 +2632,223 @@ html.pxfont .entry-content .sp-ruby rt {
   margin-left: 3px;
 }
 .entry-content a.footnote-backref:hover { color: #a8500f; }
+
+/* ============================================================
+   素材分发页（content/resources.md → layouts/_shortcodes/resources.html）
+   数据在 data/resources.toml；交互在 static/js/resources.js。
+   ============================================================ */
+.res { margin: 16px 0 8px; }
+
+/* ---- 授权说明 ---- */
+.res-license {
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: #eef6ff;
+  border: 1px solid #9dbfe0;
+  box-shadow: inset 0 1px 0 #fff;
+  line-height: 1.7;
+}
+.res-license p { margin: 0 0 4px; }
+.res-license-sub { color: #5b7391; font-size: 12px; }
+.res-license-links { color: #5b7391; font-size: 12px; margin-bottom: 0 !important; }
+.res-license a { color: #1b5a9e; }
+
+.res-credit {
+  display: block;
+  width: 100%;
+  margin: 6px 0 8px;
+  padding: 8px 10px;
+  text-align: left;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #2d4a68;
+  background: #ffffff;
+  border: 1px dashed #7aa7cf;
+  cursor: pointer;
+}
+.res-credit:hover { background: #f4faff; border-color: #4d84b8; }
+.res-credit.is-copied { border-style: solid; border-color: #2e9e57; color: #1c6b3c; }
+
+/* ---- 分类条 ---- */
+.res-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+.res-tab {
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: #33506e;
+  background: linear-gradient(180deg, #ffffff, #e6eff8);
+  border: 1px solid #9dbfe0;
+  cursor: pointer;
+}
+.res-tab:hover { background: linear-gradient(180deg, #ffffff, #d9e8f7); }
+.res-tab.is-on {
+  color: #ffffff;
+  background: linear-gradient(180deg, #4d8ed3, #1b5a9e);
+  border-color: #124070;
+}
+
+/* ---- 分类区块 ---- */
+.res-sec { margin: 0 0 22px; }
+.res-sec-title {
+  margin: 0 0 2px;
+  font-size: 16px;
+  color: #1b5a9e;
+  border-bottom: 1px dashed #b6d0e8;
+  padding-bottom: 4px;
+}
+.res-sec-desc { margin: 6px 0 10px; font-size: 12px; color: #5b7391; }
+.res-empty { margin: 8px 0; font-size: 12px; color: #8a9bb0; }
+.res-zip { margin: 10px 0 0; }
+
+/* ---- 卡片 ---- */
+.res-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+.res-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 8px;
+  background: #f7fbff;
+  border: 1px solid #b6d0e8;
+  box-shadow: inset 0 1px 0 #fff;
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s;
+}
+.res-card:hover { border-color: #4d84b8; box-shadow: 0 2px 6px rgba(27,90,158,.16); }
+
+.res-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  padding: 4px;
+  border: 1px solid #d3e2f0;
+  /* 透明区域用棋盘格，点阵图一眼能看出是透明的 */
+  background: repeating-conic-gradient(#eef4fa 0 25%, #e4edf7 0 50%) 0 0 / 16px 16px;
+}
+.res-thumb img {
+  max-width: 100%;
+  max-height: 190px;
+  height: auto;
+}
+/* 点阵图放大时保持锐利，别插值糊掉 */
+.res-sec[data-sec="sprite"] .res-thumb img { image-rendering: pixelated; }
+.res-audio { font-size: 46px; color: #7aa7cf; line-height: 1; user-select: none; }
+.res-broken {
+  font-size: 12px;
+  color: #a0522d;
+  text-align: center;
+  padding: 0 6px;
+  line-height: 1.5;
+}
+
+.res-card figcaption { display: flex; flex-direction: column; gap: 2px; }
+.res-name { font-weight: bold; color: #2d4a68; font-size: 13px; }
+.res-meta { font-size: 11px; color: #7b8ea3; font-family: Consolas, monospace; }
+.res-note { font-size: 12px; color: #5b7391; }
+.res-btns { display: flex; gap: 6px; margin-top: 4px; }
+
+.res-btn {
+  display: inline-block;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #4d8ed3, #1b5a9e);
+  border: 1px solid #124070;
+  text-decoration: none;
+  cursor: pointer;
+}
+.res-btn:hover { background: linear-gradient(180deg, #5b9be0, #2368ad); }
+.res-btn-ghost {
+  color: #33506e;
+  background: linear-gradient(180deg, #ffffff, #e6eff8);
+  border-color: #9dbfe0;
+}
+.res-btn-ghost:hover { background: linear-gradient(180deg, #ffffff, #d9e8f7); }
+
+.res-foot { margin: 20px 0 4px; font-size: 12px; color: #7b8ea3; }
+.res-foot a { color: #1b5a9e; }
+
+/* ---- 灯箱 ---- */
+body.res-lb-open { overflow: hidden; }
+.res-lb {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(12, 26, 40, .62);
+}
+.res-lb[hidden] { display: none; }
+.res-lb-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: 760px;
+  max-height: 90vh;
+  background: #f7fbff;
+  border: 1px solid #124070;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+}
+.res-lb-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  font-size: 18px;
+  line-height: 1;
+  color: #33506e;
+  background: #ffffff;
+  border: 1px solid #9dbfe0;
+  cursor: pointer;
+}
+.res-lb-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 14px;
+  overflow: auto;
+  background: repeating-conic-gradient(#eef4fa 0 25%, #e4edf7 0 50%) 0 0 / 16px 16px;
+}
+.res-lb-img img { max-width: 100%; max-height: 58vh; height: auto; image-rendering: pixelated; }
+.res-lb-img .res-audio { font-size: 72px; }
+.res-lb-info { padding: 12px 16px 14px; border-top: 1px solid #b6d0e8; }
+.res-lb-title { margin: 0 0 2px; font-weight: bold; color: #2d4a68; }
+.res-lb-meta { margin: 0 0 4px; font-size: 12px; color: #7b8ea3; font-family: Consolas, monospace; }
+.res-lb-note { margin: 0 0 8px; font-size: 12px; color: #5b7391; }
+.res-lb-btns { display: flex; gap: 8px; margin: 0 0 8px; }
+.res-lb-credit {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #2d4a68;
+  white-space: pre-line;
+  background: #ffffff;
+  border: 1px dashed #7aa7cf;
+  word-break: break-all;
+}
+
+@media (max-width: 560px) {
+  .res-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .res-thumb { min-height: 110px; }
+  .res-thumb img { max-height: 130px; }
+  .res-lb { padding: 10px; }
+  .res-lb-box { max-height: 94vh; }
+}

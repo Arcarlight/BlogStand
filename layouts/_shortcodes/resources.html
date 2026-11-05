@@ -1,0 +1,106 @@
+{{/* ============ 素材分发页 ============
+     数据：data/resources.toml（加素材只改数据，不动这里）
+     素材本体：独立仓库 Nijiboshi-Giveout-Storage，经 jsDelivr 取；
+     维护说明见 .notes/素材分发.md。 */}}
+{{- $d := site.Data.resources -}}
+{{- $m := index $d "meta" -}}
+{{- $secs := index $d "sections" -}}
+{{- $items := index $d "items" -}}
+{{- $cdn := index $m "cdn" -}}
+{{- $repo := index $m "repo" -}}
+{{- $author := index $m "author" -}}
+{{- $license := index $m "license" -}}
+{{- $licenseUrl := index $m "licenseUrl" -}}
+
+{{- $mirrors := index $m "mirrors" -}}
+<div class="res" data-cdn="{{ $cdn }}" data-mirrors="{{ delimit $mirrors "|" }}" data-repo="{{ $repo }}" data-author="{{ $author }}"
+     data-license="{{ $license }}" data-license-url="{{ $licenseUrl }}">
+
+  <div class="res-license">
+    <p><b>全部素材以 {{ $license }} 授权</b>：可以商用、可以修改、可以再分发，唯一的要求是<b>署名</b>。</p>
+    <p class="res-license-sub">偷懒的话，把这张条子贴进你的致谢里就行（点一下就复制）：</p>
+    <button type="button" class="res-credit" data-res-credit>素材：&lt;文件名&gt; — {{ $author }}　来源：素材仓库　许可：{{ $license }}</button>
+    <p class="res-license-links">
+      许可全文：<a href="{{ $licenseUrl }}" target="_blank" rel="noopener">{{ $license }}</a>
+      · 素材仓库：<a href="{{ $repo }}" target="_blank" rel="noopener">{{ $repo }}</a>
+    </p>
+  </div>
+
+  <div class="res-filter" role="tablist">
+    <button type="button" class="res-tab is-on" data-sec="all" role="tab" aria-selected="true">全部</button>
+    {{ range $secs }}
+    <button type="button" class="res-tab" data-sec="{{ .id }}" role="tab" aria-selected="false">{{ .name }}</button>
+    {{ end }}
+  </div>
+
+  {{ range $secs }}
+  {{- $sec := . -}}
+  {{- $list := where $items "sec" .id -}}
+  <section class="res-sec" id="res-{{ .id }}" data-sec="{{ .id }}">
+    <h2 class="res-sec-title">{{ .name }}</h2>
+    {{ with .desc }}<p class="res-sec-desc">{{ . }}</p>{{ end }}
+
+    {{ if $list }}
+    <div class="res-grid">
+      {{ range $list }}
+      {{- $kind := (.kind | default "image") -}}
+      {{- $ext := upper (path.Ext .file) -}}
+      {{- $meta := "" -}}
+      {{- if and .w .h }}{{ $meta = printf "%v×%v · " .w .h }}{{ end -}}
+      {{- $meta = printf "%s%s" $meta (replace $ext "." "") -}}
+      {{- with .kb }}{{ $meta = printf "%s · %v KB" $meta . }}{{ end -}}
+      <figure class="res-card" data-sec="{{ .sec }}" data-kind="{{ $kind }}"
+              data-title="{{ .title }}" data-file="{{ .file }}" data-meta="{{ $meta }}"
+              data-note="{{ .note | default "" }}" data-dl="{{ $cdn }}{{ .file }}">
+        <div class="res-thumb{{ if eq $kind "audio" }} is-audio{{ end }}">
+          {{ if eq $kind "audio" }}
+          <span class="res-audio" aria-hidden="true">♪</span>
+          {{ else }}
+          <img src="{{ $cdn }}{{ .file }}" alt="{{ .title }}" loading="lazy" decoding="async" data-res-img data-file="{{ .file }}">
+          {{ end }}
+        </div>
+        <figcaption>
+          <span class="res-name">{{ .title }}</span>
+          <span class="res-meta">{{ $meta }}</span>
+          {{ with .note }}<span class="res-note">{{ . }}</span>{{ end }}
+          <span class="res-btns">
+            <a class="res-btn" href="{{ $cdn }}{{ .file }}" download>下载</a>
+            <button type="button" class="res-btn res-btn-ghost" data-res-open>{{ if eq $kind "audio" }}详情{{ else }}看大图{{ end }}</button>
+          </span>
+        </figcaption>
+      </figure>
+      {{ end }}
+    </div>
+    {{ else }}
+    <p class="res-empty">这一类还没放东西。</p>
+    {{ end }}
+
+    {{ with .zip }}
+    <p class="res-zip"><a class="res-btn" href="{{ . }}" target="_blank" rel="noopener">整包下载</a></p>
+    {{ end }}
+  </section>
+  {{ end }}
+
+  <p class="res-foot">素材仓库：<a href="{{ $repo }}" target="_blank" rel="noopener">{{ $repo }}</a>
+    · 缺什么 / 文件坏了，可以在页面底下的留言板说一声。</p>
+</div>
+
+{{/* 灯箱：点卡片打开，内容由 resources.js 填 */}}
+<div class="res-lb" id="resLb" hidden>
+  <div class="res-lb-box" role="dialog" aria-modal="true" aria-label="素材预览">
+    <button type="button" class="res-lb-close" data-res-close aria-label="关闭">×</button>
+    <div class="res-lb-img"><img alt="" data-res-lb-img><span class="res-audio res-lb-audio" hidden>♪</span></div>
+    <div class="res-lb-info">
+      <p class="res-lb-title" data-res-lb-title></p>
+      <p class="res-lb-meta" data-res-lb-meta></p>
+      <p class="res-lb-note" data-res-lb-note></p>
+      <p class="res-lb-btns">
+        <a class="res-btn" data-res-lb-dl href="#" download>下载原文件</a>
+        <button type="button" class="res-btn res-btn-ghost" data-res-copy>复制署名</button>
+      </p>
+      <p class="res-lb-credit" data-res-lb-credit></p>
+    </div>
+  </div>
+</div>
+
+<script src="{{ "js/resources.js" | relURL }}" defer></script>
