@@ -2847,10 +2847,186 @@ body.res-lb-open { overflow: hidden; }
   word-break: break-all;
 }
 
+/* ---- 宝可梦图鉴：世代 / 编号导航 ---- */
+.res-dexnav { margin: 0 0 14px; }
+.res-gens { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.res-gpill {
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: #33506e;
+  background: linear-gradient(180deg, #ffffff, #e6eff8);
+  border: 1px solid #9dbfe0;
+  cursor: pointer;
+}
+.res-gpill em { font-style: normal; font-size: 10px; color: #7b8ea3; margin-left: 5px; }
+.res-gpill:hover { background: linear-gradient(180deg, #ffffff, #d9e8f7); }
+.res-gpill.is-on {
+  color: #ffffff;
+  background: linear-gradient(180deg, #4d8ed3, #1b5a9e);
+  border-color: #124070;
+}
+.res-gpill.is-on em { color: #d5e6f8; }
+
+.res-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 38px;
+  padding: 8px;
+  background: #eef6ff;
+  border: 1px solid #9dbfe0;
+  box-shadow: inset 0 1px 0 #fff;
+}
+.res-nchip {
+  min-width: 42px;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 12px;
+  font-family: Consolas, "Courier New", monospace;
+  color: #33506e;
+  background: #ffffff;
+  border: 1px solid #b6d0e8;
+  cursor: pointer;
+}
+.res-nchip:hover { border-color: #4d84b8; background: #f4faff; }
+.res-nchip.is-on {
+  color: #ffffff;
+  background: linear-gradient(180deg, #4d8ed3, #1b5a9e);
+  border-color: #124070;
+}
+.res-nchip[data-dex="all"] { min-width: 0; padding: 3px 9px; }
+.res-dex-count { margin: 6px 0 0; font-size: 12px; color: #7b8ea3; }
+.res-dex-dl { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+
+/* ---- 宝可梦卡片：行走图 + 脸图 在一张卡里 ---- */
+.res-pk-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.res-card.res-pk { gap: 5px; }
+.res-pk-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px dashed #b6d0e8;
+}
+.res-dex {
+  padding: 1px 5px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  color: #ffffff;
+  background: #1b5a9e;
+}
+.res-pk-name { font-weight: bold; font-size: 13px; color: #2d4a68; }
+.res-pk-body { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+
+.res-walk {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 110px;
+  border: 1px solid #d3e2f0;
+  /* 透明区域用棋盘格，一眼能看出哪些像素是透明的 */
+  background: repeating-conic-gradient(#eef4fa 0 25%, #e4edf7 0 50%) 0 0 / 16px 16px;
+}
+.res-walk-sheet {
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+/* resources.js 量完一格大小后加 .is-anim：改成 3×4 格背景，按 4 个方向 pingpong 播 */
+.res-walk.is-anim {
+  background-repeat: no-repeat;
+  background-size: 300% 400%;
+  image-rendering: pixelated;
+  animation: res-walk-cycle 4.2s step-end infinite;
+  animation-play-state: paused;
+}
+.res-walk.is-anim.is-live { animation-play-state: running; }
+.res-walk.is-anim .res-walk-sheet { display: none; }
+
+.res-walk.is-missing,
+.res-face.is-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 110px;
+  padding: 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8a9bb0;
+  text-align: center;
+  background: #f7fbff;
+  border: 1px dashed #c8d8e8;
+}
+.res-face.is-missing { height: auto; min-height: 44px; }
+
+.res-face-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 2px;
+  background: repeating-conic-gradient(#eef4fa 0 25%, #e4edf7 0 50%) 0 0 / 16px 16px;
+  border: 1px solid #d3e2f0;
+  cursor: zoom-in;
+}
+.res-face-btn:hover { border-color: #4d84b8; }
+.res-face-btn img { max-width: 100%; max-height: 64px; height: auto; image-rendering: pixelated; }
+
+/* 走路循环：0–25% 下、25–50% 左、50–75% 右、75–100% 上；
+   每个方向 3 帧 pingpong 两遍（0,1,2,1,0,1,2,1）。
+   step-end 让 background-position 一格一格跳，不插值。 */
+@keyframes res-walk-cycle {
+  0% { background-position: 0% 0%; }
+  3.125% { background-position: 50% 0%; }
+  6.25% { background-position: 100% 0%; }
+  9.375% { background-position: 50% 0%; }
+  12.5% { background-position: 0% 0%; }
+  15.625% { background-position: 50% 0%; }
+  18.75% { background-position: 100% 0%; }
+  21.875% { background-position: 50% 0%; }
+  25% { background-position: 0% 33.3333%; }
+  28.125% { background-position: 50% 33.3333%; }
+  31.25% { background-position: 100% 33.3333%; }
+  34.375% { background-position: 50% 33.3333%; }
+  37.5% { background-position: 0% 33.3333%; }
+  40.625% { background-position: 50% 33.3333%; }
+  43.75% { background-position: 100% 33.3333%; }
+  46.875% { background-position: 50% 33.3333%; }
+  50% { background-position: 0% 66.6667%; }
+  53.125% { background-position: 50% 66.6667%; }
+  56.25% { background-position: 100% 66.6667%; }
+  59.375% { background-position: 50% 66.6667%; }
+  62.5% { background-position: 0% 66.6667%; }
+  65.625% { background-position: 50% 66.6667%; }
+  68.75% { background-position: 100% 66.6667%; }
+  71.875% { background-position: 50% 66.6667%; }
+  75% { background-position: 0% 100%; }
+  78.125% { background-position: 50% 100%; }
+  81.25% { background-position: 100% 100%; }
+  84.375% { background-position: 50% 100%; }
+  87.5% { background-position: 0% 100%; }
+  90.625% { background-position: 50% 100%; }
+  93.75% { background-position: 100% 100%; }
+  96.875% { background-position: 50% 100%; }
+}
+/* 系统里关了动效的就别播（有些人对来回动的东西敏感） */
+@media (prefers-reduced-motion: reduce) {
+  .res-walk.is-anim { animation: none; }
+  .res-walk.is-anim .res-walk-sheet { display: block; }
+}
+
 @media (max-width: 560px) {
   .res-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .res-thumb { min-height: 110px; }
   .res-thumb img { max-height: 130px; }
+  .res-pk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .res-walk { height: 96px; }
+  .res-face-btn img { max-height: 52px; }
   .res-lb { padding: 10px; }
   .res-lb-box { max-height: 94vh; }
 }

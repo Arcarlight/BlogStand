@@ -1,7 +1,13 @@
 {{/* ============ 素材分发页 ============
      数据：data/resources.toml（加素材只改数据，不动这里）
-     素材本体：独立仓库 Nijiboshi-Giveout-Storage，经 jsDelivr 取；
-     维护说明见 .notes/素材分发.md。 */}}
+     素材本体：独立仓库 Nijiboshi-Giveout-Storage，经自己的 Cloudflare 反代取；
+     维护说明见 .notes/素材分发.md。
+
+     两类分类：
+       · sec = "pokemon" —— 宝可梦图鉴：一只一条，行走图 + 脸图并在一张卡片里，
+         按全国图鉴编号排；世代 / 编号的导航条由 resources.js 从卡片上生成。
+       · 其它 sec —— 一件素材一张卡片，走通用网格。
+     ============================================================ */}}
 {{- $d := site.Data.resources -}}
 {{- $m := index $d "meta" -}}
 {{- $secs := index $d "sections" -}}
@@ -11,6 +17,7 @@
 {{- $author := index $m "author" -}}
 {{- $license := index $m "license" -}}
 {{- $licenseUrl := index $m "licenseUrl" -}}
+{{- $zipAll := printf "%s/archive/refs/heads/main.zip" $repo -}}
 
 {{- $mirrors := index $m "mirrors" -}}
 <div class="res" data-cdn="{{ $cdn }}" data-mirrors="{{ delimit $mirrors "|" }}" data-repo="{{ $repo }}" data-author="{{ $author }}"
@@ -54,6 +61,75 @@
     <h2 class="res-sec-title">{{ .name }}</h2>
     {{ with .desc }}<p class="res-sec-desc">{{ . }}</p>{{ end }}
 
+    {{ if eq .id "pokemon" }}
+    {{/* ---------- 宝可梦图鉴 ---------- */}}
+    {{- $pk := sort $list "dex" -}}
+    <div class="res-dexnav">
+      <div class="res-gens" data-res-gens role="tablist" aria-label="按世代筛选"></div>
+      <div class="res-nums" data-res-nums role="group" aria-label="按图鉴编号筛选"></div>
+      <p class="res-dex-count" data-res-count></p>
+      <p class="res-dex-dl">
+        <a class="res-btn" href="{{ $zipAll }}" target="_blank" rel="noopener">去仓库下载全部素材（zip）</a>
+        <a class="res-btn res-btn-ghost" href="{{ $repo }}" target="_blank" rel="noopener">打开素材仓库</a>
+      </p>
+    </div>
+
+    {{ if $pk }}
+    <div class="res-grid res-pk-grid">
+      {{ range $pk }}
+      {{- $walk := .file | default "" -}}
+      {{- $face := .face | default "" -}}
+      {{- $fmt := "" -}}
+      {{- with $walk }}{{ $fmt = replace (upper (path.Ext .)) "." "" }}{{ end -}}
+      {{- $dex := .dex | default 0 -}}
+      <figure class="res-card res-pk" data-sec="pokemon" data-kind="image"
+              data-dex="{{ $dex }}" data-title="{{ .title }}" data-file="{{ $walk }}" data-face="{{ $face }}"
+              data-meta="{{ $fmt }}" data-note="{{ .note | default "" }}"
+              data-dl="{{ if $walk }}{{ $cdn }}{{ $walk }}{{ end }}">
+        <div class="res-pk-head">
+          <span class="res-dex">No.{{ printf "%03d" $dex }}</span>
+          <span class="res-pk-name">{{ .title }}</span>
+        </div>
+        <div class="res-pk-body">
+          {{ if $walk }}
+          {{/* 没开 JS 时这条 <img> 就是「整张行走图」的缩略图；
+               resources.js 加载完会量出一格的大小、换成背景并播走路动画。 */}}
+          <div class="res-walk" data-file="{{ $walk }}" data-walk="{{ $cdn }}{{ $walk }}">
+            <img class="res-walk-sheet" src="{{ $cdn }}{{ $walk }}" alt="{{ .title }} 行走图（3 列 × 4 行）"
+                 loading="lazy" decoding="async" data-res-img data-file="{{ $walk }}">
+          </div>
+          {{ else }}
+          <div class="res-walk is-missing"><span>行走图暂时还没有 T^T…</span></div>
+          {{ end }}
+
+          {{ if $face }}
+          <button type="button" class="res-face-btn" data-res-face
+                  data-file="{{ $face }}" data-title="{{ .title }} 脸图（点开看大图）" title="点开看脸图大图">
+            <img src="{{ $cdn }}{{ $face }}" alt="{{ .title }} 脸图" loading="lazy" decoding="async"
+                 data-res-img data-file="{{ $face }}">
+          </button>
+          {{ else }}
+          <div class="res-face is-missing"><span>脸图暂时还没有 T^T…</span></div>
+          {{ end }}
+        </div>
+        <figcaption>
+          <span class="res-meta" data-fmt="{{ $fmt }}" data-file="{{ $walk }}">{{ $fmt }}</span>
+          {{ with .note }}<span class="res-note">{{ . }}</span>{{ end }}
+          <span class="res-btns">
+            <button type="button" class="res-btn" data-res-zip>下载这只</button>
+            <button type="button" class="res-btn res-btn-ghost" data-res-open>看全图</button>
+          </span>
+        </figcaption>
+      </figure>
+      {{ end }}
+    </div>
+    <p class="res-empty res-pk-empty" data-res-pk-empty hidden>这一代暂时还没有素材。</p>
+    {{ else }}
+    <p class="res-empty">这一类还没放东西。</p>
+    {{ end }}
+
+    {{ else }}
+    {{/* ---------- 通用分类 ---------- */}}
     {{ if $list }}
     <div class="res-grid">
       {{ range $list }}
@@ -85,6 +161,7 @@
     </div>
     {{ else }}
     <p class="res-empty">这一类还没放东西。</p>
+    {{ end }}
     {{ end }}
 
     {{ with .zip }}

@@ -3217,18 +3217,37 @@ async function renderResources() {
   h += '<h2 class="sec">页面文案</h2><div id="resIntro"></div>';
   h += '<h2 class="sec">分类</h2><p class="hint">id 是 URL 锚点（#sprite 这种，别乱改）；name 是页面上的小标题；desc 是标题下面那行灰字。</p><div id="resSecs"></div>' +
        '<div style="margin-top:6px"><button id="btnResAddSec">+ 加一个分类</button></div>';
-  h += '<h2 class="sec">素材</h2><p class="hint">「上传素材」选了文件就会写进素材仓库并自动填好路径。' +
+  h += '<h2 class="sec">素材</h2><p class="hint">「上传素材」/「上传行走图」选了文件就会写进素材仓库并自动填好路径。' +
        '文件路径是<b>相对素材仓库根目录</b>的（如 <code>tbtak/sprite/xxx.png</code>）。</p>';
+  h += '<p class="hint">宝可梦表里<b>图鉴号</b>是页面排序和世代筛选的依据；<b>脸图</b>没有就留空，页面上会显示「暂时还没有」。' +
+       '每行右边的「↑」可以单独传一张图、自动填进那一行。</p>';
+  /* 表 A：宝可梦（行走图 + 脸图），一只一行，和表 B 共用同一个 items 数组 */
+  h += '<div style="font-weight:700;margin:12px 0 4px">宝可梦（点阵图 · 脸图）</div>';
+  h += '<table class="grid" id="resPkTable"><thead><tr>' +
+       '<th style="width:44px">预览</th><th style="width:60px">图鉴号</th><th style="width:14%">名字</th>' +
+       '<th style="width:25%">行走图</th><th style="width:25%">脸图</th>' +
+       '<th>说明</th><th style="width:34px"></th></tr></thead><tbody id="resPkTb"></tbody></table>';
+  h += '<div id="resPkEmpty" class="hint"></div>';
+  h += '<div style="margin-top:6px"><button id="btnResPkAdd">+ 手动加一只</button> ' +
+       '<button id="btnResPkUpload">上传行走图（新建）</button> ' +
+       '<button id="btnResPkSort">按图鉴号排序</button></div>';
+  h += '<input type="file" id="resPkFile" accept="image/*" multiple hidden>';
+  /* 行内「↑」共用的隐藏 input（不给每行各建一个） */
+  h += '<input type="file" id="resRowFile" accept="image/*" hidden>';
+  /* 表 B：其它素材（立绘 / UI / MIDI…），列和以前一样 */
+  h += '<div style="font-weight:700;margin:16px 0 4px">其它素材</div>';
   h += '<table class="grid" id="resTable"><thead><tr>' +
        '<th style="width:44px">预览</th><th style="width:20%">文件</th><th style="width:16%">标题</th>' +
        '<th style="width:110px">分类</th>' +
        '<th>说明</th><th style="width:34px"></th></tr></thead><tbody id="resTb"></tbody></table>';
   h += '<div id="resEmpty" class="hint"></div>';
   h += '<div style="margin-top:6px"><button id="btnResUpload">上传素材</button> ' +
-       '<button id="btnResPick">从本站已有的图里选</button> ' +
-       '<button id="btnResAdd">手动加一条</button> ' +
-       '<button class="primary" id="btnResSave">保存</button></div>';
+       '<select id="resUploadSec" title="上传到哪个分类" ' +
+       'style="font:inherit;font-size:12px;padding:3px 4px;border:1px solid var(--line);border-radius:3px"></select> ' +
+       '<button id="btnResAdd">+ 手动加一条</button></div>';
   h += '<input type="file" id="resFile" multiple hidden>';
+  h += '<div style="margin-top:16px"><button id="btnResPick">从本站已有的图里选</button> ' +
+       '<button class="primary" id="btnResSave">保存</button></div>';
   /* ⚠️ 这里用 display:none 控制显隐：早先写成 hidden + inline display:flex，
      inline 样式会把 hidden 的 display:none 压掉 —— 结果一进面板选择器就糊在屏幕上、关不掉。 */
   h += '<div id="resPick" style="position:fixed;inset:0;z-index:900;background:rgba(12,26,40,.55);' +
@@ -3354,6 +3373,7 @@ async function renderResources() {
       row.appendChild(del);
       b.appendChild(row);
     });
+    refreshUploadSec();
   };
   const collectSecs = () => {
     document.querySelectorAll('#resSecs input[data-sec]').forEach((el) => {
@@ -3361,38 +3381,151 @@ async function renderResources() {
     });
   };
 
-  const drawItems = () => {
-    collectSecs();
+  /* 其它素材用的分类辅助：pokemon 归宝可梦表，不能出现在「上传素材」的下拉里，
+     也不能再拿 sections[0] 兜底（sections[0] 现在就是 pokemon）。 */
+  const otherSections = () => sections.filter((s) => s.id !== 'pokemon');
+  const refreshUploadSec = () => {
+    const sel = $('#resUploadSec');
+    if (!sel) return;
+    const keep = sel.value;
+    sel.innerHTML = '';
+    otherSections().forEach((s) => {
+      const o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.name || s.id;
+      o.title = s.id;
+      sel.appendChild(o);
+    });
+    if (keep && otherSections().some((s) => s.id === keep)) sel.value = keep;
+  };
+  const collectUploadSec = () => {
+    const sel = $('#resUploadSec');
+    return (sel && sel.value) || (otherSections()[0] || {}).id || '';
+  };
+
+  const thumb = (src, max) => {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = '';
+    img.style.cssText = 'max-width:' + max + 'px;max-height:' + max + 'px;image-rendering:pixelated';
+    return img;
+  };
+  const mkInput = (i, f, ph, w, val, type) => {
+    const el = document.createElement('input');
+    if (type) el.type = type;
+    el.value = val == null ? '' : val;
+    el.placeholder = ph || '';
+    el.dataset.i = String(i);
+    el.dataset.f = f;
+    el.style.cssText = 'font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:3px;' + (w || 'width:100%');
+    return el;
+  };
+
+  /* 行内上传：一个隐藏 input 复用；点哪一行的「↑」就传哪一格。
+     target.sec 决定写进素材仓库哪个目录：行走图 pokemon → tbtak/sprite，脸图 face → tbtak/face。 */
+  let rowUploadTarget = null;
+  const rowFile = $('#resRowFile');
+  const mkUploadBtn = (i, f, uploadSec) => {
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.textContent = '↑';
+    up.title = '上传一张图，自动填进这一行';
+    up.style.cssText = 'padding:2px 6px;font-size:12px;line-height:1.2;flex:none';
+    up.addEventListener('click', () => {
+      collectItems();
+      rowUploadTarget = { i, f, sec: uploadSec };
+      rowFile.value = '';
+      rowFile.click();
+    });
+    return up;
+  };
+  /* 行走图 / 脸图那一格：文本框 + 「↑」；脸图有值就在旁边挂一张小缩略图 */
+  const mkFileCell = (i, f, ph, uploadSec) => {
+    const td = document.createElement('td');
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:4px;align-items:center';
+    wrap.appendChild(mkInput(i, f, ph, 'flex:1;min-width:0', items[i][f]));
+    wrap.appendChild(mkUploadBtn(i, f, uploadSec));
+    if (f === 'face' && items[i].face) {
+      const im = thumb(CDN + items[i].face, 48);
+      im.style.marginLeft = '2px';
+      im.style.flex = 'none';
+      wrap.appendChild(im);
+    }
+    td.appendChild(wrap);
+    return td;
+  };
+
+  /* 表 A：只有 sec === 'pokemon' 的行；dataset.i 始终是 items 里的真实下标 */
+  const drawPokemon = () => {
+    const tb = $('#resPkTb');
+    tb.innerHTML = '';
+    let n = 0;
+    items.forEach((it, i) => {
+      if (it.sec !== 'pokemon') return;
+      n += 1;
+      const tr = document.createElement('tr');
+      /* 预览：CDN + 行走图；没有就一个「—」 */
+      const td0 = document.createElement('td');
+      td0.style.textAlign = 'center';
+      if (it.file) td0.appendChild(thumb(CDN + it.file, 36));
+      else td0.innerHTML = '<span style="color:var(--dim)">—</span>';
+      tr.appendChild(td0);
+      /* 图鉴号（number） */
+      const tdDex = document.createElement('td');
+      tdDex.appendChild(mkInput(i, 'dex', '393', 'width:100%', it.dex, 'number'));
+      tr.appendChild(tdDex);
+      /* 名字 */
+      const tdTitle = document.createElement('td');
+      tdTitle.appendChild(mkInput(i, 'title', '皮卡丘', 'width:100%', it.title));
+      tr.appendChild(tdTitle);
+      /* 行走图 + ↑（上传到 pokemon 目录） */
+      tr.appendChild(mkFileCell(i, 'file', 'tbtak/sprite/xxx.png', 'pokemon'));
+      /* 脸图 + ↑（上传到 face 目录）+ 缩略图 */
+      tr.appendChild(mkFileCell(i, 'face', 'tbtak/face/xxx.png', 'face'));
+      /* 说明 */
+      const tdNote = document.createElement('td');
+      tdNote.appendChild(mkInput(i, 'note', '一句话说明（可空）', 'width:100%', it.note));
+      tr.appendChild(tdNote);
+      /* 删 */
+      const tdDel = document.createElement('td');
+      const del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = '×';
+      del.addEventListener('click', () => {
+        collectItems();
+        items.splice(i, 1);
+        drawItems();
+      });
+      tdDel.appendChild(del);
+      tr.appendChild(tdDel);
+      tb.appendChild(tr);
+    });
+    $('#resPkEmpty').textContent = n ? '' : '还没有宝可梦：点「+ 手动加一只」，或者「上传行走图（新建）」。';
+  };
+
+  /* 表 B：sec !== 'pokemon'，列和以前一样 */
+  const drawOthers = () => {
     const tb = $('#resTb');
     tb.innerHTML = '';
+    let n = 0;
     items.forEach((it, i) => {
+      if (it.sec === 'pokemon') return;
+      n += 1;
       const tr = document.createElement('tr');
       const td0 = document.createElement('td');
       td0.style.textAlign = 'center';
       if (it.kind === 'audio') {
         td0.innerHTML = '<span style="color:var(--dim)">♪</span>';
       } else if (it.file) {
-        const img = document.createElement('img');
-        img.src = CDN + it.file;
-        img.alt = '';
-        img.style.cssText = 'max-width:36px;max-height:36px;image-rendering:pixelated';
-        td0.appendChild(img);
+        td0.appendChild(thumb(CDN + it.file, 36));
       }
       tr.appendChild(td0);
-      const mkInput = (f, ph, w, val) => {
-        const el = document.createElement('input');
-        el.value = val == null ? '' : val;
-        el.placeholder = ph || '';
-        el.dataset.i = String(i);
-        el.dataset.f = f;
-        el.style.cssText = 'font:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:3px;' + (w || 'width:100%');
-        return el;
-      };
       const tdFile = document.createElement('td');
-      tdFile.appendChild(mkInput('file', 'tbtak/sprite/xxx.png', 'width:100%', it.file));
+      tdFile.appendChild(mkInput(i, 'file', 'tbtak/sprite/xxx.png', 'width:100%', it.file));
       tr.appendChild(tdFile);
       const tdTitle = document.createElement('td');
-      tdTitle.appendChild(mkInput('title', '标题', 'width:100%', it.title));
+      tdTitle.appendChild(mkInput(i, 'title', '标题', 'width:100%', it.title));
       tr.appendChild(tdTitle);
       const tdSec = document.createElement('td');
       const sel = document.createElement('select');
@@ -3409,7 +3542,7 @@ async function renderResources() {
       tdSec.appendChild(sel);
       tr.appendChild(tdSec);
       const tdNote = document.createElement('td');
-      tdNote.appendChild(mkInput('note', '一句话说明（可空）', 'width:100%', it.note));
+      tdNote.appendChild(mkInput(i, 'note', '一句话说明（可空）', 'width:100%', it.note));
       tr.appendChild(tdNote);
       const tdDel = document.createElement('td');
       const del = document.createElement('button');
@@ -3424,12 +3557,19 @@ async function renderResources() {
       tr.appendChild(tdDel);
       tb.appendChild(tr);
     });
-    $('#resEmpty').textContent = items.length ? '' : '还没有素材：点「上传素材」选文件，或者「手动加一条」。';
+    $('#resEmpty').textContent = n ? '' : '还没有其它素材：点「上传素材」选文件，或者「+ 手动加一条」。';
   };
+  const drawItems = () => {
+    collectSecs();
+    drawPokemon();
+    drawOthers();
+  };
+  /* 两张表都读：dataset.i 是 items 的真实下标；表里没有的行不会被碰 */
   const collectItems = () => {
-    document.querySelectorAll('#resTb [data-i]').forEach((el) => {
+    document.querySelectorAll('#resPkTb [data-i], #resTb [data-i]').forEach((el) => {
       const i = +el.dataset.i;
       const f = el.dataset.f;
+      if (!items[i]) return;
       items[i][f] = el.value;
     });
   };
@@ -3443,24 +3583,43 @@ async function renderResources() {
     sections.push({ id: '', name: '', desc: '', zip: '' });
     drawSecs();
   });
+  /* 其它素材：落在「上传素材」旁边下拉选中的分类（默认第一个非 pokemon 分类） */
   $('#btnResAdd').addEventListener('click', () => {
     collectItems();
-    const sec = (sections[0] || {}).id || '';
+    const sec = collectUploadSec();
+    if (!sec) { toast('先在下面加一个分类', 'err'); return; }
     items.unshift({ sec, title: '', file: '', note: '', kind: sec === 'midi' ? 'audio' : 'image' });
     drawItems();
+  });
+  /* 宝可梦表：手动加一只、按图鉴号重排 */
+  $('#btnResPkAdd').addEventListener('click', () => {
+    collectItems();
+    items.unshift({ sec: 'pokemon', dex: '', title: '', file: '', face: '', note: '' });
+    drawItems();
+  });
+  $('#btnResPkSort').addEventListener('click', () => {
+    collectItems();
+    const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : Infinity; };
+    const pk = items.filter((it) => it.sec === 'pokemon').sort((a, b) => num(a.dex) - num(b.dex));
+    const rest = items.filter((it) => it.sec !== 'pokemon');
+    items.length = 0;
+    items.push(...pk, ...rest);
+    drawItems();
+    toast('宝可梦已按图鉴号排序（记得点「保存」）', 'ok');
   });
 
   const fileInput = $('#resFile');
   $('#btnResUpload').addEventListener('click', () => {
     collectSecs();
-    if (!sections.length) { toast('先在下面加一个分类', 'err'); return; }
+    if (!collectUploadSec()) { toast('先在下面加一个分类', 'err'); return; }
     fileInput.click();
   });
   fileInput.addEventListener('change', async () => {
     const files = Array.from(fileInput.files || []);
     fileInput.value = '';
     if (!files.length) return;
-    const sec = (sections[0] || {}).id || 'sprite';
+    const sec = collectUploadSec();
+    if (!sec) { toast('「上传素材」旁边还没选分类', 'err'); return; }
     let done = 0;
     let failed = 0;
     for (const f of files) {
@@ -3496,6 +3655,80 @@ async function renderResources() {
     drawItems();
     redrawRepo();
     if (done) toast(`上传了 ${done} 个文件${failed ? `，${failed} 个失败` : ''}（记得点「保存」写进清单）`, 'ok');
+  });
+
+  /* 上传行走图（新建）：多选，一个文件一行新宝可梦，dex / title 留空等手填（上传档案进 tbtak/sprite） */
+  const pkFile = $('#resPkFile');
+  $('#btnResPkUpload').addEventListener('click', () => {
+    collectItems();
+    pkFile.value = '';
+    pkFile.click();
+  });
+  pkFile.addEventListener('change', async () => {
+    const files = Array.from(pkFile.files || []);
+    pkFile.value = '';
+    if (!files.length) return;
+    let done = 0;
+    let failed = 0;
+    for (const f of files) {
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = () => reject(r.error || new Error('读不了这个文件'));
+          r.readAsDataURL(f);
+        });
+        const r = await apiPost('/api/resources/upload', { sec: 'pokemon', name: f.name, data: dataUrl });
+        if (!r.ok) throw new Error(r.error || '上传失败');
+        items.unshift({ sec: 'pokemon', dex: '', title: '', file: r.file, face: '', note: '' });
+        done += 1;
+        if (!r.pushed) {
+          toast('文件写好并提交了，但推送失败：' + (r.pushError || '') + '（可以点上面「推送」重试）', 'err');
+        }
+      } catch (e) {
+        failed += 1;
+        toast('上传失败：' + (e.message || e), 'err');
+      }
+    }
+    try {
+      const rr = await apiGet('/api/resources');
+      if (rr && rr.repo) repo = rr.repo;
+    } catch (e) { /* 状态拿不到不影响已经传上去的文件 */ }
+    drawItems();
+    redrawRepo();
+    if (done) toast(`上传了 ${done} 个行走图${failed ? `，${failed} 个失败` : ''}（记得填图鉴号和名字，再点「保存」）`, 'ok');
+  });
+
+  /* 行内「↑」：一个隐藏 input 复用。读文件 → dataURL → 上传 → 把返回的 r.file 填进那一格、刷新预览。
+     行走图传 pokemon（tbtak/sprite），脸图传 face（tbtak/face）。 */
+  rowFile.addEventListener('change', async () => {
+    const target = rowUploadTarget;
+    rowUploadTarget = null;
+    const f = (rowFile.files || [])[0];
+    rowFile.value = '';
+    if (!target || !f || !items[target.i]) return;
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(r.error || new Error('读不了这个文件'));
+        r.readAsDataURL(f);
+      });
+      const r = await apiPost('/api/resources/upload', { sec: target.sec, name: f.name, data: dataUrl });
+      if (!r.ok) throw new Error(r.error || '上传失败');
+      items[target.i][target.f] = r.file;
+      if (!r.pushed) {
+        toast('文件写好并提交了，但推送失败：' + (r.pushError || '') + '（可以点上面「推送」重试）', 'err');
+      }
+      try {
+        const rr = await apiGet('/api/resources');
+        if (rr && rr.repo) repo = rr.repo;
+      } catch (e) { /* 状态拿不到不影响已经传上去的文件 */ }
+      drawItems();
+      redrawRepo();
+    } catch (e) {
+      toast('上传失败：' + (e.message || e), 'err');
+    }
   });
 
   /* ---------- 从本站已有的图里选（搬进素材仓库） ---------- */
@@ -3553,7 +3786,12 @@ async function renderResources() {
       }
     }
     pickSec.innerHTML = '';
-    sections.forEach((s) => {
+    /* 目标分类：点阵图行走图（sec = pokemon）固定在最前，其余分类照列 */
+    const opk = document.createElement('option');
+    opk.value = 'pokemon';
+    opk.textContent = '导入到：点阵图行走图';
+    pickSec.appendChild(opk);
+    sections.filter((s) => s.id !== 'pokemon').forEach((s) => {
       const o = document.createElement('option');
       o.value = s.id;
       o.textContent = '导入到：' + (s.name || s.id);
@@ -3572,7 +3810,7 @@ async function renderResources() {
     if (e.key === 'Escape' && pick && pick.style.display !== 'none') closePick();
   });
   pickOk.addEventListener('click', async () => {
-    const sec = pickSec.value || (sections[0] || {}).id;
+    const sec = pickSec.value;
     if (!sec) { toast('先加一个分类', 'err'); return; }
     pickOk.disabled = true;
     pickOk.textContent = '导入中…';
@@ -3580,13 +3818,18 @@ async function renderResources() {
       const r = await apiPost('/api/resources/import', { sec, files: Array.from(picked) });
       if (!r.ok) throw new Error(r.error || '导入失败');
       (r.imported || []).forEach((f) => {
-        items.unshift({
-          sec,
-          title: f.file.split('/').pop().replace(/\.[^.]+$/, ''),
-          file: f.file,
-          note: '',
-          kind: sec === 'midi' ? 'audio' : 'image',
-        });
+        if (sec === 'pokemon') {
+          /* 导进宝可梦表：file 填好，图鉴号和名字留给人填 */
+          items.unshift({ sec: 'pokemon', dex: '', title: '', file: f.file, face: '', note: '' });
+        } else {
+          items.unshift({
+            sec,
+            title: f.file.split('/').pop().replace(/\.[^.]+$/, ''),
+            file: f.file,
+            note: '',
+            kind: sec === 'midi' ? 'audio' : 'image',
+          });
+        }
       });
       drawItems();
       pick.style.display = 'none';

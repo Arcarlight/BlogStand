@@ -12,7 +12,19 @@
 #    note  一句话说明（选填）
 #    kind  image（默认）/ audio（音频没有预览图，卡片上显示 ♪）
 #
+#  宝可梦（sec = "pokemon"）多两个字段，一只一条，行走图和脸图并在一张卡片里：
+#    dex   全国图鉴编号（数字；页面据此排序、按世代筛选）
+#    face  脸图相对路径（选填，没有就显示「暂时还没有」）
+#  页面上的行走动画和筛选都由 JS 从这些字段推出来，不用手填别的。
+#
+#  宝可梦条目按全国图鉴编号升序写（编辑器有「按图鉴号排序」按钮）。
+#  走图是 RPG Maker 格式原图（3 列 × 4 行 = 下 / 左 / 右 / 上，每行 3 帧），
+#  全是游戏工程里的原文件（$Walk<名字>.png），没有重新编码。
+#  脸图是从精灵表里拆出来的表情条（一格 96×96），一只一条。
+#
 #  ⚠️ 覆盖同名文件 jsDelivr 可能还缓存旧的；新版本最好换文件名，见笔记。
+#  ⚠️ 编辑器保存时会重排本文件，**只保留 [meta] 以上的这些注释**；
+#     想留话给以后的自己，写在上面，别写在条目中间。
 # ============================================================
 
 [meta]
@@ -45,15 +57,9 @@ footNote    = "缺什么 / 文件坏了，可以在页面底下的留言板说�
 # ---- 分类 ----
 # zip：填了就在分类末尾出一个「整包下载」按钮（指向素材仓库的 Release）
 [[sections]]
-id   = "sprite"
-name = "点阵图"
-desc = "角色行走图、战斗图。整张就是精灵表，按固定格切；页面里放大会保持像素锐利。"
-zip  = ""
-
-[[sections]]
-id   = "face"
-name = "脸图"
-desc = "半身像表情表，一格 96×96。从网页精灵表按选用到的表情拆出来的（原表情表里没用到的格子没有）。"
+id   = "pokemon"
+name = "点阵图 · 脸图"
+desc = "按全国图鉴编号排：先挑世代，再点编号，就只剩那一只。行走图是 RPG Maker 原图（3 列 × 4 行 = 下 / 左 / 右 / 上），卡片上的小动画是四个方向的走路循环，点开才是完整大图；行走图和脸图能一起打包下载。"
 zip  = ""
 
 [[sections]]
@@ -74,135 +80,128 @@ name = "MIDI"
 desc = "BGM 骨架，可以直接在 DAW 里换音源。"
 zip  = ""
 
-# ---- 素材 ----
-# 走图：RPG Maker 格式原图（3 列 × 4 行 = 下 / 左 / 右 / 上，每行 3 帧）。
-# 全是游戏工程里的原文件（$Walk<名字>.png），没有重新编码。
-
 [[items]]
-sec   = "sprite"
-title = "庞特斯 · 行走图"
-file  = "tbtak/sprite/walk-pontus.png"
-note  = "波加曼。原图 $WalkPontus.png"
-
-[[items]]
-sec   = "sprite"
-title = "德蕊艾德 · 行走图"
-file  = "tbtak/sprite/walk-dryad.png"
-note  = "木木枭。原图 $WalkDryad.png"
-
-[[items]]
-sec   = "sprite"
-title = "以格尼斯 · 行走图"
-file  = "tbtak/sprite/walk-ignis.png"
-note  = "火稚鸡。原图 $WalkIgnis.png"
-
-[[items]]
-sec   = "sprite"
-title = "桃桃加 · 行走图"
-file  = "tbtak/sprite/walk-emolga.png"
-note  = "电飞鼠。原图 $WalkEmolga.png"
-
-[[items]]
-sec   = "sprite"
-title = "大颚蚁 · 行走图"
-file  = "tbtak/sprite/walk-trapinch.png"
-note  = "原图 $WalkTrapinch.png"
-
-[[items]]
-sec   = "sprite"
-title = "蛇纹熊 · 行走图"
-file  = "tbtak/sprite/walk-zigzagoon.png"
-note  = "原图 $WalkZigzagoon.png"
-
-[[items]]
-sec   = "sprite"
-title = "差不多娃娃 · 行走图"
-file  = "tbtak/sprite/walk-audino.png"
-note  = "原图 $WalkAudino.png"
-
-[[items]]
-sec   = "sprite"
-title = "露力丽 · 行走图"
-file  = "tbtak/sprite/walk-azurill.png"
-note  = "原图 $WalkAzurill.png（32×45 一格）"
-
-[[items]]
-sec   = "sprite"
-title = "小箭雀 · 行走图"
-file  = "tbtak/sprite/walk-fletchling.png"
-note  = "原图 $WalkFletchling.png"
-
-[[items]]
-sec   = "sprite"
-title = "毽子草 · 行走图"
-file  = "tbtak/sprite/walk-hoppip.png"
-note  = "原图 $WalkHoppip.png"
-
-[[items]]
-sec   = "sprite"
-title = "豆豆鸽 · 行走图"
-file  = "tbtak/sprite/walk-pidove.png"
-note  = "原图 $WalkPidove.png"
-
-[[items]]
-sec   = "sprite"
-title = "变隐龙 · 行走图"
-file  = "tbtak/sprite/walk-kecleon.png"
-note  = "原图 $WalkKecleon.png"
-
-[[items]]
-sec   = "sprite"
-title = "皮卡丘 · 行走图"
+sec   = "pokemon"
+dex   = 25
+title = "皮卡丘"
 file  = "tbtak/sprite/walk-pikachu.png"
 note  = "原图 $WalkPikachu.png"
 
 [[items]]
-sec   = "sprite"
-title = "饭匙蛇（Tender） · 行走图"
-file  = "tbtak/sprite/walk-seviper-tender.png"
-note  = "原图 $WalkSeviper_Tender.png"
+sec   = "pokemon"
+dex   = 187
+title = "毽子草"
+file  = "tbtak/sprite/walk-hoppip.png"
+note  = "原图 $WalkHoppip.png"
 
 [[items]]
-sec   = "sprite"
-title = "向尾喵 · 行走图"
+sec   = "pokemon"
+dex   = 255
+title = "火稚鸡"
+file  = "tbtak/sprite/walk-ignis.png"
+face  = "tbtak/face/ignis-faces.png"
+note  = "以格尼斯的火稚鸡，脸图 4 个表情。原图 $WalkIgnis.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 263
+title = "蛇纹熊"
+file  = "tbtak/sprite/walk-zigzagoon.png"
+note  = "原图 $WalkZigzagoon.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 298
+title = "露力丽"
+file  = "tbtak/sprite/walk-azurill.png"
+note  = "原图 $WalkAzurill.png（一格 32×45，不是正方形）"
+
+[[items]]
+sec   = "pokemon"
+dex   = 300
+title = "向尾喵"
 file  = "tbtak/sprite/walk-skitty.png"
 note  = "原图 $WalkSkitty.png"
 
 [[items]]
-sec   = "sprite"
-title = "姆克儿 · 行走图"
-file  = "tbtak/sprite/walk-starly.png"
-note  = "原图 $WalkStarly.png"
-
-[[items]]
-sec   = "sprite"
-title = "吞食兽 · 行走图"
+sec   = "pokemon"
+dex   = 317
+title = "吞食兽"
 file  = "tbtak/sprite/walk-swalot.png"
 note  = "原图 $WalkSwalot.png"
 
 [[items]]
-sec   = "face"
-title = "庞特斯 · 脸图"
-file  = "tbtak/face/pontus-faces.png"
-note  = "波加曼，4 个表情（同上，拆出来的）"
+sec   = "pokemon"
+dex   = 328
+title = "大颚蚁"
+file  = "tbtak/sprite/walk-trapinch.png"
+note  = "原图 $WalkTrapinch.png"
 
 [[items]]
-sec   = "face"
-title = "德蕊艾德 · 脸图"
-file  = "tbtak/face/dryad-faces.png"
-note  = "木木枭，4 个表情（同上）"
+sec   = "pokemon"
+dex   = 336
+title = "饭匙蛇"
+file  = "tbtak/sprite/walk-seviper-tender.png"
+note  = "Tender 这一版。原图 $WalkSeviper_Tender.png"
 
 [[items]]
-sec   = "face"
-title = "以格尼斯 · 脸图"
-file  = "tbtak/face/ignis-faces.png"
-note  = "火稚鸡，4 个表情（同上）"
+sec   = "pokemon"
+dex   = 352
+title = "变隐龙"
+file  = "tbtak/sprite/walk-kecleon.png"
+note  = "原图 $WalkKecleon.png"
 
 [[items]]
-sec   = "face"
-title = "桃桃加 · 脸图"
-file  = "tbtak/face/momoka-faces.png"
-note  = "电飞鼠，3 个表情（同上）"
+sec   = "pokemon"
+dex   = 393
+title = "波加曼"
+file  = "tbtak/sprite/walk-pontus.png"
+face  = "tbtak/face/pontus-faces.png"
+note  = "庞特斯的波加曼，脸图 4 个表情。原图 $WalkPontus.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 396
+title = "姆克儿"
+file  = "tbtak/sprite/walk-starly.png"
+note  = "原图 $WalkStarly.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 519
+title = "豆豆鸽"
+file  = "tbtak/sprite/walk-pidove.png"
+note  = "原图 $WalkPidove.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 531
+title = "差不多娃娃"
+file  = "tbtak/sprite/walk-audino.png"
+note  = "原图 $WalkAudino.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 587
+title = "电飞鼠"
+file  = "tbtak/sprite/walk-emolga.png"
+face  = "tbtak/face/momoka-faces.png"
+note  = "桃桃加的电飞鼠，脸图 3 个表情。原图 $WalkEmolga.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 661
+title = "小箭雀"
+file  = "tbtak/sprite/walk-fletchling.png"
+note  = "原图 $WalkFletchling.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 722
+title = "木木枭"
+file  = "tbtak/sprite/walk-dryad.png"
+face  = "tbtak/face/dryad-faces.png"
+note  = "德蕊艾德的木木枭，脸图 4 个表情。原图 $WalkDryad.png"
 
 [[items]]
 sec   = "ui"
@@ -228,4 +227,3 @@ title = "Lowlayer · moutain"
 file  = "audio/midi/Lowlayer_moutain.mid"
 kind  = "audio"
 note  = "BGM 骨架"
-

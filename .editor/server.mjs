@@ -3827,6 +3827,7 @@ const GIVEOUT_URL = 'https://github.com/Arcarlight/Nijiboshi-Giveout-Storage.git
 const GIVEOUT_DEFAULT_DIR = path.resolve(ROOT, '..', 'Nijiboshi-Giveout-Storage');
 /* 分类 → 素材仓库里的子目录。加分类要同步这里（否则上传会拒绝）。 */
 const GIVEOUT_DIRS = {
+  pokemon: 'tbtak/sprite',
   sprite: 'tbtak/sprite',
   portrait: 'tbtak/portrait',
   ui: 'tbtak/ui',
@@ -3950,8 +3951,13 @@ function buildResourcesText(data, header) {
   for (const it of (data.items || [])) {
     out.push('[[items]]');
     out.push('sec   = ' + tomlString(it.sec || ''));
+    /* dex 只给宝可梦用：写数字（不是字符串）；空值 / 不是数字就不写这一行 */
+    if (it.dex !== undefined && it.dex !== null && it.dex !== '' && Number.isFinite(Number(it.dex))) {
+      out.push('dex   = ' + Number(it.dex));
+    }
     out.push('title = ' + tomlString(it.title || ''));
     out.push('file  = ' + tomlString(it.file || ''));
+    if (it.face) out.push('face  = ' + tomlString(it.face));
     if (it.w) out.push('w     = ' + Number(it.w));
     if (it.h) out.push('h     = ' + Number(it.h));
     if (it.kb) out.push('kb    = ' + Number(it.kb));
