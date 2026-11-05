@@ -2638,6 +2638,8 @@ html.pxfont .entry-content .sp-ruby rt {
    数据在 data/resources.toml；交互在 static/js/resources.js。
    ============================================================ */
 .res { margin: 16px 0 8px; }
+.res-intro { margin: 0 0 12px; line-height: 1.8; }
+.res-intro p { margin: 0 0 6px; }
 
 /* ---- 授权说明 ---- */
 .res-license {

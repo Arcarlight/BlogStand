@@ -16,9 +16,23 @@
 <div class="res" data-cdn="{{ $cdn }}" data-mirrors="{{ delimit $mirrors "|" }}" data-repo="{{ $repo }}" data-author="{{ $author }}"
      data-license="{{ $license }}" data-license-url="{{ $licenseUrl }}">
 
+  {{- $intro := index $d "intro" | default dict -}}
+  {{- $lead := index $intro "lead" | default "" -}}
+  {{- $lead2 := index $intro "lead2" | default "" -}}
+  {{- $lead3 := index $intro "lead3" | default "" -}}
+  {{- $creditHint := index $intro "creditHint" | default "偷懒的话，把这张条子贴进你的致谢里就行（点一下就复制）：" -}}
+  {{- $licenseLine := index $intro "licenseLine" | default "全部素材以 {license} 授权：可以商用、可以修改、可以再分发，唯一的要求是署名。" -}}
+  {{- $footNote := index $intro "footNote" | default "" -}}
+
+  <div class="res-intro">
+    {{ with $lead }}<p>{{ . }}</p>{{ end }}
+    {{ with $lead2 }}<p>{{ . }}</p>{{ end }}
+    {{ with $lead3 }}<p>{{ . }}</p>{{ end }}
+  </div>
+
   <div class="res-license">
-    <p><b>全部素材以 {{ $license }} 授权</b>：可以商用、可以修改、可以再分发，唯一的要求是<b>署名</b>。</p>
-    <p class="res-license-sub">偷懒的话，把这张条子贴进你的致谢里就行（点一下就复制）：</p>
+    <p><b>{{ replace $licenseLine "{license}" $license }}</b></p>
+    <p class="res-license-sub">{{ $creditHint }}</p>
     <button type="button" class="res-credit" data-res-credit>素材：&lt;文件名&gt; — {{ $author }}　来源：素材仓库　许可：{{ $license }}</button>
     <p class="res-license-links">
       许可全文：<a href="{{ $licenseUrl }}" target="_blank" rel="noopener">{{ $license }}</a>
@@ -81,8 +95,7 @@
   </section>
   {{ end }}
 
-  <p class="res-foot">素材仓库：<a href="{{ $repo }}" target="_blank" rel="noopener">{{ $repo }}</a>
-    · 缺什么 / 文件坏了，可以在页面底下的留言板说一声。</p>
+  <p class="res-foot">素材仓库：<a href="{{ $repo }}" target="_blank" rel="noopener">{{ $repo }}</a>{{ with $footNote }} · {{ . }}{{ end }}</p>
 </div>
 
 {{/* 灯箱：点卡片打开，内容由 resources.js 填 */}}
