@@ -28,12 +28,7 @@
 # ============================================================
 
 [meta]
-# 主通道：自己的 Cloudflare Worker 反代（board-api/functions/cdn/[[path]].js）
-#  浏览器 → Cloudflare 边缘 → raw.githubusercontent，访客永远能看到。
-#  为什么不用 jsDelivr 当主力：这个仓库的文件它经常 301 回 raw.githubusercontent，
-#  国内打不开；实测一会儿 200 一会儿 301，不可靠。
 cdn        = "https://nijiboshi-board.pages.dev/cdn/"
-# 备用镜像：主通道挂了按顺序换（jsDelivr 两个节点 + 一个 GitHub 代理）
 mirrors    = [
   "https://fastly.jsdelivr.net/gh/Arcarlight/Nijiboshi-Giveout-Storage@main/",
   "https://gcore.jsdelivr.net/gh/Arcarlight/Nijiboshi-Giveout-Storage@main/",
@@ -45,40 +40,32 @@ license    = "CC BY 4.0"
 licenseUrl = "https://creativecommons.org/licenses/by/4.0/"
 author     = "虹星（Nijiboshi）"
 
-# ---- 页面文案（编辑器「素材分发」面板可直接改） ----
 [intro]
-lead        = "这里是《想要飞的始祖小鸟》里可以公开拿走的素材：点阵图、敌人立绘、MIDI、UI 碎片。做游戏、做视频、做网站都行，不用提前问我——唯一的条件是署名。"
-lead2       = "素材本体放在单独的仓库里（不占这个博客的体积），图片经自己搭的一层 CDN 反代取自那边（jsDelivr 作备用）；下面对每件素材都标了尺寸和大小，点开能看大图，也能一键复制署名格式。"
-lead3       = ""
-creditHint  = "偷懒的话，把这张条子贴进你的致谢里就行（点一下就复制）："
-licenseLine = "全部素材以 {license} 授权：可以商用、可以修改、可以再分发，唯一的要求是署名。"
-footNote    = "缺什么 / 文件坏了，可以在页面底下的留言板说一声。"
+lead = "这里是《想要飞的始祖小鸟》公用素材站！在这里公布的素材，只需要著名就可以抱走拿去使用哦！"
+lead2 = "素材统一在别的仓库里存放，如果有需要可以直接从↓的按钮下载到..."
+creditHint = "不想自己写著名可以点这个复制↓"
+licenseLine = "全部素材以 {license} 授权：可以商用、可以修改、可以再分发，仅需要著名。"
+footNote = "如果有什么素材缺失或是想要，可以在下面的留言板留言！！"
 
-# ---- 分类 ----
-# zip：填了就在分类末尾出一个「整包下载」按钮（指向素材仓库的 Release）
 [[sections]]
 id   = "pokemon"
 name = "点阵图 · 脸图"
-desc = "按全国图鉴编号排：先挑世代，再点编号，就只剩那一只。行走图是 RPG Maker 原图（3 列 × 4 行 = 下 / 左 / 右 / 上），卡片上的小动画是四个方向的走路循环，点开才是完整大图；行走图和脸图能一起打包下载。"
-zip  = ""
+desc = "点开查看原图～"
 
 [[sections]]
 id   = "portrait"
 name = "立绘"
-desc = "敌人和角色的小型立绘，约 500×500，可以直接缩放使用。"
-zip  = ""
+desc = "敌人和角色的小型立绘！"
 
 [[sections]]
 id   = "ui"
 name = "UI 素材"
-desc = "图标集、窗框、按钮底图之类的碎件。"
-zip  = ""
+desc = "图标集、窗口皮肤、按钮底图之类的小东西。"
 
 [[sections]]
 id   = "midi"
 name = "MIDI"
-desc = "BGM 骨架，可以直接在 DAW 里换音源。"
-zip  = ""
+desc = "可以直接在rm vxace之类的地方使用。"
 
 [[items]]
 sec   = "pokemon"
@@ -100,7 +87,7 @@ dex   = 255
 title = "火稚鸡"
 file  = "tbtak/sprite/walk-ignis.png"
 face  = "tbtak/face/ignis-faces.png"
-note  = "以格尼斯的火稚鸡，脸图 4 个表情。原图 $WalkIgnis.png"
+note  = "火稚鸡，脸图 4 个表情。原图 $WalkIgnis.png"
 
 [[items]]
 sec   = "pokemon"
@@ -157,7 +144,7 @@ dex   = 393
 title = "波加曼"
 file  = "tbtak/sprite/walk-pontus.png"
 face  = "tbtak/face/pontus-faces.png"
-note  = "庞特斯的波加曼，脸图 4 个表情。原图 $WalkPontus.png"
+note  = "波加曼，脸图 4 个表情。原图 $WalkPontus.png"
 
 [[items]]
 sec   = "pokemon"
@@ -186,7 +173,7 @@ dex   = 587
 title = "电飞鼠"
 file  = "tbtak/sprite/walk-emolga.png"
 face  = "tbtak/face/momoka-faces.png"
-note  = "桃桃加的电飞鼠，脸图 3 个表情。原图 $WalkEmolga.png"
+note  = "电飞鼠，脸图 3 个表情。原图 $WalkEmolga.png"
 
 [[items]]
 sec   = "pokemon"
@@ -201,7 +188,7 @@ dex   = 722
 title = "木木枭"
 file  = "tbtak/sprite/walk-dryad.png"
 face  = "tbtak/face/dryad-faces.png"
-note  = "德蕊艾德的木木枭，脸图 4 个表情。原图 $WalkDryad.png"
+note  = "木木枭，脸图 4 个表情。原图 $WalkDryad.png"
 
 [[items]]
 sec   = "ui"
@@ -223,7 +210,7 @@ note  = "界面图标一整张"
 
 [[items]]
 sec   = "midi"
-title = "Lowlayer · moutain"
+title = "山地"
 file  = "audio/midi/Lowlayer_moutain.mid"
 kind  = "audio"
 note  = "BGM 骨架"

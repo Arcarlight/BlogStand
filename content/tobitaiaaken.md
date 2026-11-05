@@ -7,6 +7,7 @@ description: "[ STORY ] [ CHARACTERS ] [ DEVELOPING DIARY ] [ RESOURCE GIVEOUT ]
 # 页面底部的「放养区」（留言板上面那一格）：符利根他们会在里面走动、点一下可以摸。
 # 名单和素材见 data/tbtak-pool.toml 与 tools/build-tbtak.py；不想要就删掉这一行。
 tbtakPasture: true
+lastmod: 2026-11-05
 ---
 
 <div class="tbtak">
@@ -113,6 +114,8 @@ background-size: 350px auto;">
 <hr>
 <p><p>
 <center><h1 id="RESOUR">RESOURCES GIVEOUT</H1></center>
-<center><br>tbtak使用的所有图像素材，都是公开可以直接免费使用在其他地方的！包括但不限于自制游戏、网站、视频等等区域。而且，使用不需要提前询问许可，只要标注出来就可以哦！
-<br>素材已经整理到<a href="/resources/">素材分发页</a>了——点阵图、立绘、MIDI、UI 都在那边，全部 <b>CC BY 4.0</b>，署名即可使用（商用也行）。</center>
+<center><br>tbtak使用的所有图像素材，都是公开可以直接免费使用在其他地方的！
+包括但不限于自制游戏、网站、视频等等区域。而且，使用不需要提前询问许可，只要标注出来就可以哦！
+<br>
+<br>目前素材都公布在<a href="/resources/">素材分发页</a>里啦！只要遵循 <b>CC BY 4.0</b> 协议，署名好了就可以使用哦！！</center>
 </div>
