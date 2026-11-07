@@ -410,3 +410,10 @@
   cat = "pkmn"
   date = "2026-11-03"
   desc = "第一次画藤藤蛇的作品，取名的时候才想起来之前重名了..."
+
+[[items]]
+  title = "入冬雨"
+  file = "Its_raining.png"
+  cat = "pkmn"
+  date = "2026-11-07"
+  desc = "入冬前连绵不断的雨，黏美龙应该会很开心吧？"
