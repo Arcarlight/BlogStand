@@ -4280,12 +4280,27 @@ async function renderGallery() {
    站上 static/images/ 里已经有 100 多张图了（日记、首页、迁移过来的），
    正文里想用它们的时候，以前只能手打路径。这里给个带缩略图的挑选器。 */
 async function pickExistingImages(opts) {
-  const d = await apiGet('/api/gallery/images');
-  const all = d.items || [];
+  /* 这个面板画在 #panel 里，而 #panel 只有 body 带 .panel 时才显示。
+     从「插图」（正在编辑正文，没有 .panel）调过来时，以前只往隐藏的 #panel 里写
+     HTML —— 点了「站上已有的图」什么都不会冒出来。这里先切到面板模式，
+     插完再切回编辑区。 */
+  const wasEditor = !document.body.classList.contains('panel');
+  if (wasEditor) document.body.classList.add('panel');
+
+  let all = [];
+  try {
+    const d = await apiGet('/api/gallery/images');
+    all = d.items || [];
+  } catch (e) {
+    if (wasEditor) document.body.classList.remove('panel');
+    toast('读不到站上的图片列表：' + (e.message || e), 'err');
+    return;
+  }
 
   let h = '<h2 class="sec">选站上已有的图片</h2>';
   h += '<p class="hint">来自 <code>static/images/</code>，共 ' + all.length + ' 张。' +
        '点一张选中，点「插入」就把它加进去 —— 不会复制文件，只是引用。' +
+       (wasEditor ? '插入后会回到编辑区。' : '') +
        (opts && opts.imported && opts.imported.length
          ? '带 <b>已导入</b> 标记的是画廊里已经有的。'
          : '') + '</p>';
@@ -4296,9 +4311,11 @@ async function pickExistingImages(opts) {
   h += '<div id="galPickGrid" class="galpick"></div>';
   showPanel(h);
 
-  if (opts && opts.back) {
+  const backToEditor = () => { document.body.classList.remove('panel'); };
+  const back = (opts && opts.back) || (wasEditor ? backToEditor : null);
+  if (back) {
     $('#galPickBack').hidden = false;
-    $('#galPickBack').addEventListener('click', opts.back);
+    $('#galPickBack').addEventListener('click', back);
   } else {
     $('#galPickBack').hidden = true;
   }
@@ -4370,6 +4387,7 @@ async function pickExistingImages(opts) {
       out += makePicture('/images/' + f, wp, stem, w) + '\n';
     });
     insertText(out);
+    if (wasEditor) backToEditor();   // 插完回编辑区，不然看不到插进去的图
     toast('已插入 ' + files.length + ' 个图' +
       (files.some((f) => wpOf.get(f)) ? '（其中几张带 webp，已写成 <picture>）' : ''), 'ok');
   });
