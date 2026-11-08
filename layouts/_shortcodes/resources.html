@@ -120,12 +120,20 @@
           <div class="res-walk is-missing"><span>行走图暂时还没有 T^T…</span></div>
           {{ end }}
 
-          {{ if $face }}
-          <button type="button" class="res-face-btn" data-res-face
-                  data-file="{{ $face }}" data-title="{{ .title }} 脸图（点开看大图）" title="点开看脸图大图">
-            <img src="{{ $cdn }}{{ $face }}" alt="{{ .title }} 脸图" loading="lazy" decoding="async"
-                 data-res-img data-file="{{ $face }}">
-          </button>
+          {{/* 一只可能有多张脸图（RPG Maker 的脸图固定 4 列 × 2 行 = 8 格，
+               表情多了就再开一张表），data-face 里用英文逗号分隔，这里一张一个按钮。 */}}
+          {{- $faces := slice -}}
+          {{- with $face }}{{ $faces = split . "," }}{{ end -}}
+          {{ if $faces }}
+          <div class="res-faces">
+            {{ range $faces }}
+            <button type="button" class="res-face-btn" data-res-face
+                    data-file="{{ . }}" data-title="{{ $pkTitle }} 脸图（点开看大图）" title="点开看脸图大图">
+              <img src="{{ $cdn }}{{ . }}" alt="{{ $pkTitle }} 脸图" loading="lazy" decoding="async"
+                   data-res-img data-file="{{ . }}">
+            </button>
+            {{ end }}
+          </div>
           {{ else }}
           <p class="res-miss-line">脸图暂时还没有 T^T…</p>
           {{ end }}

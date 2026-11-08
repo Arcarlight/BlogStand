@@ -2992,6 +2992,9 @@ body.res-lb-open { overflow: hidden; }
 }
 .res-face-btn:hover { border-color: #4d84b8; }
 .res-face-btn img { max-width: 100%; max-height: 64px; height: auto; image-rendering: pixelated; }
+/* 一只有多张脸图时并排摆（每张都是 4×2 的表情表） */
+.res-faces { display: flex; gap: 4px; }
+.res-faces .res-face-btn { flex: 1 1 0; min-width: 0; }
 
 /* 走路循环：0–25% 下、25–50% 左、50–75% 右、75–100% 上；
    每个方向 3 帧 pingpong 两遍（0,1,2,1,0,1,2,1）。

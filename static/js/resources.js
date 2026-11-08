@@ -468,7 +468,7 @@
     var main = cardMain(card);
     if (card.classList.contains('res-pk')) {
       addSize(main);
-      addSize(card.getAttribute('data-face') || '');
+      splitArt(card.getAttribute('data-face')).forEach(addSize);
       splitArt(card.getAttribute('data-art')).forEach(addSize);
     } else {
       addSize(card.getAttribute('data-file') || '');
@@ -613,7 +613,8 @@
 
   /* 一只宝可梦的全部文件：行走图 + 脸图 + 所有立绘 */
   function pokemonFiles(card) {
-    return [card.getAttribute('data-file') || '', card.getAttribute('data-face') || '']
+    return [card.getAttribute('data-file') || '']
+      .concat(splitArt(card.getAttribute('data-face')))
       .concat(splitArt(card.getAttribute('data-art')))
       .filter(Boolean);
   }
@@ -785,9 +786,11 @@
   function detailAssets(card) {
     var list = [];
     var walk = card.getAttribute('data-file') || '';
-    var face = card.getAttribute('data-face') || '';
+    var faces = splitArt(card.getAttribute('data-face'));
     if (walk) list.push({ file: walk, label: '行走图', kind: 'walk' });
-    if (face) list.push({ file: face, label: '脸图', kind: 'face' });
+    faces.forEach(function (f, i) {
+      list.push({ file: f, label: faces.length > 1 ? '脸图 ' + (i + 1) : '脸图', kind: 'face' });
+    });
     splitArt(card.getAttribute('data-art')).forEach(function (f, i) {
       list.push({ file: f, label: splitArt(card.getAttribute('data-art')).length > 1 ? '立绘 ' + (i + 1) : '立绘', kind: 'art' });
     });
@@ -955,12 +958,13 @@
       var fCard = faceBtn.closest('.res-pk');
       var face = faceBtn.getAttribute('data-file') || '';
       var fImg = faceBtn.querySelector('img');
-      var n = fImg && fImg.naturalWidth ? Math.round(fImg.naturalWidth / 96) : 0;
+      var fw = fImg && fImg.naturalWidth ? Math.round(fImg.naturalWidth / 96) : 0;
+      var fh = fImg && fImg.naturalHeight ? Math.round(fImg.naturalHeight / 96) : 0;
       openLb({
         file: face,
         title: faceBtn.getAttribute('data-title') || (fCard ? fCard.getAttribute('data-title') + ' 脸图' : '脸图'),
         meta: (fImg && fImg.naturalWidth ? fImg.naturalWidth + '×' + fImg.naturalHeight : '') +
-          (n > 1 ? ' · ' + n + ' 个表情' : ''),
+          (fw > 1 || fh > 1 ? ' · ' + fw + '×' + fh + ' 表情表' : ''),
         note: fCard ? (fCard.getAttribute('data-note') || '') : '',
         dl: CDN + face,
       });

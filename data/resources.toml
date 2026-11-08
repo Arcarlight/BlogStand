@@ -68,7 +68,7 @@ sec   = "pokemon"
 dex   = 25
 title = "皮卡丘"
 file  = "tbtak/sprite/walk-pikachu.png"
-face  = "tbtak/face/pikachu-faces.png"
+face  = "tbtak/face/pikachu-faces-v2.png"
 art   = "tbtak/portrait/battler-pikachu.png"
 note  = "原图 $WalkPikachu.png；立绘原图 Enemy_Pikachu.png；脸图 1 个表情（OtherAll_3.png）"
 
@@ -84,7 +84,7 @@ sec   = "pokemon"
 dex   = 50
 title = "地鼠"
 file  = "tbtak/sprite/walk-diglett.png"
-face  = "tbtak/face/diglett-faces.png"
+face  = "tbtak/face/diglett-faces-v2.png"
 note  = "行走图原图 $WalkDiglett.png；脸图 2 个表情（OtherAll_4.png）"
 
 [[items]]
@@ -128,8 +128,8 @@ sec   = "pokemon"
 dex   = 255
 title = "火稚鸡"
 file  = "tbtak/sprite/walk-ignis.png"
-face  = "tbtak/face/torchic-faces.png"
-note  = "行走图原图 $WalkIgnis.png；脸图 8 个表情（Actor3.png）"
+face  = "tbtak/face/torchic-faces.png,tbtak/face/torchic-faces-2.png"
+note  = "行走图原图 $WalkIgnis.png；脸图 8 + 2 个表情（Actor3.png、Actor3_02.png）"
 
 [[items]]
 sec   = "pokemon"
@@ -165,7 +165,7 @@ sec   = "pokemon"
 dex   = 300
 title = "向尾喵"
 file  = "tbtak/sprite/walk-skitty.png"
-face  = "tbtak/face/skitty-faces.png"
+face  = "tbtak/face/skitty-faces-v2.png"
 note  = "行走图原图 $WalkSkitty.png；脸图 2 个表情（OtherAll_2.png）"
 
 [[items]]
@@ -173,7 +173,7 @@ sec   = "pokemon"
 dex   = 317
 title = "吞食兽"
 file  = "tbtak/sprite/walk-swalot.png"
-face  = "tbtak/face/swalot-faces.png"
+face  = "tbtak/face/swalot-faces-v2.png"
 note  = "行走图原图 $WalkSwalot.png；脸图 1 个表情（OtherAll.png）"
 
 [[items]]
@@ -188,7 +188,7 @@ sec   = "pokemon"
 dex   = 335
 title = "猫鼬斩"
 file  = "tbtak/sprite/walk-zangoose-smith.png"
-face  = "tbtak/face/zangoose-faces.png"
+face  = "tbtak/face/zangoose-faces-v2.png"
 note  = "铁匠这一版。行走图原图 $WalkZangoose_smith.png；脸图 6 个表情（OtherAll.png）"
 
 [[items]]
@@ -196,7 +196,7 @@ sec   = "pokemon"
 dex   = 336
 title = "饭匙蛇"
 file  = "tbtak/sprite/walk-seviper-tender.png"
-face  = "tbtak/face/seviper-faces.png"
+face  = "tbtak/face/seviper-faces-v2.png"
 note  = "Tender 这一版。行走图原图 $WalkSeviper_Tender.png；脸图 3 个表情（OtherAll_2.png）"
 
 [[items]]
@@ -212,8 +212,8 @@ sec   = "pokemon"
 dex   = 393
 title = "波加曼"
 file  = "tbtak/sprite/walk-pontus.png"
-face  = "tbtak/face/piplup-faces.png"
-note  = "行走图原图 $WalkPontus.png；脸图 8 个表情（Actor2.png）"
+face  = "tbtak/face/piplup-faces.png,tbtak/face/piplup-faces-2.png"
+note  = "行走图原图 $WalkPontus.png；脸图 8 + 2 个表情（Actor2.png、Actor2_02.png）"
 
 [[items]]
 sec   = "pokemon"
@@ -285,7 +285,7 @@ sec   = "pokemon"
 dex   = 531
 title = "差不多娃娃"
 file  = "tbtak/sprite/walk-audino.png"
-face  = "tbtak/face/audino-faces.png"
+face  = "tbtak/face/audino-faces-v2.png"
 note  = "行走图原图 $WalkAudino.png；脸图 4 个表情（OtherAll_3.png）"
 
 [[items]]
@@ -300,9 +300,9 @@ sec   = "pokemon"
 dex   = 587
 title = "电飞鼠"
 file  = "tbtak/sprite/walk-emolga.png"
-face  = "tbtak/face/emolga-faces.png"
+face  = "tbtak/face/emolga-faces-v2.png,tbtak/face/emolga-faces-side-v2.png"
 art   = "tbtak/portrait/battler-emolga.png,tbtak/portrait/battler-momoka.png"
-note  = "行走图原图 $WalkEmolga.png；脸图正脸 2 个（OtherAll_2.png）、侧脸另存 emolga-faces-side.png；立绘原图 Enemy_Emolga.png、Enemy_Momoka.png"
+note  = "行走图原图 $WalkEmolga.png；脸图正脸 2 个 + 侧脸 3 个（OtherAll_2.png、OtherAll_3.png）；立绘原图 Enemy_Emolga.png、Enemy_Momoka.png"
 
 [[items]]
 sec   = "pokemon"
@@ -339,8 +339,8 @@ sec   = "pokemon"
 dex   = 722
 title = "木木枭"
 file  = "tbtak/sprite/walk-dryad.png"
-face  = "tbtak/face/rowlet-faces.png"
-note  = "行走图原图 $WalkDryad.png；脸图 8 个表情（Actor4.png）"
+face  = "tbtak/face/rowlet-faces.png,tbtak/face/rowlet-faces-2.png"
+note  = "行走图原图 $WalkDryad.png；脸图 8 + 2 个表情（Actor4.png、Actor4_02.png）"
 
 [[items]]
 sec   = "pokemon"
