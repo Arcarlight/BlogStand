@@ -187,8 +187,9 @@ note  = "原图 $WalkTrapinch.png"
 sec   = "pokemon"
 dex   = 335
 title = "猫鼬斩"
+file  = "tbtak/sprite/walk-zangoose-smith.png"
 face  = "tbtak/face/zangoose-faces.png"
-note  = "铁匠那一版的脸图，6 个表情（OtherAll.png）；行走图暂时没有"
+note  = "铁匠这一版。行走图原图 $WalkZangoose_smith.png；脸图 6 个表情（OtherAll.png）"
 
 [[items]]
 sec   = "pokemon"
