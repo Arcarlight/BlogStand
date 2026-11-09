@@ -1466,7 +1466,7 @@
   <button class="ghost" id="btnPreview" title="打开 / 收起右侧预览"><img class="ico" src="/editor-icons/fugue/eye.png" alt=""><span id="btnPreviewText">预览</span><img class="ico" id="btnPreviewArrow" src="/editor-icons/fugue/arrow-000-small.png" alt=""></button>
   <button class="ghost" id="btnLive" title="在浏览器里打开线上站"><img class="ico" src="/editor-icons/fugue/external.png" alt="">打开线上站</button>
   <button class="ghost" id="btnBuild" title="本地构建一遍，检查有没有报错"><img class="ico" src="/editor-icons/fugue/tick.png" alt="">构建检查</button>
-  <button class="ghost" id="btnSync" title="从线上（GitHub）拉取改动 —— 换一台电脑编辑时先点这个"><img class="ico" src="/editor-icons/fugue/arrow-repeat.png" alt="">拉取线上</button>
+  <button class="ghost" id="btnSync" title="检查 / 拉取线上改动（主站和素材仓库一起看）—— 换一台电脑编辑时先点这个"><img class="ico" src="/editor-icons/fugue/arrow-repeat.png" alt="">同步</button>
   <button class="primary" id="btnPublish" title="git add + commit + push"><img class="ico" src="/editor-icons/fugue/paper-plane.png" alt="">发布</button>
   <!-- 不常动的显示开关收在这里（见上方「更多」菜单的 CSS 注释） -->
         <button id="btnMore" class="fmt" title="更多显示选项：语法着色 / 弱化标签 / 图片宽度" aria-haspopup="true" aria-expanded="false"><img class="ico" src="/editor-icons/fugue/ui-buttons.png" alt="">更多 ▾</button>
@@ -2111,7 +2111,7 @@ $('#btnBuild').addEventListener('click', async () => {
 });
 
 /* ---------- 发布 / 同步 ----------
-   「发布」= 把本地的改动提交并推上去；「拉取线上」= 把另一台电脑推上来的改动拉下来。
+   「发布」= 把本地的改动提交并推上去；「同步」= 检查线上有没有新东西 / 把它拉下来。
    ⚠️ 推送失败（断网、或者另一台电脑推过了）之后，改动其实**已经提交在本地**了，
    工作区是干净的 —— 所以这里绝不能因为「没有未提交的改动」就早退，
    要看 ahead（比线上多几个提交）决定还能不能推。 */
@@ -2182,7 +2182,145 @@ async function syncPull(auto) {
   return false;
 }
 
-$('#btnSync').addEventListener('click', () => syncPull(false));
+/* ---------- 同步面板：把「检查（fetch）」和「拉取（pull）」分开 ----------
+   以前只有一个「拉取线上」按钮，本地有没提交的改动、或者有没推的提交时它就拒绝，
+   而「线上编辑器又有新功能了」往往正是这种时候 —— 于是什么也拉不下来。
+   现在：检查只 fetch（不动工作区）；拉取用 pull --rebase --autostash，
+   本地那些情况它自己会处理，真撞车才报冲突。主站和素材仓库一起看。 */
+function syncLine(t) {
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  return String(t).split('\n').map((x) => esc(x)).join('<br>');
+}
+
+function syncBlock(s) {
+  const isMain = s.kind === 'main';
+  const name = isMain ? '主站 BlogStand' : '素材仓库 Nijiboshi-Giveout-Storage';
+  let h = '<div style="border:1px solid #b6d0e8;background:#fff;padding:8px 10px;margin-bottom:8px">';
+  h += '<div style="font-weight:bold;margin-bottom:4px">' + name + '</div>';
+  if (s.error) {
+    h += '<p class="hint" style="margin:0;color:#a0522d">' + syncLine(s.error) + '</p></div>';
+    return h;
+  }
+  const bits = [];
+  if (s.branch) bits.push('分支 ' + s.branch);
+  if (s.behind) bits.push('<b style="color:#a0522d">线上多 ' + s.behind + ' 个提交</b>');
+  if (s.ahead) bits.push('本地多 ' + s.ahead + ' 个提交（没推）');
+  if (s.dirty) bits.push('工作区 ' + s.dirty + ' 处改动没提交');
+  if (s.behind === 0 && s.ahead === 0 && !s.dirty) bits.push('跟线上一致');
+  if (s.upstream === '') bits.push('这个仓库没配远端分支');
+  if (s.remoteOk === false) bits.push('<b style="color:#a0522d">连不上 GitHub</b>');
+  h += '<p class="hint" style="margin:0 0 4px">' + (bits.join(' · ') || '（没有可用的状态）') + '</p>';
+  if (s.fetchErr) h += '<p class="hint" style="margin:0 0 4px;color:#a0522d">' + syncLine(s.fetchErr) + '</p>';
+  if (s.incoming && s.incoming.length) {
+    h += '<div class="hint" style="margin:0 0 2px">线上新提交（拉下来会带进这些）：</div>';
+    h += '<ul style="margin:0 0 0 18px;padding:0;font-size:12px">' +
+      s.incoming.map((x) => '<li>' + syncLine(x.replace(/\t/g, '　')) + '</li>').join('') + '</ul>';
+  }
+  if (s.outgoing && s.outgoing.length) {
+    h += '<div class="hint" style="margin:4px 0 2px">本地还没推的提交：</div>';
+    h += '<ul style="margin:0 0 0 18px;padding:0;font-size:12px">' +
+      s.outgoing.map((x) => '<li>' + syncLine(x.replace(/\t/g, '　')) + '</li>').join('') + '</ul>';
+  }
+  return h + '</div>';
+}
+
+async function openSyncDialog() {
+  const dlg = document.createElement('div');
+  dlg.id = 'syncDlg';
+  dlg.style.cssText = 'position:fixed;inset:0;z-index:900;background:rgba(12,24,40,.45);display:flex;align-items:center;justify-content:center;padding:24px';
+  dlg.innerHTML =
+    '<div style="width:min(900px,96vw);max-height:88vh;overflow:auto;background:#f7fbff;border:1px solid #124070;box-shadow:0 8px 28px rgba(0,0,0,.35);padding:14px 16px 12px">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<b style="font-size:15px">同步线上改动</b><span style="flex:1"></span>' +
+        '<button id="syncClose">关闭</button>' +
+      '</div>' +
+      '<p class="hint" style="margin:0 0 10px;line-height:1.7">' +
+        '<b>检查</b>（fetch）：只问 GitHub 有没有新东西，<b>不会动你电脑上的文件</b>；<br>' +
+        '<b>拉取</b>（pull）：把线上新提交合并进来。本地有没提交的改动、或有没推的提交也能拉，' +
+        '不用先发布（真改到同一处才会报冲突）。' +
+      '</p>' +
+      '<div id="syncBody" class="hint">正在检查……</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">' +
+        '<button id="syncFetch">检查更新（fetch）</button>' +
+        '<button id="syncPullMain" class="primary">拉取主站（pull）</button>' +
+        '<button id="syncPullAssets">拉取素材仓库（pull）</button>' +
+        '<button id="syncPullBoth">两个都拉</button>' +
+      '</div>' +
+      '<p class="hint" id="syncMsg" style="margin:8px 0 0"></p>' +
+    '</div>';
+  document.body.appendChild(dlg);
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => { document.removeEventListener('keydown', onKey); dlg.remove(); };
+  document.addEventListener('keydown', onKey);
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
+  dlg.querySelector('#syncClose').addEventListener('click', close);
+
+  const body = dlg.querySelector('#syncBody');
+  const msg = dlg.querySelector('#syncMsg');
+  const btns = ['#syncFetch', '#syncPullMain', '#syncPullAssets', '#syncPullBoth']
+    .map((sel) => dlg.querySelector(sel));
+
+  const paint = (d) => {
+    body.className = '';
+    body.innerHTML = syncBlock(d.main) + syncBlock(d.assets);
+  };
+
+  let done = false;
+  const closeAfterSync = () => { done = true; close(); };
+
+  const call = async (method, payload) => {
+    btns.forEach((b) => { b.disabled = true; });
+    msg.textContent = method === 'pull' ? '正在拉取……（网络慢要等一会）' : '正在检查……';
+    try {
+      const url = '/api/sync' + (method === 'pull' ? '' : '?fetch=1');
+      const d = method === 'pull'
+        ? await apiPost('/api/sync', payload)
+        : await apiGet(url);
+      paint(d);
+      if (method === 'pull') {
+        const parts = [];
+        ['main', 'assets'].forEach((k) => {
+          const r = (d.results || {})[k];
+          if (!r) return;
+          const nm = k === 'main' ? '主站' : '素材仓库';
+          parts.push(nm + (r.code === 0 ? '拉取成功' : '拉取失败：' + (r.netFail ? '连不上 GitHub' : syncLine(r.out).slice(0, 300))));
+        });
+        msg.innerHTML = parts.join('；');
+        const mainOk = (d.results || {}).main && d.results.main.code === 0;
+        if (mainOk) {
+          /* 拉下来的可能是新的编辑器代码：重新载入界面 + 提示重启后端 */
+          await bootstrap();
+          if (CUR) loadFile(CUR).catch(() => {});
+          checkEditorVersion();
+          if (!done) setTimeout(() => { toast('主站已同步', 'ok'); }, 200);
+        } else if (!mainOk && d.results && d.results.main) {
+          toast('主站拉取失败，看面板里的原因', 'err');
+        }
+        if ((d.results || {}).assets && d.results.assets.code === 0) {
+          toast('素材仓库已同步', 'ok');
+        }
+        sbEnd(true, '已同步');
+      } else {
+        msg.textContent = '检查完了：只是看了一眼线上，本地文件没动。';
+      }
+    } catch (e) {
+      msg.textContent = (method === 'pull' ? '拉取失败：' : '检查失败：') + (e.message || e);
+    } finally {
+      btns.forEach((b) => { b.disabled = false; });
+    }
+    return done;
+  };
+
+  dlg.querySelector('#syncFetch').addEventListener('click', () => { call('fetch'); });
+  dlg.querySelector('#syncPullMain').addEventListener('click', () => { call('pull', { action: 'pull', repo: 'main' }); });
+  dlg.querySelector('#syncPullAssets').addEventListener('click', () => { call('pull', { action: 'pull', repo: 'assets' }); });
+  dlg.querySelector('#syncPullBoth').addEventListener('click', () => { call('pull', { action: 'pull', repo: 'both' }); });
+
+  await call('fetch');
+  void closeAfterSync;
+}
+
+$('#btnSync').addEventListener('click', () => openSyncDialog());
 
 $('#btnPublish').addEventListener('click', async () => {
   if (DIRTY) { toast('先保存当前文件再发布', 'err'); return; }
@@ -2197,7 +2335,7 @@ $('#btnPublish').addEventListener('click', async () => {
   if (!changed && !ahead) {
     sbEnd(null);
     toast(g.behind
-      ? `本地没有改动，但线上有 ${g.behind} 个提交（点「拉取线上」同步）`
+      ? `本地没有改动，但线上有 ${g.behind} 个提交（点右上角「同步」）`
       : '没有需要发布的改动');
     return;
   }
@@ -6035,7 +6173,7 @@ async function checkRemote() {
   if (g.ahead > 0) {
     toast(`本地有 ${g.ahead} 个提交还没推上去（上次推送大概失败了）—— 点「发布」重推`, 'err');
   } else if (g.behind > 0) {
-    toast(`线上有 ${g.behind} 个新提交 —— 点「拉取线上」同步`, 'err');
+    toast(`线上有 ${g.behind} 个新提交 —— 点右上角「同步」`, 'err');
   }
 }
 setTimeout(checkRemote, 1200);

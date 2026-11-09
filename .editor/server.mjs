@@ -3786,6 +3786,42 @@ async function handle(req, res, url) {
     }
   }
 
+  /* ---------- 同步面板：主站 + 素材仓库一起检查 / 拉取 ----------
+     两台电脑轮流用编辑器时最常问的两件事：
+       · 「线上有没有新东西？」—— 只要 fetch，不动工作区（检查）
+       · 「把它拿下来」  —— 才 pull 合并（拉取）
+     以前前端的「拉取线上」动不动就拒绝（有未提交改动 / 有没推的提交），
+     而 pull --rebase --autostash 其实能自己处理这两种情况，所以这里直接放开：
+     拉之前不必先发布，冲突了再报冲突。 */
+  if (p === '/api/sync' && req.method === 'GET') {
+    const force = url.searchParams.get('fetch') !== '0';
+    const [main, assets] = await Promise.all([
+      syncRepoStatus('main', force),
+      syncRepoStatus('assets', force),
+    ]);
+    return json(res, 200, { ok: true, main, assets });
+  }
+
+  if (p === '/api/sync' && req.method === 'POST') {
+    const { action, repo } = await readBody(req);
+    const want = repo === 'both' ? ['main', 'assets'] : [repo === 'assets' ? 'assets' : 'main'];
+    const results = {};
+    for (const kind of want) {
+      if (action === 'pull') {
+        results[kind] = await syncPullRepo(kind);
+      } else {
+        results[kind] = { code: 0, out: '只做了检查（fetch），没有动本地文件' };
+      }
+    }
+    fetchAt = 0;
+    const [main, assets] = await Promise.all([
+      syncRepoStatus('main', false),
+      syncRepoStatus('assets', false),
+    ]);
+    const ok = want.every((k) => (results[k] || {}).code === 0);
+    return json(res, 200, { ok, results, main, assets });
+  }
+
   if (p === '/api/hugo' && req.method === 'POST') {
     const { action } = await readBody(req);
     if (action === 'start') return json(res, 200, await hugoStart());
@@ -3879,7 +3915,76 @@ async function giveoutStatus() {
   return st;
 }
 
-/* ---------- 读 data/resources.toml ----------
+/* ---------- 同步：主站 / 素材仓库的状态与拉取 ----------
+   状态里 two 个数字最要紧：
+     behind = 线上比你多几个提交（要拉）
+     ahead  = 你比线上多几个提交（要推）
+   顺带列出「线上新提交」的标题，好让人知道这次拉下来的是什么。 */
+async function syncRepoStatus(kind, forceFetch) {
+  const isMain = kind === 'main';
+  const dir = isMain ? ROOT : giveoutDir();
+  const out = {
+    kind, dir, exists: true, isRepo: true, branch: '', upstream: '',
+    behind: null, ahead: null, dirty: 0, remoteOk: null, fetchErr: '',
+    incoming: [], outgoing: [], error: '',
+  };
+  if (!isMain) {
+    const st = await giveoutStatus();
+    out.exists = st.exists;
+    out.isRepo = st.isRepo;
+    out.proxy = st.proxy;
+    if (!st.exists) { out.error = '素材仓库还没拉到本机'; return out; }
+    if (!st.isRepo) { out.error = '那个目录不是 git 仓库'; return out; }
+  }
+  const netG = (args, o) => (isMain ? gitNet(args, o) : runGitIn(dir, args, o));
+  const locG = (args) => (isMain ? git(args) : runGitIn(dir, args));
+
+  if (isMain && forceFetch) fetchAt = 0;
+  const f = await netG(['fetch', '--quiet', 'origin'], { timeout: 45000 });
+  out.remoteOk = f.code === 0;
+  if (f.code !== 0) out.fetchErr = (f.stdout + f.stderr).trim().slice(0, 300);
+
+  const br = await locG(['rev-parse', '--abbrev-ref', 'HEAD']);
+  out.branch = br.stdout.trim();
+  const s2 = await locG(['status', '--porcelain']);
+  out.dirty = s2.stdout.split('\n').filter(Boolean).length;
+
+  const up = await locG(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
+  out.upstream = up.code === 0 ? up.stdout.trim() : '';
+  if (!out.upstream) return out;
+
+  const cnt = await locG(['rev-list', '--left-right', '--count', out.upstream + '...HEAD']);
+  const m = /^(\d+)\s+(\d+)$/.exec(cnt.stdout.trim());
+  if (m) { out.behind = +m[1]; out.ahead = +m[2]; }
+
+  const inc = await locG(['log', '--pretty=format:%h\t%ad\t%s', '--date=format:%m-%d', '-8',
+    'HEAD..' + out.upstream]);
+  out.incoming = inc.code === 0 ? inc.stdout.split('\n').filter(Boolean) : [];
+  const org = await locG(['log', '--pretty=format:%h\t%ad\t%s', '--date=format:%m-%d', '-5',
+    out.upstream + '..HEAD']);
+  out.outgoing = org.code === 0 ? org.stdout.split('\n').filter(Boolean) : [];
+  return out;
+}
+
+/* 拉取一个仓库。--rebase --autostash：本地有没提交的改动、也有没推的提交，都能拉，
+   不用先发布；真撞车（同一处改了）才报冲突。 */
+async function syncPullRepo(kind) {
+  const isMain = kind === 'main';
+  const dir = isMain ? ROOT : giveoutDir();
+  if (!isMain) {
+    const st = await giveoutStatus();
+    if (!st.exists || !st.isRepo) return { code: 1, out: '素材仓库还没拉到本机：' + st.dir };
+  }
+  const args = ['pull', '--rebase', '--autostash'];
+  if (isMain) args.push('origin', 'main');
+  const r = isMain
+    ? await gitNet(args, { timeout: 120000 })
+    : await runGitIn(dir, args, { timeout: 120000 });
+  const out = (r.stdout + r.stderr).trim();
+  return { code: r.code, out: out.slice(0, 1500), netFail: isNetFail(r) };
+}
+
+/* ---------- 读 data/resources.toml ----------/* ---------- 读 data/resources.toml ----------
    只认我们自己的写法（单行字符串 / 数字 / 多行数组），够用且不会误伤注释。 */
 function parseResources(text) {
   const out = { meta: {}, intro: {}, sections: [], items: [] };
