@@ -417,3 +417,17 @@
   cat = "pkmn"
   date = "2026-11-07"
   desc = "入冬前连绵不断的雨，黏美龙应该会很开心吧？"
+
+[[items]]
+  title = "珍钻白金的欧亚西莉亚"
+  file = "DPPt_Flygontyan.png"
+  cat = "pkmnflya"
+  date = "2026-11-19"
+  desc = "之前听到有人觉得很可爱的姿势！虽然说我个人最喜欢的还是红蓝绿宝石那个姿势就是了..."
+
+[[items]]
+  title = "冬季的阿特拉斯与欧亚西莉亚"
+  file = "Winter_OasAtl.png"
+  cat = "pkmnflya"
+  date = "2026-11-19"
+  desc = "是情侣围巾！"
