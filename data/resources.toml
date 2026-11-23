@@ -65,6 +65,18 @@ desc = "可以直接在rm vxace之类的地方使用。"
 
 [[items]]
 sec   = "pokemon"
+dex   = 302
+title = "勾魂眼"
+art   = "tbtak/portrait/Sableye_TekiS.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 703
+title = "小碎钻"
+art   = "tbtak/portrait/Carbink_TekiS.png"
+
+[[items]]
+sec   = "pokemon"
 dex   = 25
 title = "皮卡丘"
 file  = "tbtak/sprite/walk-pikachu.png"
