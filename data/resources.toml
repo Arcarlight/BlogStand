@@ -65,6 +65,36 @@ desc = "可以直接在rm vxace之类的地方使用。"
 
 [[items]]
 sec   = "pokemon"
+dex   = 371
+title = "宝贝龙"
+art   = "tbtak/portrait/Bagon_TekiS.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 156
+title = "火岩鼠"
+art   = "tbtak/portrait/Magumarashi_TekiS.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 246
+title = "幼基拉斯"
+art   = "tbtak/portrait/Larvitar_TekiS.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 556
+title = "沙铃仙人掌"
+art   = "tbtak/portrait/Maractus_TekiS.png"
+
+[[items]]
+sec   = "pokemon"
+dex   = 633
+title = "单首龙"
+art   = "tbtak/portrait/Deino_TekiS.png"
+
+[[items]]
+sec   = "pokemon"
 dex   = 302
 title = "勾魂眼"
 art   = "tbtak/portrait/Sableye_TekiS.png"
@@ -193,6 +223,7 @@ sec   = "pokemon"
 dex   = 328
 title = "大颚蚁"
 file  = "tbtak/sprite/walk-trapinch.png"
+art   = "tbtak/portrait/Trapinch_TekiS.png"
 note  = "原图 $WalkTrapinch.png"
 
 [[items]]
